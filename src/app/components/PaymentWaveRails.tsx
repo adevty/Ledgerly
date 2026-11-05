@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef } from "react";
+import { usePathname } from "next/navigation";
 
 interface RailParticle {
   /** Normalized horizontal position [0, 1] flowing left -> right. */
@@ -37,9 +38,12 @@ const PARTICLE_COUNT = 2100;
  *  - State 3 (Final CTA): Waves gently converge and flow toward the final "Launch App" button.
  */
 export function PaymentWaveRails() {
+  const pathname = usePathname();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const isLanding = pathname === "/";
 
   useEffect(() => {
+    if (!isLanding) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
@@ -290,7 +294,9 @@ export function PaymentWaveRails() {
       window.removeEventListener("resize", handleResize);
       window.removeEventListener("mousemove", handleMouseMove);
     };
-  }, []);
+  }, [isLanding]);
+
+  if (!isLanding) return null;
 
   return (
     <canvas
