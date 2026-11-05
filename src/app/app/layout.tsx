@@ -83,6 +83,13 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
       exact: false,
       badge: state ? String(state.audit.records.length) : null,
     },
+    {
+      href: "/checkout",
+      label: "Buyer Checkout",
+      icon: "merchant",
+      exact: false,
+      badge: "↗",
+    },
   ];
 
   const isActive = (href: string, exact: boolean) => {

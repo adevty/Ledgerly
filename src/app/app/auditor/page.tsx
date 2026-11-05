@@ -147,6 +147,19 @@ export default function AuditorVerificationPage() {
           </div>
           <div className="mono-label" style={{ wordBreak: "break-all" }}>
             Latest Root: {state?.audit.latestAnchoredRoot ?? "—"}
+            {state?.network && (
+              <span style={{ marginLeft: "0.5rem" }}>
+                ·{" "}
+                <a
+                  href={`${state.network.explorerBaseUrl}/address/${state.network.escrowContractId}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ textDecoration: "underline", color: "var(--slate-blue)" }}
+                >
+                  Verify on Nearblocks ↗
+                </a>
+              </span>
+            )}
           </div>
         </div>
       </div>
