@@ -7,3 +7,7 @@
 contracts/**/target/
 *.wasm
 *.tsbuildinfo
+/.data/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal

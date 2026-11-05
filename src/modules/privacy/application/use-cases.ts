@@ -45,8 +45,15 @@ export class DisclosureUseCases {
       remittanceRepo: RemittanceRepository;
       chain: ChainGateway;
       clock: Clock;
+      initialAuditLog?: readonly AuditLogEntry[];
+      onAuditEntry?: (entry: AuditLogEntry) => void;
     },
-  ) {}
+  ) {
+    if (deps.initialAuditLog && deps.initialAuditLog.length > 0) {
+      this.auditLog.push(...deps.initialAuditLog);
+      this.seq = this.auditLog.length + 1;
+    }
+  }
 
   /**
    * Organization OWNER issues a scoped ViewKeyGrant for an external auditor.
@@ -254,6 +261,7 @@ export class DisclosureUseCases {
       at: now,
     });
     this.auditLog.push(entry);
+    this.deps.onAuditEntry?.(entry);
     await this.deps.chain.anchorAuditRoot(entry.hash);
   }
 }

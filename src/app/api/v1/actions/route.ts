@@ -186,5 +186,6 @@ async function refreshAuditorGrant(rt: Awaited<ReturnType<typeof getRuntime>>) {
   });
   if (res.ok) {
     rt.defaultGrantId = newGrantId;
+    rt.metaStore.set("default_grant_id", newGrantId);
   }
 }

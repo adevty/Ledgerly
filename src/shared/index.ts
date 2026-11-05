@@ -8,6 +8,7 @@ export * from "./chain-gateway";
 export * from "./idempotency";
 export * from "./mocks";
 export * from "./near-rpc-gateway";
+export * from "./sqlite-persistence";
 
 
 
