@@ -8,7 +8,7 @@ Confidential, audit-ready **merchant payments & cross-border remittance** on NEA
 - [x] Module 3 — privacy (envelope encryption, commitments, view keys, audit hash chain) + tests
 - [x] Module 4 — application use cases, Prisma schema, RBAC, compliance, double-entry ledger, mock adapters + integration tests
 - [x] Module 5 — workers (`ChainIndexerWorker`, `SettlementWorker`, `ExpiryWorker`, `ReconciliationWorker`) + tests
-- [x] Module 6 — Next.js UI & API (`LedgerParticleCore` 3D scroll-choreographed particle canvas, Merchant & Checkout console, Cross-Border Remittance terminal, Selective Disclosure Auditor view, and Public Checkout route)
+- [x] Module 6 — Next.js UI & API (`PaymentWaveRails` horizontal wave particle rails landing page at `/`, interactive Merchant/Remittance/Auditor workspace at `/app`, and Public Checkout route at `/checkout/[id]`)
 
 ## Run
 ```bash

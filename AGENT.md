@@ -215,8 +215,8 @@ Generate code **one module per request**; get user approval before moving on.
   - `src/workers/expiry-worker.ts`: `ExpiryWorker` expiring open requests/quotes and auto-refunding `PARTIALLY_PAID` requests upon expiry.
   - `src/workers/reconciliation-worker.ts`: `ReconciliationWorker` comparing internal expected held balance against on-chain escrow balance and building the Exception Queue (`tests/workers.test.ts`).
 - **Module 6 done**:
-  - `src/app/components/LedgerParticleCore.tsx`: Cursor-interactive 3D black particle geometric core + ambient floating particle field with 4-section scroll choreography (centered in Hero → shifts right & tilts in Merchant & Checkout → shifts left & reorients in Remittance → bursts and dissolves across the entire Auditor/Settlement section).
-  - `src/app/page.tsx`, `src/app/checkout/[id]/page.tsx`, `src/app/globals.css`: Precision financial instrument UI on warm textured off-white paper with deep charcoal/emerald/trust-blue accents and solid black full-width `LEDGERLY` footer.
+  - `src/app/components/PaymentWaveRails.tsx`: Horizontal wave-like particle rails (charcoal black, muted sage green, soft slate blue) flowing left-to-right with cursor ripple/bending and 4-state scroll choreography (calm waves in Hero → turbulent/irregular in Problem → structured parallel rails in Solution & Capabilities → converging into the "Launch App" button in Final CTA).
+  - `src/app/page.tsx`, `src/app/app/page.tsx`, `src/app/checkout/[id]/page.tsx`, `src/app/globals.css`: Calm, refined fintech landing page (`/`) + full interactive workspace (`/app`) and standalone buyer checkout (`/checkout/[id]`).
   - `src/app/api/_runtime.ts`, `src/app/api/v1/state/route.ts`, `src/app/api/v1/actions/route.ts`: Live Next.js route handlers wired to all domain use cases and workers (`tests/ui-api.test.ts`).
 - **Known deviation**: remittance funded after quote lock expiry goes straight to `REFUNDING` (requote flow deferred to use-case layer).
 
