@@ -66,6 +66,28 @@ export async function POST(request: Request) {
     });
   }
 
+  if (action === "FAUCET_USDC") {
+    const account = String(body.accountId ?? "").trim();
+    if (!/^[a-z0-9._-]+\.(testnet)$/.test(account)) {
+      return NextResponse.json(
+        { ok: false, error: { code: "INVALID_ACCOUNT", message: "A NEAR testnet account is required" } },
+        { status: 400 },
+      );
+    }
+    if (!(rt.chain instanceof NearRpcChainGateway)) {
+      return NextResponse.json(
+        { ok: false, error: { code: "NOT_LIVE", message: "Faucet needs live NEAR testnet mode" } },
+        { status: 400 },
+      );
+    }
+    // Fixed 100 USDC per call; the token contract auto-registers storage for the buyer.
+    const { txHash } = await rt.chain.sendFunctionCall(rt.chain.usdcContractId, "faucet", {
+      account_id: account,
+      amount: "100000000",
+    });
+    return NextResponse.json({ ok: true, txHash, explorerUrl: `${rt.explorerBaseUrl}/txns/${txHash}` });
+  }
+
   if (action === "VERIFY_WALLET_TX") {
     const txHash = String(body.txHash ?? "").trim() as TxHash;
     const senderAccountId = body.senderAccountId

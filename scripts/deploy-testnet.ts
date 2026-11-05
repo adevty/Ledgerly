@@ -77,7 +77,7 @@ async function main() {
   let contractId =
     process.env.NEAR_ESCROW_CONTRACT_ID ?? localEnv.NEAR_ESCROW_CONTRACT_ID;
   let secretKey =
-    process.env.NEAR_OPERATOR_PRIVATE_KEY ?? localEnv.NEAR_OPERATOR_PRIVATE_KEY;
+    process.env.NEAR_ESCROW_PRIVATE_KEY ?? localEnv.NEAR_ESCROW_PRIVATE_KEY ?? process.env.NEAR_OPERATOR_PRIVATE_KEY ?? localEnv.NEAR_OPERATOR_PRIVATE_KEY;
 
   if (!contractId || !secretKey) {
     const suffix = randomBytes(4).toString("hex");
@@ -93,6 +93,7 @@ async function main() {
       `NEAR_ESCROW_CONTRACT_ID=${contractId}`,
       `NEAR_USDC_CONTRACT_ID=${contractId}`,
       `NEAR_OPERATOR_ACCOUNT_ID=${contractId}`,
+      `NEAR_ESCROW_PRIVATE_KEY=${secretKey}`,
       `NEAR_OPERATOR_PRIVATE_KEY=${secretKey}`,
       `LEDGERLY_INDEXER_TOKEN=ledgerly_testnet_indexer_secret`,
       "",

@@ -11,6 +11,7 @@ import {
   disconnectNearWallet,
   isMeteorExtensionDetected,
   loadNearWalletSession,
+  signFtDepositWithMeteor,
   type NearWalletSession,
 } from "@/shared/near-wallet-client";
 
@@ -236,6 +237,29 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
     pushToast("success", "Wallet Disconnected", "Cleared active NEAR buyer session.");
   };
 
+  const requestFaucet = async () => {
+    if (!wallet) return;
+    setBusyKey("faucet");
+    setErrorBanner(null);
+    try {
+      const res = await fetch("/api/v1/actions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "FAUCET_USDC", accountId: wallet.accountId }),
+      });
+      const body = (await res.json()) as { ok?: boolean; txHash?: string; error?: { message?: string } };
+      if (res.ok && body.ok) {
+        pushToast("success", "100 test USDC minted", `To ${wallet.accountId}`);
+      } else {
+        const msg = body.error?.message ?? "Faucet failed.";
+        setErrorBanner(msg);
+        pushToast("error", "Faucet failed", msg);
+      }
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
   const executePayment = async (key: string, amountDecimal: string) => {
     if (!item) return;
     setErrorBanner(null);
@@ -249,6 +273,32 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
     setBusyKey(key);
     const start = Date.now();
     try {
+      // Real path: the buyer's Meteor Wallet signs ft_transfer_call itself.
+      if (activeWallet.provider === "METEOR_WALLET") {
+        try {
+          const { txHash } = await signFtDepositWithMeteor(activeWallet, {
+            usdcContractId: network?.usdcContractId ?? network?.escrowContractId ?? "",
+            escrowContractId: network?.escrowContractId ?? "",
+            escrowId: item.escrowId,
+            amountDecimal,
+          });
+          if (txHash) {
+            await verifyExternalTxHash(txHash, activeWallet.accountId);
+          } else {
+            await loadState(prevStatus, item.id);
+            pushToast(
+              "success",
+              "Signed in Meteor Wallet",
+              "Wallet returned no tx hash; paste it under 'Verify transaction' if the status does not update.",
+            );
+          }
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "Meteor Wallet could not sign.";
+          setErrorBanner(message);
+          pushToast("error", "Wallet signing failed", message);
+        }
+        return;
+      }
       const res = await fetch("/api/v1/actions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -906,6 +956,15 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                           USDC)
                         </span>
                       )}
+                    </button>
+
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      disabled={Boolean(busyKey) || !wallet}
+                      onClick={() => void requestFaucet()}
+                    >
+                      {busyKey === "faucet" ? "Minting…" : "Get 100 test USDC"}
                     </button>
 
                     <button

@@ -28,6 +28,7 @@ interface MeteorPostMessageResponse {
     allKeys?: string[];
     publicKey?: string;
     signature?: string;
+    [key: string]: unknown;
   };
 }
 
@@ -139,7 +140,7 @@ export function disconnectNearWallet(): void {
  */
 async function runMeteorPostMessageAction(params: {
   network: "testnet" | "mainnet";
-  actionType: "login" | "verify_owner";
+  actionType: "login" | "verify_owner" | "sign";
   inputs: Record<string, unknown>;
 }): Promise<MeteorPostMessageResponse["payload"]> {
   if (typeof window === "undefined") {
@@ -476,4 +477,211 @@ export function buildFtTransferCallPreview(input: {
       }),
     },
   };
+}
+
+
+// ------------------------------------------------------------------ Wallet-signed deposits
+
+const NEAR_TESTNET_RPC_URL = "https://test.rpc.fastnear.com";
+const B58_MAP = new Map<string, number>(Array.from(BASE58_ALPHABET).map((c, i) => [c, i]));
+
+function decodeBase58(input: string): Uint8Array {
+  let zeros = 0;
+  while (zeros < input.length && input[zeros] === "1") zeros++;
+  const bytes: number[] = [];
+  for (let i = zeros; i < input.length; i++) {
+    const val = B58_MAP.get(input[i]!);
+    if (val === undefined) throw new Error("Invalid base58 character in NEAR key/hash");
+    let carry = val;
+    for (let j = 0; j < bytes.length; j++) {
+      carry += bytes[j]! * 58;
+      bytes[j] = carry & 0xff;
+      carry >>= 8;
+    }
+    while (carry > 0) {
+      bytes.push(carry & 0xff);
+      carry >>= 8;
+    }
+  }
+  const out = new Uint8Array(zeros + bytes.length);
+  for (let i = 0; i < bytes.length; i++) out[zeros + i] = bytes[bytes.length - 1 - i]!;
+  return out;
+}
+
+/** Minimal browser-safe Borsh encoding of an UNSIGNED NEAR transaction with one FunctionCall. */
+export function encodeUnsignedFunctionCallTx(input: {
+  signerId: string;
+  publicKeyNear: string;
+  nonce: bigint;
+  receiverId: string;
+  blockHashBase58: string;
+  methodName: string;
+  argsJson: Record<string, unknown>;
+  gas: bigint;
+  depositYocto: bigint;
+}): Uint8Array {
+  const enc = new TextEncoder();
+  const chunks: Uint8Array[] = [];
+  const u32 = (v: number) => {
+    const b = new Uint8Array(4);
+    new DataView(b.buffer).setUint32(0, v, true);
+    chunks.push(b);
+  };
+  const u64 = (v: bigint) => {
+    const b = new Uint8Array(8);
+    new DataView(b.buffer).setBigUint64(0, v, true);
+    chunks.push(b);
+  };
+  const u128 = (v: bigint) => {
+    u64(v & 0xffffffffffffffffn);
+    u64((v >> 64n) & 0xffffffffffffffffn);
+  };
+  const str = (v: string) => {
+    const b = enc.encode(v);
+    u32(b.length);
+    chunks.push(b);
+  };
+
+  const pub = decodeBase58(input.publicKeyNear.replace(/^ed25519:/, ""));
+  if (pub.length !== 32) throw new Error("Wallet public key must be a 32-byte ed25519 key.");
+  const blockHash = decodeBase58(input.blockHashBase58);
+
+  str(input.signerId);
+  chunks.push(new Uint8Array([0]), pub); // PublicKey::ED25519
+  u64(input.nonce);
+  str(input.receiverId);
+  chunks.push(blockHash);
+  u32(1); // one action
+  chunks.push(new Uint8Array([2])); // Action::FunctionCall
+  str(input.methodName);
+  const args = enc.encode(JSON.stringify(input.argsJson));
+  u32(args.length);
+  chunks.push(args);
+  u64(input.gas);
+  u128(input.depositYocto);
+
+  const total = chunks.reduce((n, c) => n + c.length, 0);
+  const out = new Uint8Array(total);
+  let off = 0;
+  for (const c of chunks) {
+    out.set(c, off);
+    off += c.length;
+  }
+  return out;
+}
+
+async function nearRpc<T>(method: string, params: unknown): Promise<T> {
+  const res = await fetch(NEAR_TESTNET_RPC_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: "ledgerly-client", method, params }),
+  });
+  const body = (await res.json()) as { result?: T; error?: unknown };
+  if (body.result === undefined) {
+    throw new Error(`NEAR RPC error: ${JSON.stringify(body.error ?? "empty response")}`);
+  }
+  return body.result;
+}
+
+/** Pull a tx hash out of whatever shape the wallet returns (shape differs between versions). */
+function extractTxHash(payload: unknown): string | null {
+  const seen = new Set<unknown>();
+  const walk = (v: unknown): string | null => {
+    if (!v || typeof v !== "object" || seen.has(v)) return null;
+    seen.add(v);
+    const o = v as Record<string, unknown>;
+    for (const k of ["transactionHash", "txHash", "transaction_hash"]) {
+      if (typeof o[k] === "string") return o[k] as string;
+    }
+    if (Array.isArray(o.transactionHashes) && typeof o.transactionHashes[0] === "string") {
+      return o.transactionHashes[0] as string;
+    }
+    const tx = o.transaction as { hash?: unknown } | undefined;
+    if (tx && typeof tx.hash === "string") return tx.hash;
+    for (const child of Object.values(o)) {
+      const found = walk(child);
+      if (found) return found;
+    }
+    return null;
+  };
+  return walk(payload);
+}
+
+/**
+ * Ask the connected Meteor Wallet to sign + broadcast NEP-141 `ft_transfer_call(escrow)`.
+ * The buyer's own wallet signs; the backend never touches the buyer's funds.
+ *
+ * The `sign` message shape (`inputs.transactions` = comma-joined base64 Borsh txs) mirrors
+ * `@meteorwallet/sdk` `requestSignTransactions`; the wallet answers with `payload.executionOutcomes`.
+ */
+export async function signFtDepositWithMeteor(
+  session: NearWalletSession,
+  input: {
+    usdcContractId: string;
+    escrowContractId: string;
+    escrowId: string;
+    amountDecimal: string;
+  },
+): Promise<{ txHash: string | null }> {
+  if (session.provider !== "METEOR_WALLET") {
+    throw new Error("Connect Meteor Wallet to sign this deposit.");
+  }
+  if (session.network !== "testnet") {
+    throw new Error("Escrow runs on NEAR Testnet; switch Meteor Wallet to a Testnet account.");
+  }
+
+  // Meteor may have returned a locally generated login key; use a real on-chain full-access key.
+  let publicKey = session.publicKey;
+  let nonceBase: { nonce: number; block_hash: string } | null = null;
+  try {
+    nonceBase = await nearRpc("query", {
+      request_type: "view_access_key",
+      finality: "final",
+      account_id: session.accountId,
+      public_key: publicKey,
+    });
+  } catch {
+    const list = await nearRpc<{ keys: Array<{ public_key: string; access_key: { permission: unknown } }> }>(
+      "query",
+      { request_type: "view_access_key_list", finality: "final", account_id: session.accountId },
+    );
+    const full = list.keys.find((k) => k.access_key.permission === "FullAccess");
+    if (!full) throw new Error(`No full-access key found for ${session.accountId}.`);
+    publicKey = full.public_key;
+    nonceBase = await nearRpc("query", {
+      request_type: "view_access_key",
+      finality: "final",
+      account_id: session.accountId,
+      public_key: publicKey,
+    });
+  }
+
+  const call = buildFtTransferCallPreview({
+    usdcContractId: input.usdcContractId,
+    escrowContractId: input.escrowContractId,
+    escrowId: input.escrowId,
+    depositorAccountId: session.accountId,
+    amountDecimal: input.amountDecimal,
+  });
+
+  const txBytes = encodeUnsignedFunctionCallTx({
+    signerId: session.accountId,
+    publicKeyNear: publicKey,
+    nonce: BigInt(nonceBase!.nonce) + 1n,
+    receiverId: call.receiverId,
+    blockHashBase58: nonceBase!.block_hash,
+    methodName: call.methodName,
+    argsJson: call.args,
+    gas: 50_000_000_000_000n,
+    depositYocto: 1n,
+  });
+  let bin = "";
+  for (const b of txBytes) bin += String.fromCharCode(b);
+
+  const payload = await runMeteorPostMessageAction({
+    network: "testnet",
+    actionType: "sign",
+    inputs: { transactions: btoa(bin) }, // SDK sends a comma-joined base64 string, not an array
+  });
+  return { txHash: extractTxHash(payload) };
 }
