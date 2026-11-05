@@ -12,6 +12,11 @@ import {
   type EscrowId,
   type TxHash,
 } from "../src/shared";
+import {
+  buildFtTransferCallPreview,
+  buildMyNearWalletLoginUrl,
+  connectMeteorWallet,
+} from "../src/shared/near-wallet-client";
 
 describe("NEAR RPC Gateway & Borsh / Ed25519 Protocol Layer", () => {
   it("encodes and decodes Base58 buffers losslessly including leading zeros", () => {
@@ -168,6 +173,65 @@ describe("NEAR RPC Gateway & Borsh / Ed25519 Protocol Layer", () => {
       const polled = await gw.pollEvents(0n);
       expect(polled.events.length).toBeGreaterThanOrEqual(1);
       expect(polled.events[0]?.type).toBe("OnchainDepositDetected");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("builds NEP-141 wallet payload preview and MyNearWallet redirect URL with zero PII", () => {
+    const loginUrl = buildMyNearWalletLoginUrl(
+      "ledgerly-escrow-9e70f9ea.testnet",
+      "https://ledgerly.app/checkout/pr_inv_8842",
+    );
+    expect(loginUrl).toContain("https://testnet.mynearwallet.com/login/");
+    expect(loginUrl).toContain("contract_id=ledgerly-escrow-9e70f9ea.testnet");
+
+    const preview = buildFtTransferCallPreview({
+      usdcContractId: "ledgerly-escrow-9e70f9ea.testnet",
+      escrowContractId: "ledgerly-escrow-9e70f9ea.testnet",
+      escrowId: "a".repeat(64),
+      depositorAccountId: "kyoto-living.testnet",
+      amountDecimal: "420.00",
+    });
+    expect(preview.methodName).toBe("ft_transfer_call");
+    expect(preview.args.amount).toBe("420000000");
+    expect(preview.args.msg).toContain("kyoto-living.testnet");
+  });
+
+  it("connects to Meteor Wallet browser extension via window.meteorCom PostMessenger protocol", async () => {
+    let registeredListener: ((data: Record<string, unknown>) => void) | null = null;
+    const fakeWindow = {
+      crypto: globalThis.crypto,
+      localStorage: {
+        getItem: () => null,
+        setItem: () => undefined,
+        removeItem: () => undefined,
+      },
+      meteorCom: {
+        addMessageDataListener: (cb: (data: Record<string, unknown>) => void) => {
+          registeredListener = cb;
+        },
+        sendMessageData: (msg: Record<string, unknown>) => {
+          if (msg.status === "initializing" && registeredListener) {
+            registeredListener({
+              uid: msg.uid,
+              status: "closed_success",
+              payload: {
+                accountId: "meteor-buyer.testnet",
+                allKeys: ["ed25519:5MeteorKeyTestnet11111111111111111111111"],
+              },
+            });
+          }
+        },
+      },
+    };
+
+    vi.stubGlobal("window", fakeWindow);
+    try {
+      const session = await connectMeteorWallet("ledgerly-escrow-9e70f9ea.testnet", "testnet");
+      expect(session.accountId).toBe("meteor-buyer.testnet");
+      expect(session.provider).toBe("METEOR_WALLET");
+      expect(session.network).toBe("testnet");
     } finally {
       vi.unstubAllGlobals();
     }

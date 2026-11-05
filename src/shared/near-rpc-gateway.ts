@@ -675,4 +675,42 @@ export class NearRpcChainGateway implements ChainGateway {
       latestBlockHeight: this.latestBlockHeight,
     };
   }
+
+  /**
+   * Verify and ingest an external wallet transaction (`?transactionHashes=...` from MyNearWallet
+   * or browser extension wallet) directly from NEAR JSON-RPC `tx` endpoint.
+   */
+  async ingestExternalTransaction(
+    txHash: TxHash,
+    senderAccountId?: AccountId,
+  ): Promise<readonly OnchainEvent[]> {
+    const outcome = await this.rpcCall<{
+      status?: { Failure?: unknown };
+      transaction_outcome?: { outcome?: { logs?: string[] } };
+      receipts_outcome?: Array<{ outcome?: { logs?: string[] } }>;
+    }>("tx", [txHash, senderAccountId ?? this.operatorAccountId]);
+
+    if (outcome.status && "Failure" in outcome.status) {
+      throw new Error(
+        `External wallet transaction failed on-chain: ${JSON.stringify(outcome.status.Failure)}`,
+      );
+    }
+
+    const logs: string[] = [];
+    for (const l of outcome.transaction_outcome?.outcome?.logs ?? []) {
+      logs.push(l);
+    }
+    for (const ro of outcome.receipts_outcome ?? []) {
+      for (const l of ro.outcome?.logs ?? []) {
+        logs.push(l);
+      }
+    }
+
+    this.latestBlockHeight += 1n;
+    const parsedEvents = parseNep297EscrowEvents(logs, txHash, this.latestBlockHeight);
+    if (parsedEvents.length > 0) {
+      this.recordedEvents.push(...parsedEvents);
+    }
+    return parsedEvents;
+  }
 }

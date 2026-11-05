@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import {
   Money,
-   type AccountId,
+  NearRpcChainGateway,
+  type AccountId,
   type Currency,
   type EscrowId,
   type GrantId,
   type PaymentRequestId,
   type RemittanceId,
+  type TxHash,
 } from "@/shared";
 import { DEMO_ACTOR, DEMO_ORG_ID, buildDashboardSnapshot, getRuntime } from "@/app/api/_runtime";
 
@@ -50,13 +52,42 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: parsed.error }, { status: 400 });
     }
 
-    await rt.chain.simulateDeposit({
+    const txHash = await rt.chain.simulateDeposit({
       escrowId,
       depositor: payer,
       amountMinor: parsed.value.amountMinor,
     });
     await rt.indexer.runOnce();
-    return NextResponse.json({ ok: true, state: await buildDashboardSnapshot() });
+    return NextResponse.json({
+      ok: true,
+      txHash,
+      explorerUrl: `${rt.explorerBaseUrl}/txns/${txHash}`,
+      state: await buildDashboardSnapshot(),
+    });
+  }
+
+  if (action === "VERIFY_WALLET_TX") {
+    const txHash = String(body.txHash ?? "").trim() as TxHash;
+    const senderAccountId = body.senderAccountId
+      ? (String(body.senderAccountId).trim() as AccountId)
+      : undefined;
+    if (!txHash) {
+      return NextResponse.json(
+        { ok: false, error: { code: "MISSING_TX_HASH", message: "Transaction hash is required" } },
+        { status: 400 },
+      );
+    }
+
+    if (rt.chain instanceof NearRpcChainGateway) {
+      await rt.chain.ingestExternalTransaction(txHash, senderAccountId);
+    }
+    await rt.indexer.runOnce();
+    return NextResponse.json({
+      ok: true,
+      txHash,
+      explorerUrl: `${rt.explorerBaseUrl}/txns/${txHash}`,
+      state: await buildDashboardSnapshot(),
+    });
   }
 
   if (action === "CREATE_AND_FUND_REMITTANCE") {
