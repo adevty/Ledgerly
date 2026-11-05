@@ -160,7 +160,7 @@ examples/                       runnable walkthroughs
 | 3 | Privacy module (envelope encryption, commitments, view keys, verification) | ✅ Done |
 | 4 | Application use cases, Prisma schema/repositories, mock adapters (FX, off-ramp, screening, solver) | ✅ Done |
 | 5 | Workers (chain indexer, settlement, expiry, reconciliation) | ✅ Done |
-| 6 | UI (merchant dashboard, checkout, remittance app, auditor portal) | ⏭️ Next |
+| 6 | UI (merchant dashboard, checkout, remittance app, auditor portal) | ✅ Done |
 
 Rough day plan: D1 design ✅ · D2 contract · D3 backend core · D4 privacy + mocks · D5 merchant UI · D6 remittance + auditor UI → **feature freeze** · D7 exceptions polish + stretch (Intents/Chain Signatures) · D8 demo video, README, pitch.
 
@@ -214,8 +214,11 @@ Generate code **one module per request**; get user approval before moving on.
   - `src/workers/settlement-worker.ts`: `SettlementWorker` retrying `PAYOUT_FAILED` remittances up to `MAX_PAYOUT_ATTEMPTS`.
   - `src/workers/expiry-worker.ts`: `ExpiryWorker` expiring open requests/quotes and auto-refunding `PARTIALLY_PAID` requests upon expiry.
   - `src/workers/reconciliation-worker.ts`: `ReconciliationWorker` comparing internal expected held balance against on-chain escrow balance and building the Exception Queue (`tests/workers.test.ts`).
+- **Module 6 done**:
+  - `src/app/components/LedgerParticleCore.tsx`: Cursor-interactive 3D black particle geometric core + ambient floating particle field with 4-section scroll choreography (centered in Hero → shifts right & tilts in Merchant & Checkout → shifts left & reorients in Remittance → bursts and dissolves across the entire Auditor/Settlement section).
+  - `src/app/page.tsx`, `src/app/checkout/[id]/page.tsx`, `src/app/globals.css`: Precision financial instrument UI on warm textured off-white paper with deep charcoal/emerald/trust-blue accents and solid black full-width `LEDGERLY` footer.
+  - `src/app/api/_runtime.ts`, `src/app/api/v1/state/route.ts`, `src/app/api/v1/actions/route.ts`: Live Next.js route handlers wired to all domain use cases and workers (`tests/ui-api.test.ts`).
 - **Known deviation**: remittance funded after quote lock expiry goes straight to `REFUNDING` (requote flow deferred to use-case layer).
-- **Not yet**: Next.js UI & API routes (Module 6).
 
 ```bash
 npm install

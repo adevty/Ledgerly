@@ -8,7 +8,7 @@ Confidential, audit-ready **merchant payments & cross-border remittance** on NEA
 - [x] Module 3 — privacy (envelope encryption, commitments, view keys, audit hash chain) + tests
 - [x] Module 4 — application use cases, Prisma schema, RBAC, compliance, double-entry ledger, mock adapters + integration tests
 - [x] Module 5 — workers (`ChainIndexerWorker`, `SettlementWorker`, `ExpiryWorker`, `ReconciliationWorker`) + tests
-- [ ] Module 6 — UI
+- [x] Module 6 — Next.js UI & API (`LedgerParticleCore` 3D scroll-choreographed particle canvas, Merchant & Checkout console, Cross-Border Remittance terminal, Selective Disclosure Auditor view, and Public Checkout route)
 
 ## Run
 ```bash
@@ -17,6 +17,8 @@ npm run typecheck
 npm test
 npm run contract:test
 npm run contract:check
+npm run dev       # Launch the interactive Ledgerly web application at http://localhost:3000
+npm run build     # Production Next.js build
 npx tsx examples/domain-walkthrough.ts
 ```
 
