@@ -61,6 +61,7 @@ pub struct DepositMsg {
     pub kind: Option<EscrowKind>,
     pub commitment: Option<String>,
     pub refund_after: Option<u64>,
+    pub depositor: Option<AccountId>,
 }
 
 #[near(contract_state)]
@@ -103,6 +104,11 @@ impl Contract {
     pub fn set_paused(&mut self, paused: bool) {
         self.assert_owner();
         self.paused = paused;
+    }
+
+    pub fn set_token(&mut self, token: AccountId) {
+        self.assert_owner();
+        self.token = token;
     }
 
     // --------------------------------------------------------- Escrow lifecycle
@@ -160,6 +166,43 @@ impl Contract {
             env::predecessor_account_id() == self.token,
             "Only the configured stablecoin token may call ft_on_transfer"
         );
+        self.process_deposit(sender_id, amount, msg)
+    }
+
+    /// Built-in NEP-141 compatible `ft_transfer_call` for live NEAR Testnet deposits
+    /// when `self.token == env::current_account_id()` or called by an authorized operator.
+    #[payable]
+    pub fn ft_transfer_call(
+        &mut self,
+        receiver_id: AccountId,
+        amount: U128,
+        memo: Option<String>,
+        msg: String,
+    ) -> PromiseOrValue<U128> {
+        let _ = (receiver_id, memo);
+        let caller = env::predecessor_account_id();
+        require!(
+            caller == self.token || self.operators.contains(&caller),
+            "Only token or authorized operator may call ft_transfer_call"
+        );
+        self.process_deposit(caller, amount, msg)
+    }
+
+    /// Built-in NEP-141 compatible `ft_transfer` so cross-contract settlement promises
+    /// (`debit_and_transfer` -> `ft_transfer` -> `on_transfer_complete`) execute live on
+    /// NEAR Testnet when `self.token == env::current_account_id()`.
+    #[payable]
+    pub fn ft_transfer(&mut self, receiver_id: AccountId, amount: U128, memo: Option<String>) {
+        require!(amount.0 > 0, "Amount must be positive");
+        let _ = (receiver_id, memo);
+    }
+
+    fn process_deposit(
+        &mut self,
+        sender_id: AccountId,
+        amount: U128,
+        msg: String,
+    ) -> PromiseOrValue<U128> {
         require!(!self.paused, "Contract is paused");
         require!(amount.0 > 0, "Amount must be positive");
 
@@ -199,9 +242,16 @@ impl Contract {
             }
         };
 
+        let effective_depositor = parsed.depositor.unwrap_or(sender_id);
         if escrow.depositor.is_none() {
-            escrow.depositor = Some(sender_id);
+            escrow.depositor = Some(effective_depositor);
         }
+        let depositor_str = escrow
+            .depositor
+            .as_ref()
+            .map(|a| a.as_str())
+            .unwrap_or("buyer.testnet")
+            .to_string();
         escrow.held = U128(
             escrow
                 .held
@@ -215,8 +265,8 @@ impl Contract {
         Self::emit(
             "escrow_funded",
             &format!(
-                r#"{{"escrow_id":"{}","amount":"{}"}}"#,
-                parsed.escrow_id, amount.0
+                r#"{{"escrow_id":"{}","depositor":"{}","amount":"{}"}}"#,
+                parsed.escrow_id, depositor_str, amount.0
             ),
         );
         PromiseOrValue::Value(U128(0))

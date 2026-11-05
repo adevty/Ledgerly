@@ -14,6 +14,7 @@ export interface PaymentRequestItem {
   commitment: string;
   cipherPreview: string;
   paymentsCount: number;
+  latestTxHash?: string | null;
   createdAtIso: string;
 }
 
@@ -46,6 +47,13 @@ export interface AuditedRecord {
 }
 
 export interface DashboardState {
+  network?: {
+    mode: "NEAR_TESTNET_RPC" | "LOCAL_SANDBOX_SIMULATION";
+    rpcUrl: string;
+    escrowContractId: string;
+    usdcContractId: string;
+    explorerBaseUrl: string;
+  };
   organization: {
     id: string;
     name: string;

@@ -454,9 +454,29 @@ export default function MerchantCheckoutPage() {
                         </div>
                       </td>
                       <td>
-                        <span className="mono-label">
-                          {pr.escrowId.slice(0, 12)}… · {pr.commitment.slice(0, 12)}…
-                        </span>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.45rem", flexWrap: "wrap" }}>
+                          <span className="mono-label">
+                            {pr.escrowId.slice(0, 12)}… · {pr.commitment.slice(0, 12)}…
+                          </span>
+                          {pr.latestTxHash && (
+                            <a
+                              href={`${
+                                state?.network?.explorerBaseUrl ?? "https://testnet.nearblocks.io"
+                              }/txns/${pr.latestTxHash}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="mono-label"
+                              style={{
+                                color: "var(--slate-blue)",
+                                textDecoration: "none",
+                                fontWeight: 600,
+                              }}
+                              title={`NEAR Transaction: ${pr.latestTxHash}`}
+                            >
+                              Tx:{pr.latestTxHash.slice(0, 8)}… ↗
+                            </a>
+                          )}
+                        </div>
                       </td>
                       <td>
                         <StatusBadgeWithTransition id={pr.id} status={pr.status} />

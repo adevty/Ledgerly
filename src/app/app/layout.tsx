@@ -132,7 +132,29 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
               Ledgerly
             </Link>
             <span style={{ color: "var(--line-medium)" }}>·</span>
-            <StatusBadge status="ACTIVE" label="NEAR Testnet" />
+            <StatusBadge
+              status="ACTIVE"
+              label={
+                state?.network?.mode === "NEAR_TESTNET_RPC"
+                  ? "NEAR Testnet · Live RPC"
+                  : "NEAR Testnet · Sandbox"
+              }
+            />
+            {state?.network?.escrowContractId && (
+              <a
+                href={`${state.network.explorerBaseUrl}/address/${state.network.escrowContractId}`}
+                target="_blank"
+                rel="noreferrer"
+                className="mono-label"
+                style={{
+                  textDecoration: "none",
+                  color: "var(--ink-muted)",
+                  borderBottom: "1px dotted var(--line-medium)",
+                }}
+              >
+                {state.network.escrowContractId} ↗
+              </a>
+            )}
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: "1.25rem", flexWrap: "wrap" }}>
