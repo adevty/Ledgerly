@@ -6,8 +6,8 @@ Confidential, audit-ready **merchant payments & cross-border remittance** on NEA
 - [x] Module 1 — shared kernel + core domain (payments, remittance) + tests
 - [x] Module 2 — `ledgerly-escrow` contract (Rust) + `ChainGateway` port + tests
 - [x] Module 3 — privacy (envelope encryption, commitments, view keys, audit hash chain) + tests
-- [ ] Module 4 — use cases, Prisma, mock adapters
-- [ ] Module 5 — workers (indexer, settlement, expiry)
+- [x] Module 4 — application use cases, Prisma schema, RBAC, compliance, double-entry ledger, mock adapters + integration tests
+- [ ] Module 5 — workers (indexer, settlement, expiry, reconciliation)
 - [ ] Module 6 — UI
 
 ## Run

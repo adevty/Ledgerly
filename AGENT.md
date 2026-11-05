@@ -158,8 +158,8 @@ examples/                       runnable walkthroughs
 | 1 | Shared kernel + core domain (payments & remittance) + tests | ✅ Done |
 | 2 | `ledgerly-escrow` contract (Rust) + tests | ✅ Done |
 | 3 | Privacy module (envelope encryption, commitments, view keys, verification) | ✅ Done |
-| 4 | Application use cases, Prisma schema/repositories, mock adapters (FX, off-ramp, screening, solver) | ⏭️ Next |
-| 5 | Workers (chain indexer, settlement, expiry, reconciliation) | ⬜ |
+| 4 | Application use cases, Prisma schema/repositories, mock adapters (FX, off-ramp, screening, solver) | ✅ Done |
+| 5 | Workers (chain indexer, settlement, expiry, reconciliation) | ⏭️ Next |
 | 6 | UI (merchant dashboard, checkout, remittance app, auditor portal) | ⬜ |
 
 Rough day plan: D1 design ✅ · D2 contract · D3 backend core · D4 privacy + mocks · D5 merchant UI · D6 remittance + auditor UI → **feature freeze** · D7 exceptions polish + stretch (Intents/Chain Signatures) · D8 demo video, README, pitch.
@@ -202,8 +202,15 @@ Generate code **one module per request**; get user approval before moving on.
   - `src/shared/chain-gateway.ts`: `ChainGateway` port for backend/worker interaction with the contract.
 - **Module 3 done**:
   - `src/modules/privacy/domain`: `canonicalJson`, `computeCommitment`/`verifyCommitment` (`sha256(canonicalJSON(payload) || salt)`), `sealPayload`/`openAndVerifyPayload` (AES-256-GCM per-record DEK + X25519 ECDH-HKDF key wrapping), `rewrapDekForAuditor`, `ViewKeyGrant` aggregate (scoped, time-bound, revocable selective disclosure), and `AuditLogEntry` hash chain (`appendAuditEntry`, `verifyAuditChain`).
+- **Module 4 done**:
+  - `prisma/schema.prisma`: Full PostgreSQL schema (Organizations, Users, Memberships, PaymentRequests, Payments, Remittances, ViewKeyGrants, GrantWraps, LedgerEntries, OutboxEvents, IdempotencyRecords, AuditLogs, IndexerCursors).
+  - `src/modules/identity/domain/rbac.ts`: Role-based access control policy (`OWNER`, `FINANCE`, `VIEWER`).
+  - `src/modules/compliance/domain/compliance.ts`: Sanctions screening port & FATF Travel Rule enforcement (`>= 1,000 USDC`).
+  - `src/modules/ledger/domain/ledger.ts`: Double-entry accounting invariant (`Σ debits == Σ credits`) and ERP-ready CSV export.
+  - `src/shared/idempotency.ts` & `src/shared/mocks.ts`: Idempotency guard, transactional outbox, in-memory repositories (with optimistic locking), `MockFxAdapter`, `MockOffRampAdapter`, `MockScreeningAdapter`, and `MockChainGateway`.
+  - Application use cases: `PaymentUseCases`, `RemittanceUseCases`, `DisclosureUseCases` + end-to-end integration test suite (`tests/application-use-cases.test.ts`).
 - **Known deviation**: remittance funded after quote lock expiry goes straight to `REFUNDING` (requote flow deferred to use-case layer).
-- **Not yet**: Application use cases + Prisma + mock adapters (Module 4), Workers (Module 5), Next.js UI (Module 6).
+- **Not yet**: Workers (Module 5), Next.js UI & API routes (Module 6).
 
 ```bash
 npm install

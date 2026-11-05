@@ -1,11 +1,23 @@
-import type { Money, Currency, RemittanceId, EscrowId } from "@/shared";
+import type { Money, Currency, RemittanceId, EscrowId, OrgId } from "@/shared";
+import type { EncryptedEnvelope } from "@/modules/privacy/domain";
 import type { Remittance } from "./remittance";
 
-/** Repository port (Prisma adapter in module 4). Same atomic outbox contract as payments. */
+export interface StoredRemittance {
+  readonly aggregate: Remittance;
+  readonly orgId: OrgId;
+  readonly envelope: EncryptedEnvelope;
+  readonly createdAt: Date;
+}
+
+/** Repository port (in-memory & Prisma adapters). Same atomic outbox contract as payments. */
 export interface RemittanceRepository {
-  findById(id: RemittanceId): Promise<Remittance | null>;
-  findByEscrowId(escrowId: EscrowId): Promise<Remittance | null>;
-  save(remittance: Remittance): Promise<void>;
+  findById(id: RemittanceId): Promise<StoredRemittance | null>;
+  findByEscrowId(escrowId: EscrowId): Promise<StoredRemittance | null>;
+  listByOrgId(orgId: OrgId): Promise<StoredRemittance[]>;
+  save(
+    remittance: Remittance,
+    meta?: { orgId: OrgId; envelope: EncryptedEnvelope; createdAt: Date },
+  ): Promise<void>;
 }
 
 /**

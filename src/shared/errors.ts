@@ -17,7 +17,14 @@ export type DomainErrorCode =
   | "COMMITMENT_MISMATCH"
   | "GRANT_EXPIRED"
   | "GRANT_REVOKED"
-  | "OUT_OF_SCOPE";
+  | "OUT_OF_SCOPE"
+  | "NOT_FOUND"
+  | "UNAUTHORIZED"
+  | "FORBIDDEN_ROLE"
+  | "IDEMPOTENCY_CONFLICT"
+  | "SCREENING_BLOCKED"
+  | "TRAVEL_RULE_REQUIRED"
+  | "CONCURRENCY_CONFLICT";
 
 export interface DomainError {
   readonly code: DomainErrorCode;

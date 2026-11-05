@@ -1,0 +1,214 @@
+// Prisma schema for Ledgerly (Tahap 4 §4).
+//
+// Design notes:
+// - `amountMinor` is stored in plaintext for internal matching & queries (AD-5).
+// - All business metadata & PII (orderRef, customer, recipient account details,
+//   Travel Rule payload) are sealed inside `cipher` + `wrappedDek` + `salt`
+//   and anchored on-chain via `commitment` (AD-3).
+// - `OutboxEvent` is written in the same transaction as aggregate updates (AD-10).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  OWNER
+  FINANCE
+  VIEWER
+}
+
+enum PaymentStatus {
+  OPEN
+  PARTIALLY_PAID
+  PAID
+  OVERPAID
+  SETTLED
+  EXPIRED
+  CANCELLED
+  REFUNDING
+  REFUNDED
+}
+
+enum RemittanceStatus {
+  QUOTED
+  EXPIRED
+  BLOCKED
+  FUNDED
+  PAYOUT_PENDING
+  PAYOUT_FAILED
+  SETTLED
+  REFUNDING
+  REFUNDED
+}
+
+model Organization {
+  id             String           @id @default(cuid())
+  name           String
+  nearAccount    String           @unique
+  dataKeyPub     String           // X25519 SPKI DER hex
+  dataKeyWrapped String           // X25519 PKCS8 DER encrypted with KMS master key
+  members        Membership[]
+  requests       PaymentRequest[]
+  grants         ViewKeyGrant[]
+  createdAt      DateTime         @default(now())
+}
+
+model User {
+  id             String       @id @default(cuid())
+  email          String       @unique
+  nearAccount    String       @unique
+  fcKeyEncrypted String       // Limited function-call access key (AD-4 demo limitation)
+  memberships    Membership[]
+  remittances    Remittance[]
+  createdAt      DateTime     @default(now())
+}
+
+model Membership {
+  userId String
+  orgId  String
+  role   Role
+  user   User         @relation(fields: [userId], references: [id])
+  org    Organization @relation(fields: [orgId], references: [id])
+
+  @@id([userId, orgId])
+}
+
+model PaymentRequest {
+  id                   String        @id
+  orgId                String
+  escrowId             String        @unique
+  status               PaymentStatus
+  currency             String
+  amountMinor          BigInt
+  receivedMinor        BigInt        @default(0)
+  refundedMinor        BigInt        @default(0)
+  pendingRefundMinor   BigInt        @default(0)
+  releasedMinor        BigInt        @default(0)
+  expiresAt            DateTime
+  cipherHex            String
+  wrappedDekHex        String
+  saltHex              String
+  commitment           String
+  version              Int           @default(0)
+  createdAt            DateTime      @default(now())
+  org                  Organization  @relation(fields: [orgId], references: [id])
+  payments             Payment[]
+
+  @@index([orgId, status, createdAt])
+}
+
+model Payment {
+  id          String         @id @default(cuid())
+  requestId   String
+  txHash      String         @unique
+  payer       String
+  amountMinor BigInt
+  detectedAt  DateTime
+  request     PaymentRequest @relation(fields: [requestId], references: [id])
+}
+
+model Remittance {
+  id              String           @id
+  senderUserId    String
+  orgId           String?
+  escrowId        String           @unique
+  status          RemittanceStatus
+  sourceMinor     BigInt
+  feeMinor        BigInt
+  targetMinor     BigInt
+  targetCurrency  String
+  rateNum         String
+  rateDen         String
+  lockedUntil     DateTime
+  recipientType   String
+  recipientRef    String
+  country         String
+  attempts        Int              @default(0)
+  fundingTx       String?
+  payoutRef       String?
+  lastFailureCode String?
+  cipherHex       String
+  wrappedDekHex   String
+  saltHex         String
+  commitment      String
+  version         Int              @default(0)
+  createdAt       DateTime         @default(now())
+  sender          User             @relation(fields: [senderUserId], references: [id])
+
+  @@index([senderUserId, status, createdAt])
+}
+
+model ViewKeyGrant {
+  id                  String       @id
+  orgId               String
+  auditorPublicKeyHex String
+  scopeJson           Json
+  expiresAt           DateTime
+  revokedAt           DateTime?
+  version             Int          @default(0)
+  createdAt           DateTime     @default(now())
+  org                 Organization @relation(fields: [orgId], references: [id])
+  wraps               GrantWrap[]
+}
+
+model GrantWrap {
+  grantId       String
+  recordId      String
+  wrappedDekHex String
+  grant         ViewKeyGrant @relation(fields: [grantId], references: [id], onDelete: Cascade)
+
+  @@id([grantId, recordId])
+}
+
+model LedgerEntry {
+  id          String   @id @default(cuid())
+  journalId   String
+  account     String
+  debitMinor  BigInt
+  creditMinor BigInt
+  currency    String
+  refType     String
+  refId       String
+  createdAt   DateTime @default(now())
+
+  @@index([refType, refId])
+}
+
+model OutboxEvent {
+  id          String    @id @default(cuid())
+  type        String
+  aggregateId String
+  payload     Json
+  occurredAt  DateTime  @default(now())
+  processedAt DateTime?
+
+  @@index([processedAt])
+}
+
+model IdempotencyRecord {
+  key         String   @id
+  actorId     String
+  requestHash String
+  response    Json
+  createdAt   DateTime @default(now())
+}
+
+model AuditLog {
+  id       String   @id @default(cuid())
+  actor    String
+  action   String
+  targetId String
+  prevHash String
+  hash     String
+  at       DateTime @default(now())
+}
+
+model IndexerCursor {
+  id          String @id
+  blockHeight BigInt
+}
