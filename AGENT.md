@@ -159,8 +159,8 @@ examples/                       runnable walkthroughs
 | 2 | `ledgerly-escrow` contract (Rust) + tests | ✅ Done |
 | 3 | Privacy module (envelope encryption, commitments, view keys, verification) | ✅ Done |
 | 4 | Application use cases, Prisma schema/repositories, mock adapters (FX, off-ramp, screening, solver) | ✅ Done |
-| 5 | Workers (chain indexer, settlement, expiry, reconciliation) | ⏭️ Next |
-| 6 | UI (merchant dashboard, checkout, remittance app, auditor portal) | ⬜ |
+| 5 | Workers (chain indexer, settlement, expiry, reconciliation) | ✅ Done |
+| 6 | UI (merchant dashboard, checkout, remittance app, auditor portal) | ⏭️ Next |
 
 Rough day plan: D1 design ✅ · D2 contract · D3 backend core · D4 privacy + mocks · D5 merchant UI · D6 remittance + auditor UI → **feature freeze** · D7 exceptions polish + stretch (Intents/Chain Signatures) · D8 demo video, README, pitch.
 
@@ -209,8 +209,13 @@ Generate code **one module per request**; get user approval before moving on.
   - `src/modules/ledger/domain/ledger.ts`: Double-entry accounting invariant (`Σ debits == Σ credits`) and ERP-ready CSV export.
   - `src/shared/idempotency.ts` & `src/shared/mocks.ts`: Idempotency guard, transactional outbox, in-memory repositories (with optimistic locking), `MockFxAdapter`, `MockOffRampAdapter`, `MockScreeningAdapter`, and `MockChainGateway`.
   - Application use cases: `PaymentUseCases`, `RemittanceUseCases`, `DisclosureUseCases` + end-to-end integration test suite (`tests/application-use-cases.test.ts`).
+- **Module 5 done**:
+  - `src/workers/chain-indexer-worker.ts`: `ChainIndexerWorker` with block cursor, `(txHash, logIndex)` deduplication, automatic routing of `OnchainDepositDetected`, and reconciliation of external `OnchainRefundConfirmed` (such as user fail-safe `claim_refund`).
+  - `src/workers/settlement-worker.ts`: `SettlementWorker` retrying `PAYOUT_FAILED` remittances up to `MAX_PAYOUT_ATTEMPTS`.
+  - `src/workers/expiry-worker.ts`: `ExpiryWorker` expiring open requests/quotes and auto-refunding `PARTIALLY_PAID` requests upon expiry.
+  - `src/workers/reconciliation-worker.ts`: `ReconciliationWorker` comparing internal expected held balance against on-chain escrow balance and building the Exception Queue (`tests/workers.test.ts`).
 - **Known deviation**: remittance funded after quote lock expiry goes straight to `REFUNDING` (requote flow deferred to use-case layer).
-- **Not yet**: Workers (Module 5), Next.js UI & API routes (Module 6).
+- **Not yet**: Next.js UI & API routes (Module 6).
 
 ```bash
 npm install

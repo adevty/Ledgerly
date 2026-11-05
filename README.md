@@ -7,7 +7,7 @@ Confidential, audit-ready **merchant payments & cross-border remittance** on NEA
 - [x] Module 2 — `ledgerly-escrow` contract (Rust) + `ChainGateway` port + tests
 - [x] Module 3 — privacy (envelope encryption, commitments, view keys, audit hash chain) + tests
 - [x] Module 4 — application use cases, Prisma schema, RBAC, compliance, double-entry ledger, mock adapters + integration tests
-- [ ] Module 5 — workers (indexer, settlement, expiry, reconciliation)
+- [x] Module 5 — workers (`ChainIndexerWorker`, `SettlementWorker`, `ExpiryWorker`, `ReconciliationWorker`) + tests
 - [ ] Module 6 — UI
 
 ## Run

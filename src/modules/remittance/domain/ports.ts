@@ -14,6 +14,7 @@ export interface RemittanceRepository {
   findById(id: RemittanceId): Promise<StoredRemittance | null>;
   findByEscrowId(escrowId: EscrowId): Promise<StoredRemittance | null>;
   listByOrgId(orgId: OrgId): Promise<StoredRemittance[]>;
+  listAll(): Promise<StoredRemittance[]>;
   save(
     remittance: Remittance,
     meta?: { orgId: OrgId; envelope: EncryptedEnvelope; createdAt: Date },

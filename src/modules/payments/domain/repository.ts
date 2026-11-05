@@ -17,5 +17,6 @@ export interface PaymentRequestRepository {
   findById(id: PaymentRequestId): Promise<StoredPaymentRequest | null>;
   findByEscrowId(escrowId: EscrowId): Promise<StoredPaymentRequest | null>;
   listByOrgId(orgId: OrgId): Promise<StoredPaymentRequest[]>;
+  listAll(): Promise<StoredPaymentRequest[]>;
   save(request: PaymentRequest, envelope?: EncryptedEnvelope, createdAt?: Date): Promise<void>;
 }

@@ -13,6 +13,7 @@ import {
   type IdempotencyStore,
   type OnchainEscrowKind,
   type OnchainEscrowView,
+  type OnchainEvent,
   type OrgId,
   type PaymentRequestId,
   type RemittanceId,
@@ -136,6 +137,15 @@ export class InMemoryPaymentRequestRepository implements PaymentRequestRepositor
     return out;
   }
 
+  async listAll(): Promise<StoredPaymentRequest[]> {
+    const out: StoredPaymentRequest[] = [];
+    for (const id of this.store.keys()) {
+      const loaded = await this.findById(id);
+      if (loaded) out.push(loaded);
+    }
+    return out;
+  }
+
   async save(
     request: PaymentRequest,
     envelope?: EncryptedEnvelope,
@@ -200,6 +210,15 @@ export class InMemoryRemittanceRepository implements RemittanceRepository {
         const loaded = await this.findById(id);
         if (loaded) out.push(loaded);
       }
+    }
+    return out;
+  }
+
+  async listAll(): Promise<StoredRemittance[]> {
+    const out: StoredRemittance[] = [];
+    for (const id of this.store.keys()) {
+      const loaded = await this.findById(id);
+      if (loaded) out.push(loaded);
     }
     return out;
   }
@@ -418,6 +437,8 @@ export class MockScreeningAdapter implements ScreeningPort {
 export class MockChainGateway implements ChainGateway {
   private readonly escrows = new Map<EscrowId, OnchainEscrowView>();
   private readonly anchors: string[] = [];
+  private readonly eventLog: OnchainEvent[] = [];
+  private blockHeight = 1n;
   private seq = 1;
 
   async registerEscrow(input: {
@@ -466,7 +487,46 @@ export class MockChainGateway implements ChainGateway {
         status: "Held",
       });
     }
-    return { txHash: `tx_dep_${this.seq++}` as TxHash };
+    const txHash = `tx_dep_${this.seq++}` as TxHash;
+    this.blockHeight += 1n;
+    this.eventLog.push({
+      type: "OnchainDepositDetected",
+      txHash,
+      logIndex: 0,
+      blockHeight: this.blockHeight,
+      escrowId: input.escrowId,
+      depositor: input.depositor,
+      amountMinor: input.amountMinor,
+    });
+    return { txHash };
+  }
+
+  /**
+   * Simulate a depositor directly calling `claim_refund(escrow_id)` on NEAR
+   * after `refund_after` has elapsed (fail-safe exit when backend is offline — AD-2).
+   */
+  async simulateUserClaimRefund(escrowId: EscrowId): Promise<{ txHash: TxHash }> {
+    const e = this.escrows.get(escrowId);
+    if (!e || e.heldMinor === 0n) {
+      throw new Error("Nothing held in escrow to claim");
+    }
+    const amountMinor = e.heldMinor;
+    this.escrows.set(escrowId, {
+      ...e,
+      heldMinor: 0n,
+      status: "Closed",
+    });
+    const txHash = `tx_claim_ref_${this.seq++}` as TxHash;
+    this.blockHeight += 1n;
+    this.eventLog.push({
+      type: "OnchainRefundConfirmed",
+      txHash,
+      logIndex: 0,
+      blockHeight: this.blockHeight,
+      escrowId,
+      amountMinor,
+    });
+    return { txHash };
   }
 
   async release(input: {
@@ -484,7 +544,17 @@ export class MockChainGateway implements ChainGateway {
       heldMinor: nextHeld,
       status: nextHeld === 0n ? "Closed" : "Held",
     });
-    return { txHash: `tx_rel_${this.seq++}` as TxHash };
+    const txHash = `tx_rel_${this.seq++}` as TxHash;
+    this.blockHeight += 1n;
+    this.eventLog.push({
+      type: "OnchainReleaseConfirmed",
+      txHash,
+      logIndex: 0,
+      blockHeight: this.blockHeight,
+      escrowId: input.escrowId,
+      amountMinor: input.amountMinor,
+    });
+    return { txHash };
   }
 
   async refund(input: {
@@ -501,7 +571,17 @@ export class MockChainGateway implements ChainGateway {
       heldMinor: nextHeld,
       status: nextHeld === 0n ? "Closed" : "Held",
     });
-    return { txHash: `tx_ref_${this.seq++}` as TxHash };
+    const txHash = `tx_ref_${this.seq++}` as TxHash;
+    this.blockHeight += 1n;
+    this.eventLog.push({
+      type: "OnchainRefundConfirmed",
+      txHash,
+      logIndex: 0,
+      blockHeight: this.blockHeight,
+      escrowId: input.escrowId,
+      amountMinor: input.amountMinor,
+    });
+    return { txHash };
   }
 
   async anchorAuditRoot(logRootHex: string): Promise<{ txHash: TxHash }> {
@@ -511,6 +591,16 @@ export class MockChainGateway implements ChainGateway {
 
   async getEscrow(escrowId: EscrowId): Promise<OnchainEscrowView | null> {
     return this.escrows.get(escrowId) ?? null;
+  }
+
+  async pollEvents(fromBlockHeightExclusive: bigint): Promise<{
+    readonly events: readonly OnchainEvent[];
+    readonly latestBlockHeight: bigint;
+  }> {
+    return {
+      events: this.eventLog.filter((ev) => ev.blockHeight > fromBlockHeightExclusive),
+      latestBlockHeight: this.blockHeight,
+    };
   }
 
   getAnchoredRoots(): readonly string[] {

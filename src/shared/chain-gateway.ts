@@ -17,6 +17,33 @@ export interface OnchainEscrowView {
   readonly refundAfterNs: bigint;
 }
 
+export type OnchainEvent =
+  | {
+      readonly type: "OnchainDepositDetected";
+      readonly txHash: TxHash;
+      readonly logIndex: number;
+      readonly blockHeight: bigint;
+      readonly escrowId: EscrowId;
+      readonly depositor: AccountId;
+      readonly amountMinor: bigint;
+    }
+  | {
+      readonly type: "OnchainRefundConfirmed";
+      readonly txHash: TxHash;
+      readonly logIndex: number;
+      readonly blockHeight: bigint;
+      readonly escrowId: EscrowId;
+      readonly amountMinor: bigint;
+    }
+  | {
+      readonly type: "OnchainReleaseConfirmed";
+      readonly txHash: TxHash;
+      readonly logIndex: number;
+      readonly blockHeight: bigint;
+      readonly escrowId: EscrowId;
+      readonly amountMinor: bigint;
+    };
+
 export interface ChainGateway {
   registerEscrow(input: {
     escrowId: EscrowId;
@@ -39,4 +66,9 @@ export interface ChainGateway {
   anchorAuditRoot(logRootHex: string): Promise<{ txHash: TxHash }>;
 
   getEscrow(escrowId: EscrowId): Promise<OnchainEscrowView | null>;
+
+  pollEvents(fromBlockHeightExclusive: bigint): Promise<{
+    readonly events: readonly OnchainEvent[];
+    readonly latestBlockHeight: bigint;
+  }>;
 }
