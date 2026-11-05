@@ -213,13 +213,20 @@ export function LedgerlyDashboardProvider({ children }: { children: React.ReactN
     const res = await fetch("/api/v1/state", { cache: "no-store" });
     if (res.ok) {
       const next = (await res.json()) as DashboardState;
+      recordTransitions(stateRef.current, next);
       stateRef.current = next;
       setState(next);
     }
-  }, []);
+  }, [recordTransitions]);
 
   useEffect(() => {
     void fetchState();
+    const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        void fetchState();
+      }
+    }, 4000);
+    return () => clearInterval(interval);
   }, [fetchState]);
 
   const runAction = useCallback(

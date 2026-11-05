@@ -343,6 +343,8 @@ async function createSeededRuntime(): Promise<LedgerlyRuntime> {
 
 export async function buildDashboardSnapshot() {
   const rt = await getRuntime();
+  await rt.indexer.runOnce();
+  await rt.expiry.runOnce();
   const prs = await rt.paymentRepo.listByOrgId(DEMO_ORG_ID);
   const rms = await rt.remittanceRepo.listByOrgId(DEMO_ORG_ID);
   const ledgerEntries = await rt.ledger.listEntries();

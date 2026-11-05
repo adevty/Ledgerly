@@ -218,6 +218,13 @@ Generate code **one module per request**; get user approval before moving on.
   - `src/app/components/PaymentWaveRails.tsx`: Horizontal wave-like particle rails (charcoal black, muted sage green, soft slate blue) flowing left-to-right with cursor ripple/bending and 4-state scroll choreography (calm waves in Hero → turbulent/irregular in Problem → structured parallel rails in Solution & Capabilities → converging into the "Launch App" button in Final CTA).
   - `src/app/page.tsx`, `src/app/app/page.tsx`, `src/app/checkout/[id]/page.tsx`, `src/app/globals.css`: Calm, refined fintech landing page (`/`) + full interactive workspace (`/app`) and standalone buyer checkout (`/checkout/[id]`).
   - `src/app/api/_runtime.ts`, `src/app/api/v1/state/route.ts`, `src/app/api/v1/actions/route.ts`: Live Next.js route handlers wired to all domain use cases and workers (`tests/ui-api.test.ts`).
+- **Live Testnet & On-Chain Integration done**:
+  - `ledgerly-escrow` deployed on NEAR Testnet at `ledgerly-escrow-9e70f9ea.testnet`.
+  - `mock-usdc` (NEP-141, 6 decimals, public faucet) deployed on NEAR Testnet at `ledgerly-usdc-a627a4c0.testnet`.
+  - `NearRpcChainGateway` communicating directly with NEAR Testnet RPC with full access-key nonce management, NEP-297 event parsing, and optimistic transaction execution.
+  - `Meteor Wallet` browser extension integration: native `MeteorPostMessenger` protocol (`window.meteorCom`), unsigned Borsh transaction binary serialization, comma-joined base64 formatting, and live on-chain `ft_transfer_call` signing.
+  - Real-time background auto-sync & polling (3.5s on open checkout, 4s on active dashboard) for instant status transitions (`OPEN` -> `PAID` / `SETTLED`).
+  - Zero-dependency local ACID SQLite persistence via `node:sqlite` (`.data/ledgerly.sqlite`) for all entities, ledger entries, idempotency keys, and X25519 keypairs.
 - **Known deviation**: remittance funded after quote lock expiry goes straight to `REFUNDING` (requote flow deferred to use-case layer).
 
 ```bash

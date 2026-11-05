@@ -101,6 +101,13 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
       if (found) {
         if (prevStatus && prevStatus !== found.status) {
           setTransition({ from: prevStatus, to: found.status });
+          if (found.status === "SETTLED" || found.status === "PAID") {
+            pushToast(
+              "success",
+              "Payment Confirmed On-Chain",
+              `Invoice ${found.id} settled on NEAR Testnet (${found.amountDecimal} USDC).`,
+            );
+          }
         }
         if (found.latestTxHash) {
           setLastTxHash(found.latestTxHash);
@@ -109,7 +116,7 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
         setCustomPayAmount(rem > 0 ? rem.toFixed(2) : Number(found.amountDecimal).toFixed(2));
       }
     },
-    [initialRequestId, selectedId],
+    [initialRequestId, selectedId, pushToast],
   );
 
   const verifyExternalTxHash = useCallback(
@@ -174,6 +181,19 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
   }, [loadState, verifyExternalTxHash]);
 
   const item = requests.find((r) => r.id === selectedId) ?? requests[0] ?? null;
+
+  // Auto-sync polling: refresh state while current invoice is open or partially paid
+  useEffect(() => {
+    if (!item || item.status === "SETTLED" || item.status === "EXPIRED" || item.status === "CANCELLED") {
+      return;
+    }
+    const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible" && !busyKey) {
+        void loadState(item.status, item.id);
+      }
+    }, 3500);
+    return () => clearInterval(interval);
+  }, [item, busyKey, loadState]);
 
   const handleSelectInvoice = (req: CheckoutItem) => {
     setSelectedId(req.id);
