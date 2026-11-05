@@ -7,7 +7,9 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "contract:test": "cargo test --manifest-path contracts/ledgerly-escrow/Cargo.toml --lib",
+    "contract:check": "cargo check --manifest-path contracts/ledgerly-escrow/Cargo.toml --target wasm32-unknown-unknown"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",

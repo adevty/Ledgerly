@@ -156,8 +156,8 @@ examples/                       runnable walkthroughs
 | # | Module | Status |
 |---|---|---|
 | 1 | Shared kernel + core domain (payments & remittance) + tests | ✅ Done |
-| 2 | `ledgerly-escrow` contract (Rust) + tests | ⏭️ Next |
-| 3 | Privacy module (envelope encryption, commitments, view keys, verification) | ⬜ |
+| 2 | `ledgerly-escrow` contract (Rust) + tests | ✅ Done |
+| 3 | Privacy module (envelope encryption, commitments, view keys, verification) | ⏭️ Next |
 | 4 | Application use cases, Prisma schema/repositories, mock adapters (FX, off-ramp, screening, solver) | ⬜ |
 | 5 | Workers (chain indexer, settlement, expiry, reconciliation) | ⬜ |
 | 6 | UI (merchant dashboard, checkout, remittance app, auditor portal) | ⬜ |
@@ -197,13 +197,18 @@ Generate code **one module per request**; get user approval before moving on.
   - `src/modules/remittance/domain`: `Remittance` aggregate, `Quote` VO, `MAX_PAYOUT_ATTEMPTS = 3`, `FxRatePort`, `OffRampPort`, repository port.
   - 29 unit tests passing; `examples/domain-walkthrough.ts` runs.
   - Tooling: TypeScript 5, Vitest 5, tsx; `npm audit` = 0 vulnerabilities.
+- **Module 2 done**:
+  - `contracts/ledgerly-escrow/src/lib.rs`: Rust smart contract (`near-sdk 5.5`) implementing `register`, `ft_on_transfer` (NEP-141 receiver with automatic refund on unknown/closed escrow), `release`, `refund` (optimistic balance debit + callback rollback `on_transfer_complete`), `claim_refund` (depositor exit after timeout even when paused), `anchor`, NEP-297 events, and 6 unit tests.
+  - `src/shared/chain-gateway.ts`: `ChainGateway` port for backend/worker interaction with the contract.
 - **Known deviation**: remittance funded after quote lock expiry goes straight to `REFUNDING` (requote flow deferred to use-case layer).
-- **Not yet**: Next.js app scaffolding, Prisma, contract, git repo (`git init` + `.gitignore` still needed).
+- **Not yet**: Privacy module, Next.js app scaffolding, Prisma, git repo (`git init` still needed; `.gitignore` updated).
 
 ```bash
 npm install
 npm run typecheck
 npm test
+npm run contract:test
+npm run contract:check
 npx tsx examples/domain-walkthrough.ts
 ```
 

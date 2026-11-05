@@ -4,7 +4,7 @@ Confidential, audit-ready **merchant payments & cross-border remittance** on NEA
 
 ## Status
 - [x] Module 1 — shared kernel + core domain (payments, remittance) + tests
-- [ ] Module 2 — `ledgerly-escrow` contract (Rust)
+- [x] Module 2 — `ledgerly-escrow` contract (Rust) + `ChainGateway` port + tests
 - [ ] Module 3 — privacy (encryption, commitments, view keys)
 - [ ] Module 4 — use cases, Prisma, mock adapters
 - [ ] Module 5 — workers (indexer, settlement, expiry)
@@ -15,6 +15,8 @@ Confidential, audit-ready **merchant payments & cross-border remittance** on NEA
 npm install
 npm run typecheck
 npm test
+npm run contract:test
+npm run contract:check
 npx tsx examples/domain-walkthrough.ts
 ```
 
