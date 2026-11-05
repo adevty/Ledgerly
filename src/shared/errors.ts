@@ -12,7 +12,12 @@ export type DomainErrorCode =
   | "DUPLICATE_PAYMENT"
   | "REQUEST_EXPIRED"
   | "MAX_ATTEMPTS_REACHED"
-  | "FUNDING_AMOUNT_MISMATCH";
+  | "FUNDING_AMOUNT_MISMATCH"
+  | "CRYPTO_ERROR"
+  | "COMMITMENT_MISMATCH"
+  | "GRANT_EXPIRED"
+  | "GRANT_REVOKED"
+  | "OUT_OF_SCOPE";
 
 export interface DomainError {
   readonly code: DomainErrorCode;

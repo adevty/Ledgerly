@@ -157,8 +157,8 @@ examples/                       runnable walkthroughs
 |---|---|---|
 | 1 | Shared kernel + core domain (payments & remittance) + tests | ✅ Done |
 | 2 | `ledgerly-escrow` contract (Rust) + tests | ✅ Done |
-| 3 | Privacy module (envelope encryption, commitments, view keys, verification) | ⏭️ Next |
-| 4 | Application use cases, Prisma schema/repositories, mock adapters (FX, off-ramp, screening, solver) | ⬜ |
+| 3 | Privacy module (envelope encryption, commitments, view keys, verification) | ✅ Done |
+| 4 | Application use cases, Prisma schema/repositories, mock adapters (FX, off-ramp, screening, solver) | ⏭️ Next |
 | 5 | Workers (chain indexer, settlement, expiry, reconciliation) | ⬜ |
 | 6 | UI (merchant dashboard, checkout, remittance app, auditor portal) | ⬜ |
 
@@ -200,8 +200,10 @@ Generate code **one module per request**; get user approval before moving on.
 - **Module 2 done**:
   - `contracts/ledgerly-escrow/src/lib.rs`: Rust smart contract (`near-sdk 5.5`) implementing `register`, `ft_on_transfer` (NEP-141 receiver with automatic refund on unknown/closed escrow), `release`, `refund` (optimistic balance debit + callback rollback `on_transfer_complete`), `claim_refund` (depositor exit after timeout even when paused), `anchor`, NEP-297 events, and 6 unit tests.
   - `src/shared/chain-gateway.ts`: `ChainGateway` port for backend/worker interaction with the contract.
+- **Module 3 done**:
+  - `src/modules/privacy/domain`: `canonicalJson`, `computeCommitment`/`verifyCommitment` (`sha256(canonicalJSON(payload) || salt)`), `sealPayload`/`openAndVerifyPayload` (AES-256-GCM per-record DEK + X25519 ECDH-HKDF key wrapping), `rewrapDekForAuditor`, `ViewKeyGrant` aggregate (scoped, time-bound, revocable selective disclosure), and `AuditLogEntry` hash chain (`appendAuditEntry`, `verifyAuditChain`).
 - **Known deviation**: remittance funded after quote lock expiry goes straight to `REFUNDING` (requote flow deferred to use-case layer).
-- **Not yet**: Privacy module, Next.js app scaffolding, Prisma, git repo (`git init` still needed; `.gitignore` updated).
+- **Not yet**: Application use cases + Prisma + mock adapters (Module 4), Workers (Module 5), Next.js UI (Module 6).
 
 ```bash
 npm install

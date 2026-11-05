@@ -9,7 +9,9 @@ export type OrgId = Brand<string, "OrgId">;
 export type UserId = Brand<string, "UserId">;
 export type PaymentRequestId = Brand<string, "PaymentRequestId">;
 export type RemittanceId = Brand<string, "RemittanceId">;
+export type GrantId = Brand<string, "GrantId">;
 export type TxHash = Brand<string, "TxHash">;
+export type Commitment = Brand<string, "Commitment">;
 
 /**
  * Opaque escrow identifier: 32 random bytes, hex encoded.
