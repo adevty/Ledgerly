@@ -14,6 +14,7 @@ import {
   signFtDepositWithMeteor,
   type NearWalletSession,
 } from "@/shared/near-wallet-client";
+import { POPULAR_ONE_CLICK_ASSETS, type OneClickQuoteResult } from "@/shared/one-click-client";
 
 export interface CheckoutItem {
   id: string;
@@ -62,6 +63,16 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
   const [toasts, setToasts] = useState<ToastMsg[]>([]);
   const [transition, setTransition] = useState<{ from: string; to: string } | null>(null);
+
+  // NEAR Intents / 1Click Cross-Chain State
+  const [payRail, setPayRail] = useState<"NEAR_WALLET" | "ONE_CLICK_INTENTS">("NEAR_WALLET");
+  const [oneClickAsset, setOneClickAsset] = useState<typeof POPULAR_ONE_CLICK_ASSETS[number]>(
+    POPULAR_ONE_CLICK_ASSETS[0],
+  );
+  const [oneClickQuote, setOneClickQuote] = useState<OneClickQuoteResult | null>(null);
+  const [oneClickDepositAddress, setOneClickDepositAddress] = useState<string | null>(null);
+  const [oneClickStatus, setOneClickStatus] = useState<string | null>(null);
+  const [oneClickLoading, setOneClickLoading] = useState(false);
 
   const pushToast = useCallback((kind: "success" | "error", title: string, detail?: string) => {
     const id = `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
@@ -202,6 +213,123 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
     setLastTxHash(req.latestTxHash);
     const rem = Number(req.remainingDecimal);
     setCustomPayAmount(rem > 0 ? rem.toFixed(2) : Number(req.amountDecimal).toFixed(2));
+  };
+
+  const fetchOneClickQuote = useCallback(
+    async (assetId: string, amountDecimal: string, dry = true) => {
+      setOneClickLoading(true);
+      try {
+        const res = await fetch("/api/v1/actions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "ONE_CLICK_QUOTE",
+            originAsset: assetId,
+            amountUsdcDecimal: amountDecimal,
+            dry,
+          }),
+        });
+        const data = (await res.json()) as {
+          ok: boolean;
+          quote?: OneClickQuoteResult;
+          error?: { message?: string };
+        };
+        if (data.ok && data.quote) {
+          setOneClickQuote(data.quote);
+          if (data.quote.depositAddress) {
+            setOneClickDepositAddress(data.quote.depositAddress);
+            setOneClickStatus("PENDING_DEPOSIT");
+          }
+        } else {
+          setOneClickQuote(null);
+        }
+      } catch {
+        setOneClickQuote(null);
+      } finally {
+        setOneClickLoading(false);
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (payRail === "ONE_CLICK_INTENTS" && item) {
+      const amt = customPayAmount || item.remainingDecimal || item.amountDecimal;
+      void fetchOneClickQuote(oneClickAsset.assetId, amt, true);
+    }
+  }, [payRail, oneClickAsset, item, customPayAmount, fetchOneClickQuote]);
+
+  useEffect(() => {
+    if (!oneClickDepositAddress || item?.status === "SETTLED") return;
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch("/api/v1/actions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "ONE_CLICK_STATUS",
+            depositAddress: oneClickDepositAddress,
+          }),
+        });
+        const data = (await res.json()) as { ok: boolean; status?: { status?: string } };
+        if (data.ok && data.status?.status) {
+          setOneClickStatus(data.status.status);
+          if (data.status.status === "SUCCESS") {
+            pushToast(
+              "success",
+              "1Click Cross-Chain Swap Settled",
+              "Funds bridged and deposited to escrow on NEAR.",
+            );
+            void loadState();
+          }
+        }
+      } catch {
+        // ignore network error during background polling
+      }
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [oneClickDepositAddress, item, loadState, pushToast]);
+
+  const handleGenerateOneClickAddress = async () => {
+    if (!item) return;
+    const amt = customPayAmount || item.remainingDecimal || item.amountDecimal;
+    await fetchOneClickQuote(oneClickAsset.assetId, amt, false);
+    pushToast(
+      "success",
+      `1Click Deposit Address Generated for ${oneClickAsset.name}`,
+      `Send funds on ${oneClickAsset.name} to complete intent.`,
+    );
+  };
+
+  const handleSimulateOneClickFulfillment = async () => {
+    if (!item) return;
+    setBusyKey("simulate_oneclick");
+    try {
+      const amt = customPayAmount || item.remainingDecimal || item.amountDecimal;
+      const res = await fetch("/api/v1/actions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "SIMULATE_BUYER_DEPOSIT",
+          escrowId: item.escrowId,
+          amountDecimal: amt,
+          payer: `solver.${oneClickAsset.blockchain}.near`,
+        }),
+      });
+      const data = (await res.json()) as { ok?: boolean; txHash?: string };
+      if (data.ok) {
+        setOneClickStatus("SUCCESS");
+        if (data.txHash) setLastTxHash(data.txHash);
+        await loadState(item.status, item.id);
+        pushToast(
+          "success",
+          "Cross-Chain Intent Settled by Solver",
+          `Simulated fulfillment from ${oneClickAsset.name} to NEAR Testnet escrow.`,
+        );
+      }
+    } finally {
+      setBusyKey(null);
+    }
   };
 
   const handleConnectMeteor = async () => {
@@ -684,6 +812,293 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
         >
           {/* Left Column: Wallet Connection + Settlement Execution */}
           <div className="fin-card" style={{ display: "flex", flexDirection: "column" }}>
+            {/* Top-Level Payment Rail Toggle: Native NEAR vs. NEAR Intents 1Click */}
+            <div
+              style={{
+                display: "flex",
+                gap: "0.5rem",
+                padding: "0.35rem",
+                background: "rgba(20, 21, 23, 0.04)",
+                borderRadius: 6,
+                marginBottom: "1.25rem",
+              }}
+            >
+              <button
+                type="button"
+                className={`filter-pill ${payRail === "NEAR_WALLET" ? "filter-pill-active" : ""}`}
+                style={{
+                  flex: 1,
+                  padding: "0.55rem 0.8rem",
+                  justifyContent: "center",
+                  fontSize: "0.82rem",
+                  fontWeight: 600,
+                }}
+                onClick={() => setPayRail("NEAR_WALLET")}
+              >
+                <span>Pay with NEAR (Meteor / Testnet)</span>
+              </button>
+              <button
+                type="button"
+                className={`filter-pill ${payRail === "ONE_CLICK_INTENTS" ? "filter-pill-active" : ""}`}
+                style={{
+                  flex: 1,
+                  padding: "0.55rem 0.8rem",
+                  justifyContent: "center",
+                  fontSize: "0.82rem",
+                  fontWeight: 600,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.45rem",
+                }}
+                onClick={() => setPayRail("ONE_CLICK_INTENTS")}
+              >
+                <span>⚡ Pay Any Chain (NEAR Intents)</span>
+                <span
+                  style={{
+                    background: "var(--sage-green)",
+                    color: "#ffffff",
+                    fontSize: "0.62rem",
+                    padding: "0.1rem 0.35rem",
+                    borderRadius: 3,
+                    fontWeight: 600,
+                  }}
+                >
+                  SOL / BASE / ETH
+                </span>
+              </button>
+            </div>
+
+            {payRail === "ONE_CLICK_INTENTS" ? (
+              <div className="form-section-last" style={{ paddingTop: 0 }}>
+                <div className="form-section-header">
+                  <span className="form-section-title">
+                    <span className="form-section-step">⚡</span>
+                    NEAR Intents 1Click Multichain Rail
+                  </span>
+                  <span className="status-pill status-pill-emerald">
+                    <span className="status-pill-dot" />
+                    Live Solver Network
+                  </span>
+                </div>
+
+                <div className="field-group" style={{ marginBottom: "1rem" }}>
+                  <label className="field-label">
+                    <span>Select Source Token &amp; Chain</span>
+                    <span className="mono-label">1Click Swap API</span>
+                  </label>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
+                      gap: "0.5rem",
+                    }}
+                  >
+                    {POPULAR_ONE_CLICK_ASSETS.map((asset) => {
+                      const isSelected = oneClickAsset.assetId === asset.assetId;
+                      return (
+                        <button
+                          key={asset.assetId}
+                          type="button"
+                          className={`filter-pill ${isSelected ? "filter-pill-active" : ""}`}
+                          style={{
+                            padding: "0.55rem 0.75rem",
+                            justifyContent: "flex-start",
+                            gap: "0.5rem",
+                            height: "auto",
+                          }}
+                          onClick={() => {
+                            setOneClickAsset(asset);
+                            setOneClickDepositAddress(null);
+                            setOneClickStatus(null);
+                          }}
+                        >
+                          <span style={{ fontSize: "1.1rem" }}>{asset.icon}</span>
+                          <div style={{ textAlign: "left" }}>
+                            <div style={{ fontWeight: 600, fontSize: "0.82rem" }}>
+                              {asset.symbol}
+                            </div>
+                            <div style={{ fontSize: "0.65rem", opacity: 0.75 }}>
+                              {asset.name}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Live Solver Quote Card */}
+                {item && (
+                  <div
+                    style={{
+                      padding: "1rem",
+                      borderRadius: 6,
+                      border: "1px solid var(--line-medium)",
+                      background: "#ffffff",
+                      marginBottom: "1rem",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        marginBottom: "0.6rem",
+                      }}
+                    >
+                      <span className="mono-label">Live Intent Solver Quote</span>
+                      {oneClickLoading ? (
+                        <span className="mono-label">Fetching Solver Quote…</span>
+                      ) : (
+                        <span className="mono-label" style={{ color: "var(--sage-green)" }}>
+                          Est. Time: {oneClickQuote?.timeEstimateSeconds ?? 20}s
+                        </span>
+                      )}
+                    </div>
+
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "baseline",
+                        padding: "0.6rem 0",
+                        borderBottom: "1px dotted var(--line-soft)",
+                      }}
+                    >
+                      <span style={{ fontSize: "0.84rem", color: "var(--ink-muted)" }}>
+                        You Send on {oneClickAsset.name}:
+                      </span>
+                      <span
+                        className="mono-data"
+                        style={{ fontSize: "1.05rem", fontWeight: 700 }}
+                      >
+                        {oneClickLoading
+                          ? "Calculating…"
+                          : `${oneClickQuote?.amountInFormatted ?? "—"} ${oneClickAsset.symbol}`}
+                      </span>
+                    </div>
+
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "baseline",
+                        padding: "0.6rem 0",
+                      }}
+                    >
+                      <span style={{ fontSize: "0.84rem", color: "var(--ink-muted)" }}>
+                        Merchant Receives on NEAR:
+                      </span>
+                      <span
+                        className="mono-data"
+                        style={{
+                          fontSize: "1.05rem",
+                          fontWeight: 700,
+                          color: "var(--sage-green)",
+                        }}
+                      >
+                        {item.amountDecimal} USDC
+                      </span>
+                    </div>
+
+                    <div className="field-hint" style={{ marginTop: "0.4rem" }}>
+                      Solvers execute cross-chain settlement directly via NEAR Intents. 0%
+                      protocol fee.
+                    </div>
+                  </div>
+                )}
+
+                {/* Deposit Address Box if Generated */}
+                {oneClickDepositAddress && item ? (
+                  <div
+                    style={{
+                      padding: "1rem",
+                      borderRadius: 6,
+                      border: "1px solid var(--sage-green)",
+                      background: "var(--sage-green-soft)",
+                      marginBottom: "1rem",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        marginBottom: "0.5rem",
+                      }}
+                    >
+                      <span
+                        className="mono-label"
+                        style={{ color: "var(--sage-green)", fontWeight: 600 }}
+                      >
+                        Single-Use Deposit Address ({oneClickAsset.name})
+                      </span>
+                      <span className="status-pill status-pill-emerald">
+                        <span className="status-pill-dot" />
+                        {oneClickStatus ?? "PENDING_DEPOSIT"}
+                      </span>
+                    </div>
+
+                    <div
+                      className="mono-data"
+                      style={{
+                        padding: "0.55rem 0.75rem",
+                        background: "#ffffff",
+                        borderRadius: 4,
+                        border: "1px solid var(--line-soft)",
+                        fontSize: "0.8rem",
+                        wordBreak: "break-all",
+                        marginBottom: "0.5rem",
+                      }}
+                    >
+                      {oneClickDepositAddress}
+                    </div>
+
+                    <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                      <button
+                        type="button"
+                        className="btn-secondary mono-data"
+                        style={{ fontSize: "0.75rem", padding: "0.35rem 0.65rem" }}
+                        onClick={() => {
+                          if (navigator.clipboard) {
+                            void navigator.clipboard.writeText(oneClickDepositAddress);
+                            pushToast("success", "Address Copied", oneClickDepositAddress);
+                          }
+                        }}
+                      >
+                        Copy Address
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-primary mono-data"
+                        style={{ fontSize: "0.75rem", padding: "0.35rem 0.65rem" }}
+                        disabled={Boolean(busyKey)}
+                        onClick={handleSimulateOneClickFulfillment}
+                      >
+                        {busyKey === "simulate_oneclick"
+                          ? "Simulating Fulfillment…"
+                          : "Simulate Solver Settlement (Testnet)"}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap" }}>
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      style={{ flex: 1 }}
+                      disabled={oneClickLoading || Boolean(busyKey) || !item}
+                      onClick={handleGenerateOneClickAddress}
+                    >
+                      <span>
+                        Generate 1Click Deposit Address ({oneClickAsset.symbol})
+                      </span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
             {/* Step 01: Wallet Provider */}
             <div className="form-section" style={{ paddingTop: 0 }}>
               <div className="form-section-header">
@@ -1007,6 +1422,8 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                   </div>
                 )}
               </div>
+            )}
+              </>
             )}
           </div>
 

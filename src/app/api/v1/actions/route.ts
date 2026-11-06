@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import {
   Money,
   NearRpcChainGateway,
+  OneClickClient,
   type AccountId,
   type Currency,
   type EscrowId,
@@ -86,6 +87,44 @@ export async function POST(request: Request) {
       amount: "100000000",
     });
     return NextResponse.json({ ok: true, txHash, explorerUrl: `${rt.explorerBaseUrl}/txns/${txHash}` });
+  }
+
+  if (action === "ONE_CLICK_QUOTE") {
+    const originAsset = String(body.originAsset ?? "nep141:sol.omft.near");
+    const amountUsdcDecimal = String(body.amountUsdcDecimal ?? "100.00");
+    const dry = body.dry !== false; // default true unless explicitly requested
+    const recipientNearAccount = "atelier-sari.near";
+
+    const client = new OneClickClient();
+    const quote = await client.requestExactOutputQuote({
+      originAsset,
+      targetUsdcAmountDecimal: amountUsdcDecimal,
+      recipientNearAccount,
+      dry,
+    });
+
+    if (!quote.ok) {
+      return NextResponse.json(
+        { ok: false, error: { code: "ONE_CLICK_QUOTE_ERROR", message: quote.error } },
+        { status: 422 },
+      );
+    }
+
+    return NextResponse.json({ ok: true, quote });
+  }
+
+  if (action === "ONE_CLICK_STATUS") {
+    const depositAddress = String(body.depositAddress ?? "").trim();
+    if (!depositAddress) {
+      return NextResponse.json(
+        { ok: false, error: { code: "MISSING_DEPOSIT_ADDRESS", message: "depositAddress is required" } },
+        { status: 400 },
+      );
+    }
+
+    const client = new OneClickClient();
+    const status = await client.getStatus(depositAddress);
+    return NextResponse.json({ ok: true, status });
   }
 
   if (action === "VERIFY_WALLET_TX") {

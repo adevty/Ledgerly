@@ -7,7 +7,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Rust](https://img.shields.io/badge/Rust-near--sdk%205.5-DEA584?logo=rust&logoColor=black)](https://near-sdk.io/)
 [![Next.js](https://img.shields.io/badge/Next.js-16%20Turbopack-000000?logo=next.js&logoColor=white)](https://nextjs.org/)
-[![Vitest](https://img.shields.io/badge/Tests-49%20Passing-6E9F18?logo=vitest&logoColor=white)](https://vitest.dev/)
+[![Vitest](https://img.shields.io/badge/Tests-52%20Passing-6E9F18?logo=vitest&logoColor=white)](https://vitest.dev/)
 [![Security Audit](https://img.shields.io/badge/Security-0%20Vulnerabilities-brightgreen)](https://docs.npmjs.com/cli/v10/commands/npm-audit)
 
 ---
@@ -96,13 +96,15 @@ Both the **Escrow Smart Contract** and the **NEP-141 Mock USDC Token** are live 
 
 ### Key Technical Innovations
 
-1. **Native Meteor PostMessenger Extension Bridge**:
+1. **NEAR Intents 1Click Multichain Rail**:
+   Direct integration with `https://1click.chaindefuser.com` solver network. Allows clients to pay invoices from any blockchain (Solana, Base, Ethereum, Arbitrum, Bitcoin) while solvers automatically execute cross-chain settlement and deliver exact USDC to the merchant on NEAR.
+2. **Native Meteor PostMessenger Extension Bridge**:
    Direct integration with `window.meteorCom` without vulnerable third-party wrapper libraries. Constructs browser-safe unsigned Borsh transactions with LE integer encoding, serialized to comma-joined Base64 format matching `@meteorwallet/sdk`.
-2. **Zero-Dependency SQLite Persistence (`node:sqlite`)**:
+3. **Zero-Dependency SQLite Persistence (`node:sqlite`)**:
    Runs native ACID WAL persistence in Node.js v24. Invoices, remittances, view key grants, double-entry ledger journals, and X25519 keypairs survive server restarts without external database setup.
-3. **Fail-Safe Depositor Refund (`claim_refund`)**:
+4. **Fail-Safe Depositor Refund (`claim_refund`)**:
    Guarantees that funds are never locked permanently. If an invoice expires or the backend goes completely offline, the depositor can call `claim_refund` directly on the smart contract to retrieve their funds.
-4. **FATF Travel Rule & Sanctions Screening**:
+5. **FATF Travel Rule & Sanctions Screening**:
    Automated threshold checks on remittances $\ge \$1,000$ USDC to enforce Travel Rule metadata capture, and sanctions screening integration with automatic aggregate blocking.
 
 ---
@@ -162,14 +164,22 @@ Open [http://localhost:3000](http://localhost:3000) in your browser:
 
 ---
 
-## 6. Testing Checkout with Meteor Wallet
+## 6. Testing Checkout Payment Rails
 
+### Option A: Native NEAR Testnet with Meteor Wallet
 1. Open **`http://localhost:3000/checkout`** in Chrome/Brave with the **Meteor Wallet Extension** installed.
 2. Ensure your Meteor Wallet is toggled to **Testnet**.
 3. Click **"Connect Meteor"** — the extension will link your testnet account.
 4. Click **"Get 100 test USDC"** — the live faucet on contract `ledgerly-usdc-a627a4c0.testnet` will mint tokens to your wallet.
 5. Click **"Sign & Pay"** — approve the `ft_transfer_call` transaction in the Meteor Wallet popup.
 6. The page will automatically detect the on-chain confirmation within 3.5 seconds and transition to **SETTLED**!
+
+### Option B: Cross-Chain Settlement with NEAR Intents (1Click)
+1. On **`http://localhost:3000/checkout`**, click the **"⚡ Pay Any Chain (NEAR Intents)"** rail tab.
+2. Select your origin token/chain: **Solana (SOL)**, **Base (ETH)**, **Arbitrum (USDC)**, **Ethereum (ETH)**, or **Bitcoin (BTC)**.
+3. Observe the live quote retrieved directly from `https://1click.chaindefuser.com/v0/quote` displaying exact input requirements, estimated fulfillment time, and zero protocol fees.
+4. Click **"Generate 1Click Deposit Address"** to obtain an authentic single-use cross-chain deposit address.
+5. Click **"Simulate Solver Settlement (Testnet)"** to immediately simulate intent fulfillment on testnet and watch the invoice settle!
 
 ---
 
