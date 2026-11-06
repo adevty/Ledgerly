@@ -22,6 +22,9 @@ export interface OneClickQuoteResult {
   readonly amountInUsd: string;
   readonly amountOut: string;
   readonly amountOutFormatted: string;
+  readonly spotPrice?: number;
+  readonly spotPriceUpdatedAt?: string;
+  readonly coingeckoId?: string;
   readonly timeEstimateSeconds: number;
   readonly deadlineIso?: string;
   readonly correlationId: string;
@@ -91,7 +94,49 @@ export const ONE_CLICK_DESTINATION_USDC =
 const BASE_URL = "https://1click.chaindefuser.com";
 
 export class OneClickClient {
+  private static tokensCache: Map<string, { price: number; priceUpdatedAt: string; coingeckoId?: string }> | null = null;
+  private static tokensCacheTime = 0;
+
   constructor(private readonly baseUrl = BASE_URL) {}
+
+  /**
+   * Fetch live token prices from 1Click token registry with caching.
+   */
+  async getTokenPrices(): Promise<Map<string, { price: number; priceUpdatedAt: string; coingeckoId?: string }>> {
+    const now = Date.now();
+    if (OneClickClient.tokensCache && now - OneClickClient.tokensCacheTime < 30_000) {
+      return OneClickClient.tokensCache;
+    }
+    try {
+      const res = await fetch(`${this.baseUrl}/v0/tokens`, {
+        signal: AbortSignal.timeout(3500),
+      });
+      if (res.ok) {
+        const tokens = (await res.json()) as Array<{
+          assetId?: string;
+          price?: number;
+          priceUpdatedAt?: string;
+          coingeckoId?: string;
+        }>;
+        const map = new Map<string, { price: number; priceUpdatedAt: string; coingeckoId?: string }>();
+        for (const t of tokens) {
+          if (t.assetId && typeof t.price === "number") {
+            map.set(t.assetId, {
+              price: t.price,
+              priceUpdatedAt: t.priceUpdatedAt ?? new Date().toISOString(),
+              coingeckoId: t.coingeckoId,
+            });
+          }
+        }
+        OneClickClient.tokensCache = map;
+        OneClickClient.tokensCacheTime = now;
+        return map;
+      }
+    } catch {
+      // ignore
+    }
+    return OneClickClient.tokensCache ?? new Map();
+  }
 
   /**
    * Request an EXACT_OUTPUT quote from NEAR Intents solvers.
@@ -174,6 +219,9 @@ export class OneClickClient {
         };
       }
 
+      const tokenPrices = await this.getTokenPrices();
+      const tokenInfo = tokenPrices.get(params.originAsset);
+
       return {
         ok: true,
         depositAddress: body.quote.depositAddress,
@@ -182,6 +230,9 @@ export class OneClickClient {
         amountInUsd: body.quote.amountInUsd,
         amountOut: body.quote.amountOut,
         amountOutFormatted: body.quote.amountOutFormatted,
+        spotPrice: tokenInfo?.price,
+        spotPriceUpdatedAt: tokenInfo?.priceUpdatedAt,
+        coingeckoId: tokenInfo?.coingeckoId,
         timeEstimateSeconds: body.quote.timeEstimate ?? 20,
         deadlineIso: body.quote.deadline,
         correlationId: body.correlationId ?? "",

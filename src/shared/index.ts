@@ -10,6 +10,7 @@ export * from "./mocks";
 export * from "./near-rpc-gateway";
 export * from "./sqlite-persistence";
 export * from "./one-click-client";
+export * from "./real-fx-adapter";
 
 
 

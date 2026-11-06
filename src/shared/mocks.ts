@@ -339,6 +339,19 @@ export class MockFxAdapter implements FxRatePort {
     this.rates[to] = rateDecimal;
   }
 
+  async getLiveRates(): Promise<Record<Currency, { rate: number; decimals: number; formatted: string; updatedAtIso: string; source: string }>> {
+    const isoDate = new Date().toISOString();
+    return {
+      USDC: { rate: 1.0, decimals: 2, formatted: "1.00", updatedAtIso: isoDate, source: "Mock Fixed" },
+      USD: { rate: 1.0, decimals: 2, formatted: "1.00", updatedAtIso: isoDate, source: "Mock Fixed" },
+      EUR: { rate: parseFloat(this.rates.EUR), decimals: 4, formatted: this.rates.EUR, updatedAtIso: isoDate, source: "Mock Fixed" },
+      PHP: { rate: parseFloat(this.rates.PHP), decimals: 2, formatted: this.rates.PHP, updatedAtIso: isoDate, source: "Mock Fixed" },
+      IDR: { rate: parseFloat(this.rates.IDR), decimals: 2, formatted: this.rates.IDR, updatedAtIso: isoDate, source: "Mock Fixed" },
+      INR: { rate: parseFloat(this.rates.INR), decimals: 2, formatted: this.rates.INR, updatedAtIso: isoDate, source: "Mock Fixed" },
+      MXN: { rate: parseFloat(this.rates.MXN), decimals: 2, formatted: this.rates.MXN, updatedAtIso: isoDate, source: "Mock Fixed" },
+    };
+  }
+
   async quote(from: Currency, to: Currency, source: Money): Promise<{ rate: string; fee: Money }> {
     if (from !== "USDC") throw new Error("MockFxAdapter only quotes from USDC");
     // Flat 0.5% fee or minimum 0.50 USDC (0 USDC for direct NEAR-account transfers)

@@ -968,15 +968,53 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                       <span style={{ fontSize: "0.84rem", color: "var(--ink-muted)" }}>
                         You Send on {oneClickAsset.name}:
                       </span>
-                      <span
-                        className="mono-data"
-                        style={{ fontSize: "1.05rem", fontWeight: 700 }}
-                      >
-                        {oneClickLoading
-                          ? "Calculating…"
-                          : `${oneClickQuote?.amountInFormatted ?? "—"} ${oneClickAsset.symbol}`}
-                      </span>
+                      <div style={{ textAlign: "right" }}>
+                        <span
+                          className="mono-data"
+                          style={{ fontSize: "1.05rem", fontWeight: 700 }}
+                        >
+                          {oneClickLoading
+                            ? "Calculating…"
+                            : `${oneClickQuote?.amountInFormatted ?? "—"} ${oneClickAsset.symbol}`}
+                        </span>
+                        {oneClickQuote?.amountInUsd && (
+                          <div
+                            className="mono-data"
+                            style={{ fontSize: "0.72rem", color: "var(--ink-muted)" }}
+                          >
+                            ≈ ${Number(oneClickQuote.amountInUsd).toFixed(2)} USD
+                          </div>
+                        )}
+                      </div>
                     </div>
+
+                    {oneClickQuote?.spotPrice ? (
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          padding: "0.45rem 0",
+                          borderBottom: "1px dotted var(--line-soft)",
+                          fontSize: "0.75rem",
+                        }}
+                      >
+                        <span style={{ color: "var(--ink-muted)" }}>
+                          Live Spot Price ({oneClickAsset.symbol}):
+                        </span>
+                        <div style={{ textAlign: "right" }}>
+                          <span className="mono-data" style={{ fontWeight: 600 }}>
+                            ${oneClickQuote.spotPrice.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
+                          </span>
+                          <span
+                            className="mono-label"
+                            style={{ color: "var(--sage-green)", marginLeft: "0.4rem", fontSize: "0.65rem" }}
+                          >
+                            🟢 Live CEX/DEX Feed
+                          </span>
+                        </div>
+                      </div>
+                    ) : null}
 
                     <div
                       style={{
@@ -1001,9 +1039,31 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                       </span>
                     </div>
 
-                    <div className="field-hint" style={{ marginTop: "0.4rem" }}>
-                      Solvers execute cross-chain settlement directly via NEAR Intents. 0%
-                      protocol fee.
+                    <div
+                      className="field-hint"
+                      style={{
+                        marginTop: "0.4rem",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                      }}
+                    >
+                      <span>
+                        Solvers execute cross-chain intent settlement directly via NEAR Intents.
+                      </span>
+                      <a
+                        href="https://1click.chaindefuser.com"
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{
+                          color: "var(--sage-green)",
+                          textDecoration: "underline",
+                          fontSize: "0.7rem",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        Live Solver API ↗
+                      </a>
                     </div>
                   </div>
                 )}

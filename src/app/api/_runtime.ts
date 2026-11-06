@@ -6,6 +6,7 @@ import {
   MockScreeningAdapter,
   NearRpcChainGateway,
   openLedgerlySqliteDb,
+  RealFxAdapter,
   SqliteIdempotencyStore,
   SqliteLedgerAdapter,
   SqlitePaymentRequestRepository,
@@ -53,7 +54,7 @@ export interface LedgerlyRuntime {
   readonly outbox: InMemoryOutbox;
   readonly chain: MockChainGateway | NearRpcChainGateway;
   readonly ledger: SqliteLedgerAdapter;
-  readonly fx: MockFxAdapter;
+  readonly fx: RealFxAdapter;
   readonly offRamp: MockOffRampAdapter;
   readonly screening: MockScreeningAdapter;
   readonly paymentRepo: SqlitePaymentRequestRepository;
@@ -117,7 +118,7 @@ async function createSeededRuntime(): Promise<LedgerlyRuntime> {
       : new MockChainGateway();
 
   const ledger = new SqliteLedgerAdapter(db);
-  const fx = new MockFxAdapter();
+  const fx = new RealFxAdapter();
   const offRamp = new MockOffRampAdapter();
   const screening = new MockScreeningAdapter();
 
@@ -432,5 +433,6 @@ export async function buildDashboardSnapshot() {
       entriesCount: ledgerEntries.length,
       csv: exportLedgerToCsv(ledgerEntries),
     },
+    fxRates: await rt.fx.getLiveRates(),
   };
 }

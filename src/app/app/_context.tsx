@@ -94,6 +94,16 @@ export interface DashboardState {
     entriesCount: number;
     csv: string;
   };
+  fxRates?: Record<
+    string,
+    {
+      rate: number;
+      decimals: number;
+      formatted: string;
+      updatedAtIso: string;
+      source: string;
+    }
+  >;
 }
 
 export interface ToastItem {
