@@ -140,7 +140,23 @@ export async function POST(request: Request) {
     }
 
     if (rt.chain instanceof NearRpcChainGateway) {
-      await rt.chain.ingestExternalTransaction(txHash, senderAccountId);
+      try {
+        await rt.chain.ingestExternalTransaction(txHash, senderAccountId);
+      } catch (err) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: {
+              code: "TX_INGEST_FAILED",
+              message:
+                err instanceof Error
+                  ? err.message
+                  : "Transaction hash not found or could not be verified on NEAR RPC.",
+            },
+          },
+          { status: 422 },
+        );
+      }
     }
     await rt.indexer.runOnce();
     return NextResponse.json({

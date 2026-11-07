@@ -146,12 +146,22 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
             senderAccountId,
           }),
         });
-        const body = (await res.json()) as {
+        let body: {
           ok?: boolean;
           txHash?: string;
           error?: { message?: string };
-        };
-        if (res.ok && body.ok) {
+        } | null = null;
+        try {
+          body = (await res.json()) as {
+            ok?: boolean;
+            txHash?: string;
+            error?: { message?: string };
+          };
+        } catch {
+          // If response body is empty or non-JSON
+        }
+
+        if (res.ok && body?.ok) {
           setLastTxHash(cleanHash);
           setExternalTxInput("");
           await loadState();
@@ -161,7 +171,9 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
             `Receipt ${cleanHash.slice(0, 14)}… ingested from NEAR RPC`,
           );
         } else {
-          setErrorBanner(body.error?.message ?? "Could not verify transaction hash on NEAR RPC.");
+          setErrorBanner(
+            body?.error?.message ?? `Could not verify transaction hash on NEAR RPC (HTTP ${res.status}).`,
+          );
         }
       } finally {
         setBusyKey(null);

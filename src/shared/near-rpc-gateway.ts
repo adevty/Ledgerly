@@ -684,11 +684,61 @@ export class NearRpcChainGateway implements ChainGateway {
     txHash: TxHash,
     senderAccountId?: AccountId,
   ): Promise<readonly OnchainEvent[]> {
-    const outcome = await this.rpcCall<{
+    let resolvedSigner = senderAccountId;
+
+    // If senderAccountId is not passed, attempt to query the Nearblocks indexer to resolve signer_account_id
+    if (!resolvedSigner) {
+      try {
+        const isTestnet = this.rpcUrl.includes("testnet") || this.rpcUrl.includes("test.");
+        const indexerUrl = isTestnet
+          ? `https://api-testnet.nearblocks.io/v3/txns/${txHash}`
+          : `https://api.nearblocks.io/v3/txns/${txHash}`;
+        const res = await fetch(indexerUrl, { signal: AbortSignal.timeout(3500) });
+        if (res.ok) {
+          const body = (await res.json()) as { data?: { signer_account_id?: string } };
+          if (body.data?.signer_account_id) {
+            resolvedSigner = body.data.signer_account_id as AccountId;
+          }
+        }
+      } catch {
+        // Fallback to candidates below
+      }
+    }
+
+    const candidateAccounts: AccountId[] = [
+      ...(resolvedSigner ? [resolvedSigner] : []),
+      this.escrowContractId,
+      this.operatorAccountId,
+    ];
+
+    let outcome: {
       status?: { Failure?: unknown };
       transaction_outcome?: { outcome?: { logs?: string[] } };
       receipts_outcome?: Array<{ outcome?: { logs?: string[] } }>;
-    }>("tx", [txHash, senderAccountId ?? this.operatorAccountId]);
+    } | null = null;
+    let lastError: unknown = null;
+
+    for (const candidate of candidateAccounts) {
+      try {
+        const res = await this.rpcCall<{
+          status?: { Failure?: unknown };
+          transaction_outcome?: { outcome?: { logs?: string[] } };
+          receipts_outcome?: Array<{ outcome?: { logs?: string[] } }>;
+        }>("tx", [txHash, candidate]);
+        if (res && (res.transaction_outcome || res.receipts_outcome || res.status)) {
+          outcome = res;
+          break;
+        }
+      } catch (err) {
+        lastError = err;
+      }
+    }
+
+    if (!outcome) {
+      throw new Error(
+        `Transaction ${txHash} not found on NEAR RPC: ${lastError instanceof Error ? lastError.message : String(lastError)}`,
+      );
+    }
 
     if (outcome.status && "Failure" in outcome.status) {
       throw new Error(
