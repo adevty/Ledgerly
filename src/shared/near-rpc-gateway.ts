@@ -826,7 +826,7 @@ export class NearRpcChainGateway implements ChainGateway {
 
   /**
    * Verify and ingest an external wallet transaction (`?transactionHashes=...` from MyNearWallet
-   * or browser extension wallet) directly from NEAR JSON-RPC `tx` endpoint.
+   * or browser extension wallet) directly from Nearblocks Indexer or NEAR JSON-RPC `tx` endpoint.
    */
   async ingestExternalTransaction(
     txHash: TxHash,
@@ -834,23 +834,85 @@ export class NearRpcChainGateway implements ChainGateway {
   ): Promise<readonly OnchainEvent[]> {
     let resolvedSigner = senderAccountId;
 
-    // If senderAccountId is not passed, attempt to query the Nearblocks indexer to resolve signer_account_id
-    if (!resolvedSigner) {
-      try {
-        const isTestnet = this.rpcUrl.includes("testnet") || this.rpcUrl.includes("test.");
-        const indexerUrl = isTestnet
-          ? `https://api-testnet.nearblocks.io/v3/txns/${txHash}`
-          : `https://api.nearblocks.io/v3/txns/${txHash}`;
-        const res = await fetch(indexerUrl, { signal: AbortSignal.timeout(3500) });
-        if (res.ok) {
-          const body = (await res.json()) as { data?: { signer_account_id?: string } };
-          if (body.data?.signer_account_id) {
+    // 1. Attempt to resolve transaction via Nearblocks Indexer v3 (fast, zero JSON-RPC rate limits)
+    try {
+      const isTestnet = this.rpcUrl.includes("testnet") || this.rpcUrl.includes("test.");
+      const indexerUrl = isTestnet
+        ? `https://api-testnet.nearblocks.io/v3/txns/${txHash}`
+        : `https://api.nearblocks.io/v3/txns/${txHash}`;
+      const res = await fetch(indexerUrl, { signal: AbortSignal.timeout(4000) });
+      if (res.ok) {
+        const body = (await res.json()) as {
+          data?: {
+            signer_account_id?: string;
+            receiver_account_id?: string;
+            outcomes?: { status?: boolean };
+            block?: { block_height?: string };
+            actions?: Array<{
+              action?: string;
+              method?: string;
+              args?: {
+                args_json?: {
+                  msg?: string;
+                  amount?: string;
+                  receiver_id?: string;
+                };
+              };
+            }>;
+          } | null;
+        };
+
+        if (body.data === null) {
+          // Explicit 404 from Nearblocks: transaction hash does not exist on NEAR network
+          throw new Error(`Transaction ${txHash} was not found on NEAR ${isTestnet ? "Testnet" : "Mainnet"}.`);
+        }
+
+        if (body.data) {
+          if (body.data.signer_account_id) {
             resolvedSigner = body.data.signer_account_id as AccountId;
           }
+
+          // Check if indexer actions contain ft_transfer_call to our escrow contract
+          const actions = body.data.actions ?? [];
+          for (const act of actions) {
+            const args = act.args?.args_json;
+            if (args?.receiver_id === this.escrowContractId && args.msg) {
+              try {
+                let msgObj = typeof args.msg === "string" ? JSON.parse(args.msg) : args.msg;
+                if (typeof msgObj === "string") {
+                  msgObj = JSON.parse(msgObj);
+                }
+                const escrowId = String(msgObj.escrow_id ?? "") as EscrowId;
+                if (escrowId) {
+                  const depositor = String(msgObj.depositor ?? body.data.signer_account_id) as AccountId;
+                  const amountMinor = BigInt(String(args.amount ?? "0"));
+                  const blockHeight = BigInt(body.data.block?.block_height ?? this.latestBlockHeight);
+                  const ev: OnchainEvent = {
+                    type: "OnchainDepositDetected",
+                    txHash,
+                    logIndex: 0,
+                    blockHeight,
+                    escrowId,
+                    depositor,
+                    amountMinor,
+                  };
+                  this.escrowCache.delete(escrowId);
+                  this.recordedEvents.push(ev);
+                  return [ev];
+                }
+              } catch {
+                // fall through to RPC inspection
+              }
+            }
+          }
         }
-      } catch {
-        // Fallback to candidates below
       }
+    } catch (indexerErr) {
+      const msg = indexerErr instanceof Error ? indexerErr.message : String(indexerErr);
+      if (msg.includes("was not found on NEAR")) {
+        throw indexerErr;
+      }
+      // Indexer network error; fall through to RPC
     }
 
     const candidateAccounts: AccountId[] = Array.from(
@@ -872,7 +934,7 @@ export class NearRpcChainGateway implements ChainGateway {
       new Set([
         this.rpcUrl,
         ...(this.rpcUrl.includes("testnet") || this.rpcUrl.includes("test.")
-          ? ["https://archival-rpc.testnet.near.org"]
+          ? ["https://near-testnet.drpc.org", "https://archival-rpc.testnet.near.org"]
           : []),
       ]),
     );
@@ -897,9 +959,13 @@ export class NearRpcChainGateway implements ChainGateway {
     }
 
     if (!outcome) {
-      throw new Error(
-        `Transaction ${txHash} not found on NEAR RPC: ${lastError instanceof Error ? lastError.message : String(lastError)}`,
-      );
+      const msg = lastError instanceof Error ? lastError.message : String(lastError);
+      if (msg.includes("429") || msg.toLowerCase().includes("rate limit")) {
+        throw new Error(
+          `RPC Provider rate limited. Transaction ${txHash} not yet observed on-chain. Please verify hash on Nearblocks or retry shortly.`,
+        );
+      }
+      throw new Error(`Transaction ${txHash} not found on NEAR RPC: ${msg}`);
     }
 
     if (outcome.status && "Failure" in outcome.status) {

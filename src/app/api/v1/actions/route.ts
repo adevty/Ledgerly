@@ -167,15 +167,21 @@ export async function POST(request: Request) {
           }
         ).ingestExternalTransaction(txHash, senderAccountId);
       } catch (err) {
+        const rawMsg = err instanceof Error ? err.message : String(err);
+        const isRateLimit =
+          rawMsg.includes("429") ||
+          rawMsg.toLowerCase().includes("rate limit") ||
+          rawMsg.includes("DEPRECATED");
+        const message = isRateLimit
+          ? `Jaringan RPC publik NEAR Testnet sedang sibuk (rate limit tercapai). Transaksi ${txHash} belum dapat diverifikasi saat ini. Silakan coba kembali dalam beberapa detik.`
+          : rawMsg;
+
         return NextResponse.json(
           {
             ok: false,
             error: {
               code: "TX_NOT_FOUND",
-              message:
-                err instanceof Error
-                  ? err.message
-                  : `Transaction ${txHash} not found on NEAR RPC or indexer.`,
+              message,
             },
           },
           { status: 422 },
