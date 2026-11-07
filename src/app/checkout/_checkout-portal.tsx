@@ -881,29 +881,140 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                   </span>
                 </div>
 
-                {/* Testnet Evaluation & Safety Warning Banner */}
+                {/* Protocol Execution Routing Matrix (Fintech Precision Callout) */}
                 <div
                   style={{
-                    padding: "0.85rem 1rem",
+                    marginBottom: "1.15rem",
                     borderRadius: 6,
-                    border: "1px solid #f59e0b",
-                    background: "#fffbeb",
-                    marginBottom: "1rem",
-                    display: "flex",
-                    gap: "0.75rem",
-                    alignItems: "flex-start",
+                    border: "1px solid var(--line-medium)",
+                    background: "var(--bg-ivory-card)",
+                    overflow: "hidden",
                   }}
                 >
-                  <span style={{ fontSize: "1.25rem", lineHeight: 1 }}>⚠️</span>
-                  <div style={{ fontSize: "0.78rem", lineHeight: 1.45, color: "#92400e" }}>
-                    <div style={{ fontWeight: 700, marginBottom: "0.2rem", color: "#b45309" }}>
-                      Hackathon Evaluation Mode (NEAR Testnet Escrow Contract)
+                  <div
+                    style={{
+                      padding: "0.5rem 0.85rem",
+                      background: "rgba(20, 21, 23, 0.03)",
+                      borderBottom: "1px solid var(--line-soft)",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      fontSize: "0.68rem",
+                      flexWrap: "wrap",
+                      gap: "0.4rem",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.45rem" }}>
+                      <span
+                        style={{
+                          width: 6,
+                          height: 6,
+                          borderRadius: "50%",
+                          background: "var(--amber-warm)",
+                          display: "inline-block",
+                        }}
+                      />
+                      <span
+                        className="mono-label"
+                        style={{
+                          letterSpacing: "0.06em",
+                          fontWeight: 600,
+                          color: "var(--ink-charcoal)",
+                        }}
+                      >
+                        ROUTING SPEC // EVALUATION RUNTIME
+                      </span>
                     </div>
-                    <div>
-                      Quotes and single-use deposit addresses are queried from the <strong>live NEAR Intents mainnet solver API</strong>.
-                      Because Ledgerly’s escrow contract is currently deployed on <strong>NEAR Testnet</strong> (for zero-cost judge evaluation),
-                      <strong> please do NOT send real mainnet SOL/ETH funds</strong>.
-                      Use the <strong>Simulate Solver Settlement</strong> button below to test zero-cost atomic settlement into the escrow contract.
+                    <span
+                      className="mono-label"
+                      style={{
+                        fontSize: "0.64rem",
+                        color: "var(--ink-muted)",
+                      }}
+                    >
+                      SOLVER: MAINNET · ESCROW: TESTNET
+                    </span>
+                  </div>
+
+                  <div style={{ padding: "0.75rem 0.85rem" }}>
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                        gap: "0.6rem",
+                        marginBottom: "0.65rem",
+                      }}
+                    >
+                      <div
+                        style={{
+                          padding: "0.45rem 0.6rem",
+                          borderRadius: 4,
+                          background: "var(--bg-ivory)",
+                          border: "1px solid var(--line-soft)",
+                        }}
+                      >
+                        <div
+                          className="mono-label"
+                          style={{ fontSize: "0.62rem", color: "var(--ink-muted)", marginBottom: "0.15rem" }}
+                        >
+                          SOLVER ORACLE RAIL
+                        </div>
+                        <div
+                          className="mono-data"
+                          style={{ fontSize: "0.76rem", fontWeight: 600, color: "var(--ink-charcoal)" }}
+                        >
+                          NEAR Intents Mainnet API
+                        </div>
+                      </div>
+
+                      <div
+                        style={{
+                          padding: "0.45rem 0.6rem",
+                          borderRadius: 4,
+                          background: "var(--bg-ivory)",
+                          border: "1px solid var(--line-soft)",
+                        }}
+                      >
+                        <div
+                          className="mono-label"
+                          style={{ fontSize: "0.62rem", color: "var(--ink-muted)", marginBottom: "0.15rem" }}
+                        >
+                          SETTLEMENT TARGET
+                        </div>
+                        <div
+                          className="mono-data"
+                          style={{ fontSize: "0.76rem", fontWeight: 600, color: "var(--sage-green)" }}
+                        >
+                          ledgerly-escrow-9e70f9ea.testnet
+                        </div>
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        fontSize: "0.73rem",
+                        lineHeight: 1.45,
+                        color: "var(--ink-muted)",
+                        display: "flex",
+                        alignItems: "flex-start",
+                        gap: "0.5rem",
+                      }}
+                    >
+                      <span
+                        style={{
+                          color: "var(--amber-warm)",
+                          fontWeight: 700,
+                          fontFamily: "var(--font-mono)",
+                          fontSize: "0.68rem",
+                          flexShrink: 0,
+                          marginTop: "0.08rem",
+                        }}
+                      >
+                        [EVALUATION NOTE]
+                      </span>
+                      <span>
+                        Pricing quotes and deposit addresses query production 1Click solvers in real-time. Because the escrow contract is on <strong>NEAR Testnet</strong> for zero-cost judge evaluation, do not transfer real mainnet assets. Use the <strong>Simulate Solver Settlement</strong> action below to test atomic settlement.
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -1099,10 +1210,10 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                 {oneClickDepositAddress && item ? (
                   <div
                     style={{
-                      padding: "1rem",
+                      padding: "0.85rem 1rem",
                       borderRadius: 6,
-                      border: "1px solid #f59e0b",
-                      background: "#fffbeb",
+                      border: "1px solid var(--line-medium)",
+                      background: "var(--bg-ivory-card)",
                       marginBottom: "1rem",
                     }}
                   >
@@ -1111,7 +1222,7 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                         display: "flex",
                         justifyContent: "space-between",
                         alignItems: "center",
-                        marginBottom: "0.5rem",
+                        marginBottom: "0.6rem",
                         flexWrap: "wrap",
                         gap: "0.4rem",
                       }}
@@ -1119,22 +1230,20 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                       <div style={{ display: "flex", alignItems: "center", gap: "0.45rem", flexWrap: "wrap" }}>
                         <span
                           className="mono-label"
-                          style={{ color: "#92400e", fontWeight: 700 }}
+                          style={{ color: "var(--ink-charcoal)", fontWeight: 600 }}
                         >
-                          Single-Use Deposit Address ({oneClickAsset.name})
+                          INTENT DEPOSIT TARGET // {oneClickAsset.symbol} ({oneClickAsset.name.toUpperCase()})
                         </span>
                         <span
+                          className="status-transition-tag"
                           style={{
+                            color: "var(--amber-warm)",
+                            background: "var(--amber-warm-soft)",
                             fontSize: "0.62rem",
-                            background: "#fee2e2",
-                            color: "#991b1b",
-                            border: "1px solid #f87171",
-                            padding: "0.1rem 0.35rem",
-                            borderRadius: 3,
-                            fontWeight: 700,
+                            fontWeight: 600,
                           }}
                         >
-                          DO NOT SEND REAL FUNDS
+                          TESTNET EVALUATION
                         </span>
                       </div>
                       <span className="status-pill status-pill-emerald">
@@ -1149,64 +1258,71 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                         padding: "0.55rem 0.75rem",
                         background: "#ffffff",
                         borderRadius: 4,
-                        border: "1px solid #fed7aa",
-                        fontSize: "0.8rem",
+                        border: "1px solid var(--line-soft)",
+                        fontSize: "0.78rem",
                         wordBreak: "break-all",
-                        marginBottom: "0.5rem",
-                        color: "#78350f",
+                        marginBottom: "0.55rem",
+                        color: "var(--ink-charcoal)",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        gap: "0.5rem",
                       }}
                     >
-                      {oneClickDepositAddress}
-                    </div>
-
-                    <div
-                      style={{
-                        fontSize: "0.74rem",
-                        color: "#92400e",
-                        marginBottom: "0.75rem",
-                        lineHeight: 1.45,
-                      }}
-                    >
-                      Programmatic intent address generated via NEAR Intents 1Click API.
-                      To avoid loss of real funds during hackathon testing, do <strong>NOT</strong> transfer real mainnet assets. Click <strong>Simulate Solver Settlement</strong> below to test zero-cost atomic settlement into our testnet escrow contract.
-                    </div>
-
-                    <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-                      <button
-                        type="button"
-                        className="btn-primary mono-data"
-                        style={{
-                          fontSize: "0.78rem",
-                          padding: "0.45rem 0.85rem",
-                          background: "var(--sage-green)",
-                          border: "none",
-                          fontWeight: 600,
-                        }}
-                        disabled={Boolean(busyKey)}
-                        onClick={handleSimulateOneClickFulfillment}
-                      >
-                        {busyKey === "simulate_oneclick"
-                          ? "Simulating Fulfillment…"
-                          : "⚡ Simulate Solver Settlement (Testnet)"}
-                      </button>
+                      <span>{oneClickDepositAddress}</span>
                       <button
                         type="button"
                         className="btn-secondary mono-data"
-                        style={{ fontSize: "0.75rem", padding: "0.45rem 0.65rem" }}
+                        style={{
+                          fontSize: "0.68rem",
+                          padding: "0.22rem 0.45rem",
+                          flexShrink: 0,
+                          height: "auto",
+                        }}
                         onClick={() => {
                           if (navigator.clipboard) {
                             void navigator.clipboard.writeText(oneClickDepositAddress);
                             pushToast(
                               "success",
                               "Deposit Address Copied",
-                              "Inspection only: Do NOT send real mainnet funds during testnet demo.",
+                              "Inspection only: Contract runs on NEAR Testnet for evaluation.",
                             );
                           }
                         }}
                       >
-                        Copy Address (Inspection)
+                        Copy
                       </button>
                     </div>
+
+                    <div
+                      style={{
+                        fontSize: "0.72rem",
+                        color: "var(--ink-muted)",
+                        marginBottom: "0.75rem",
+                        lineHeight: 1.45,
+                      }}
+                    >
+                      Live programmatic solver address. To settle the invoice without real mainnet capital, execute the automated solver settlement relayer below.
+                    </div>
+
+                    <button
+                      type="button"
+                      className="btn-primary mono-data"
+                      style={{
+                        fontSize: "0.78rem",
+                        padding: "0.5rem 0.85rem",
+                        background: "var(--sage-green)",
+                        width: "100%",
+                        justifyContent: "center",
+                        fontWeight: 600,
+                      }}
+                      disabled={Boolean(busyKey)}
+                      onClick={handleSimulateOneClickFulfillment}
+                    >
+                      {busyKey === "simulate_oneclick"
+                        ? "Relaying Testnet Escrow Settlement…"
+                        : `⚡ Execute Solver Settlement on NEAR Testnet (${item.amountDecimal} USDC)`}
+                    </button>
                   </div>
                 ) : (
                   <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap" }}>
