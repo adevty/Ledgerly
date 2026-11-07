@@ -183,6 +183,9 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
     if (activeSession) {
       setWallet(activeSession);
       setCustomBuyerAccount(activeSession.accountId);
+      if (activeSession.network === "mainnet" || activeSession.network === "testnet") {
+        setMeteorNetwork(activeSession.network);
+      }
     }
     if (callback.transactionHashes.length > 0) {
       const firstTx = callback.transactionHashes[0]!;
@@ -332,18 +335,23 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
     }
   };
 
-  const handleConnectMeteor = async () => {
+  const handleConnectMeteor = async (overrideNetwork?: "testnet" | "mainnet") => {
+    const targetNet = overrideNetwork ?? meteorNetwork;
+    setMeteorNetwork(targetNet);
     setBusyKey("connect_meteor");
     setErrorBanner(null);
     try {
-      const contractId = network?.escrowContractId ?? "ledgerly-escrow-9e70f9ea.testnet";
-      const session = await connectMeteorWallet(contractId, meteorNetwork);
+      const contractId =
+        targetNet === "mainnet"
+          ? "17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1"
+          : network?.escrowContractId ?? "ledgerly-escrow-9e70f9ea.testnet";
+      const session = await connectMeteorWallet(contractId, targetNet);
       setWallet(session);
       setCustomBuyerAccount(session.accountId);
       pushToast(
         "success",
-        "Meteor Wallet Connected",
-        `${session.accountId} (${session.network.toUpperCase()})`,
+        `Meteor Wallet Connected (${session.network.toUpperCase()})`,
+        `${session.accountId} active on ${session.network.toUpperCase()}`,
       );
     } catch (err) {
       const message =
@@ -353,6 +361,12 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
     } finally {
       setBusyKey(null);
     }
+  };
+
+  const handleSwitchMeteorNetwork = async (targetNet: "testnet" | "mainnet") => {
+    setMeteorNetwork(targetNet);
+    // Request network connection/switch in Meteor Wallet extension immediately
+    await handleConnectMeteor(targetNet);
   };
 
   const handleConnectMyNearWallet = () => {
@@ -627,7 +641,7 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                 className="btn-primary"
                 style={{ padding: "0.36rem 0.75rem", fontSize: "0.76rem" }}
                 disabled={busyKey === "connect_meteor"}
-                onClick={handleConnectMeteor}
+                onClick={() => void handleConnectMeteor()}
               >
                 {busyKey === "connect_meteor" ? (
                   <>
@@ -778,11 +792,26 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
               >
                 {wallet ? wallet.accountId : "Not Connected"}
               </div>
-              <span className="mono-label">
-                {wallet
-                  ? `${wallet.provider.replace(/_/g, " ")} (${wallet.network})`
-                  : "Meteor / MyNearWallet / Ed25519"}
-              </span>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.45rem", marginTop: "0.2rem" }}>
+                <span className="mono-label">
+                  {wallet
+                    ? `${wallet.provider.replace(/_/g, " ")}`
+                    : "Meteor / MyNearWallet / Ed25519"}
+                </span>
+                {wallet && (
+                  <span
+                    className="status-transition-tag"
+                    style={{
+                      fontSize: "0.62rem",
+                      color: wallet.network === "mainnet" ? "var(--slate-blue)" : "var(--sage-green)",
+                      background: wallet.network === "mainnet" ? "var(--slate-blue-soft)" : "var(--sage-green-soft)",
+                      fontWeight: 600,
+                    }}
+                  >
+                    {wallet.network.toUpperCase()}
+                  </span>
+                )}
+              </div>
             </div>
           </section>
         )}
@@ -1410,21 +1439,39 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                     <div className="filter-pill-group" aria-label="Meteor Network">
                       <button
                         type="button"
-                        onClick={() => setMeteorNetwork("testnet")}
+                        onClick={() => void handleSwitchMeteorNetwork("testnet")}
+                        disabled={busyKey === "connect_meteor"}
                         className={`filter-pill ${
                           meteorNetwork === "testnet" ? "filter-pill-active" : ""
                         }`}
+                        title="Switch to NEAR Testnet in Meteor Wallet"
                       >
-                        Testnet
+                        {busyKey === "connect_meteor" && meteorNetwork === "testnet" ? (
+                          <>
+                            <span className="btn-spinner" aria-hidden="true" style={{ width: 10, height: 10 }} />
+                            <span>Switching…</span>
+                          </>
+                        ) : (
+                          "Testnet"
+                        )}
                       </button>
                       <button
                         type="button"
-                        onClick={() => setMeteorNetwork("mainnet")}
+                        onClick={() => void handleSwitchMeteorNetwork("mainnet")}
+                        disabled={busyKey === "connect_meteor"}
                         className={`filter-pill ${
                           meteorNetwork === "mainnet" ? "filter-pill-active" : ""
                         }`}
+                        title="Switch to NEAR Mainnet in Meteor Wallet"
                       >
-                        Mainnet
+                        {busyKey === "connect_meteor" && meteorNetwork === "mainnet" ? (
+                          <>
+                            <span className="btn-spinner" aria-hidden="true" style={{ width: 10, height: 10 }} />
+                            <span>Switching…</span>
+                          </>
+                        ) : (
+                          "Mainnet"
+                        )}
                       </button>
                     </div>
 
@@ -1433,7 +1480,7 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                       className="btn-primary"
                       style={{ padding: "0.48rem 0.9rem", fontSize: "0.8rem" }}
                       disabled={Boolean(busyKey)}
-                      onClick={handleConnectMeteor}
+                      onClick={() => void handleConnectMeteor()}
                     >
                       {busyKey === "connect_meteor" ? (
                         <>
@@ -1441,7 +1488,7 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                           <span>Connecting…</span>
                         </>
                       ) : wallet?.provider === "METEOR_WALLET" ? (
-                        <span>Reconnect Meteor</span>
+                        <span>Reconnect ({meteorNetwork.toUpperCase()})</span>
                       ) : (
                         <span>Connect Meteor</span>
                       )}

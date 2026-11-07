@@ -293,6 +293,12 @@ export async function connectMeteorWallet(
 ): Promise<NearWalletSession> {
   const generatedPublicKey = await generateRandomNearPublicKey();
 
+  // If Mainnet is selected, ensure contractId does not point to a .testnet account
+  const targetContractId =
+    preferredNetwork === "mainnet" && contractId.endsWith(".testnet")
+      ? "17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1"
+      : contractId;
+
   try {
     const payload = await runMeteorPostMessageAction({
       network: preferredNetwork,
@@ -300,7 +306,7 @@ export async function connectMeteorWallet(
       inputs: {
         public_key: generatedPublicKey,
         type: "ALL_METHODS",
-        contract_id: contractId,
+        contract_id: targetContractId,
       },
     });
 
@@ -324,14 +330,14 @@ export async function connectMeteorWallet(
     if (msg.toLowerCase().includes("closed")) {
       throw err;
     }
-    // If testnet login failed because the user only has a Mainnet account in Meteor Wallet,
-    // attempt `verify_owner` on Mainnet so they can still authenticate their Meteor Wallet.
-    if (preferredNetwork === "testnet") {
+
+    // Attempt verify_owner fallback on the preferred network
+    try {
       const verifyPayload = await runMeteorPostMessageAction({
-        network: "mainnet",
+        network: preferredNetwork,
         actionType: "verify_owner",
         inputs: {
-          message: `Authenticate with Ledgerly Confidential Checkout (${contractId})`,
+          message: `Authenticate with Ledgerly Checkout on ${preferredNetwork.toUpperCase()}`,
         },
       });
       if (verifyPayload?.accountId) {
@@ -339,11 +345,40 @@ export async function connectMeteorWallet(
           accountId: verifyPayload.accountId,
           publicKey: verifyPayload.publicKey ?? generatedPublicKey,
           provider: "METEOR_WALLET",
-          network: "mainnet",
+          network: preferredNetwork,
           connectedAtIso: new Date().toISOString(),
         };
         saveNearWalletSession(session);
         return session;
+      }
+    } catch {
+      // Secondary fallback below
+    }
+
+    // If testnet login failed because the user only has a Mainnet account in Meteor Wallet,
+    // attempt `verify_owner` on Mainnet so they can still authenticate their Meteor Wallet.
+    if (preferredNetwork === "testnet") {
+      try {
+        const verifyPayload = await runMeteorPostMessageAction({
+          network: "mainnet",
+          actionType: "verify_owner",
+          inputs: {
+            message: `Authenticate with Ledgerly Confidential Checkout (${targetContractId})`,
+          },
+        });
+        if (verifyPayload?.accountId) {
+          const session: NearWalletSession = {
+            accountId: verifyPayload.accountId,
+            publicKey: verifyPayload.publicKey ?? generatedPublicKey,
+            provider: "METEOR_WALLET",
+            network: "mainnet",
+            connectedAtIso: new Date().toISOString(),
+          };
+          saveNearWalletSession(session);
+          return session;
+        }
+      } catch {
+        // ignore
       }
     }
     throw err;
