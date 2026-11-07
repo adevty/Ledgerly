@@ -13,6 +13,10 @@ export const CURRENCY_DECIMALS = {
   IDR: 2,
   INR: 2,
   MXN: 2,
+  AUD: 2,
+  SGD: 2,
+  KRW: 2,
+  JPY: 2,
 } as const;
 
 export type Currency = keyof typeof CURRENCY_DECIMALS;

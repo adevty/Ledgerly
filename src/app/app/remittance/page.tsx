@@ -24,13 +24,19 @@ interface LockedQuotePreview {
 
 type RemittanceFilter = "ALL" | "PENDING_OR_FAILED" | "SETTLED";
 
+type SupportedCorridorCurrency = "PHP" | "IDR" | "EUR" | "AUD" | "SGD" | "KRW" | "JPY" | "USDC";
+
 const DEFAULT_CORRIDOR_RATES: Record<
-  "PHP" | "IDR" | "EUR" | "USDC",
+  SupportedCorridorCurrency,
   { rate: number; decimals: number; source: string; updatedAt?: string }
 > = {
   PHP: { rate: 63.02, decimals: 2, source: "open.er-api.com" },
   IDR: { rate: 18080.0, decimals: 0, source: "open.er-api.com" },
   EUR: { rate: 0.8905, decimals: 4, source: "open.er-api.com" },
+  AUD: { rate: 1.455, decimals: 2, source: "open.er-api.com" },
+  SGD: { rate: 1.282, decimals: 2, source: "open.er-api.com" },
+  KRW: { rate: 1356.0, decimals: 0, source: "open.er-api.com" },
+  JPY: { rate: 158.3, decimals: 2, source: "open.er-api.com" },
   USDC: { rate: 1.0, decimals: 2, source: "Parity (1:1)" },
 };
 
@@ -49,7 +55,7 @@ export default function RemittancePage() {
   const amountInputRef = useRef<HTMLInputElement | null>(null);
 
   const [remitAmount, setRemitAmount] = useState("250.00");
-  const [remitCurrency, setRemitCurrency] = useState<"PHP" | "IDR" | "EUR" | "USDC">("PHP");
+  const [remitCurrency, setRemitCurrency] = useState<SupportedCorridorCurrency>("PHP");
   const [remitRecipient, setRemitRecipient] = useState("Manila Loom Works");
   const [remitDest, setRemitDest] = useState("GCASH:+63-917-402-8819");
   const [remitMode, setRemitMode] = useState<"SUCCESS" | "TRANSIENT_FAILURE">("SUCCESS");
@@ -81,6 +87,30 @@ export default function RemittancePage() {
         decimals: 4,
         source: live?.EUR?.source ?? DEFAULT_CORRIDOR_RATES.EUR.source,
         updatedAt: live?.EUR?.updatedAtIso,
+      },
+      AUD: {
+        rate: live?.AUD?.rate ?? DEFAULT_CORRIDOR_RATES.AUD.rate,
+        decimals: 2,
+        source: live?.AUD?.source ?? DEFAULT_CORRIDOR_RATES.AUD.source,
+        updatedAt: live?.AUD?.updatedAtIso,
+      },
+      SGD: {
+        rate: live?.SGD?.rate ?? DEFAULT_CORRIDOR_RATES.SGD.rate,
+        decimals: 2,
+        source: live?.SGD?.source ?? DEFAULT_CORRIDOR_RATES.SGD.source,
+        updatedAt: live?.SGD?.updatedAtIso,
+      },
+      KRW: {
+        rate: live?.KRW?.rate ?? DEFAULT_CORRIDOR_RATES.KRW.rate,
+        decimals: 0,
+        source: live?.KRW?.source ?? DEFAULT_CORRIDOR_RATES.KRW.source,
+        updatedAt: live?.KRW?.updatedAtIso,
+      },
+      JPY: {
+        rate: live?.JPY?.rate ?? DEFAULT_CORRIDOR_RATES.JPY.rate,
+        decimals: 2,
+        source: live?.JPY?.source ?? DEFAULT_CORRIDOR_RATES.JPY.source,
+        updatedAt: live?.JPY?.updatedAtIso,
       },
       USDC: {
         rate: 1.0,
@@ -170,7 +200,15 @@ export default function RemittancePage() {
           ? "ID"
           : remitCurrency === "EUR"
             ? "DE"
-            : "SG";
+            : remitCurrency === "AUD"
+              ? "AU"
+              : remitCurrency === "SGD"
+                ? "SG"
+                : remitCurrency === "KRW"
+                  ? "KR"
+                  : remitCurrency === "JPY"
+                    ? "JP"
+                    : "SG";
 
     const ok = await runAction(
       {
@@ -310,7 +348,7 @@ export default function RemittancePage() {
                 className="ledger-select"
                 value={remitCurrency}
                 onChange={(e) => {
-                  const curr = e.target.value as "PHP" | "IDR" | "EUR" | "USDC";
+                  const curr = e.target.value as SupportedCorridorCurrency;
                   setRemitCurrency(curr);
                   setLockedQuote(null);
                   if (curr === "PHP") {
@@ -322,6 +360,18 @@ export default function RemittancePage() {
                   } else if (curr === "EUR") {
                     setRemitRecipient("Studio Forma GmbH");
                     setRemitDest("IBAN:DE89370400440532013000");
+                  } else if (curr === "AUD") {
+                    setRemitRecipient("Sydney Harbourside Supplies Pty");
+                    setRemitDest("BSB:082-901 ACC:99812039");
+                  } else if (curr === "SGD") {
+                    setRemitRecipient("Marina Straits Trading Pte Ltd");
+                    setRemitDest("PAYNOW:UEN:201829012K");
+                  } else if (curr === "KRW") {
+                    setRemitRecipient("Seoul Digital Hanok Co.");
+                    setRemitDest("KB_BANK:98012-04-192831");
+                  } else if (curr === "JPY") {
+                    setRemitRecipient("Kyoto Artisan Crafts KK");
+                    setRemitDest("MUFG:0005-1928471");
                   } else if (curr === "USDC") {
                     setRemitRecipient("Rosa Santos");
                     setRemitDest("rosa.ledgerly.testnet");
@@ -336,7 +386,19 @@ export default function RemittancePage() {
                   USDC → IDR (Bank BCA Jakarta · 1 USDC ≈ {Math.round(activeRates.IDR.rate).toLocaleString("en-US")} IDR)
                 </option>
                 <option value="EUR">
-                  USDC → EUR (SEPA Instant · 1 USDC ≈ {activeRates.EUR.rate.toFixed(4)} EUR)
+                  USDC → EUR (SEPA Instant Frankfurt · 1 USDC ≈ {activeRates.EUR.rate.toFixed(4)} EUR)
+                </option>
+                <option value="AUD">
+                  USDC → AUD (NPP / PayID Sydney · 1 USDC ≈ {activeRates.AUD.rate.toFixed(3)} AUD)
+                </option>
+                <option value="SGD">
+                  USDC → SGD (FAST / PayNow Singapore · 1 USDC ≈ {activeRates.SGD.rate.toFixed(3)} SGD)
+                </option>
+                <option value="KRW">
+                  USDC → KRW (Open Banking Seoul · 1 USDC ≈ {Math.round(activeRates.KRW.rate).toLocaleString("en-US")} KRW)
+                </option>
+                <option value="JPY">
+                  USDC → JPY (Zengin System Tokyo · 1 USDC ≈ {activeRates.JPY.rate.toFixed(2)} JPY)
                 </option>
                 <option value="USDC">USDC → USDC (Direct NEAR Account · 1:1)</option>
               </select>

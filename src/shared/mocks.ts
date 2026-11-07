@@ -333,6 +333,10 @@ export class MockFxAdapter implements FxRatePort {
     EUR: "0.92",
     INR: "84.10",
     MXN: "20.15",
+    AUD: "1.45",
+    SGD: "1.28",
+    KRW: "1356.00",
+    JPY: "158.00",
   };
 
   setRate(to: Currency, rateDecimal: string): void {
@@ -349,6 +353,10 @@ export class MockFxAdapter implements FxRatePort {
       IDR: { rate: parseFloat(this.rates.IDR), decimals: 2, formatted: this.rates.IDR, updatedAtIso: isoDate, source: "Mock Fixed" },
       INR: { rate: parseFloat(this.rates.INR), decimals: 2, formatted: this.rates.INR, updatedAtIso: isoDate, source: "Mock Fixed" },
       MXN: { rate: parseFloat(this.rates.MXN), decimals: 2, formatted: this.rates.MXN, updatedAtIso: isoDate, source: "Mock Fixed" },
+      AUD: { rate: parseFloat(this.rates.AUD), decimals: 2, formatted: this.rates.AUD, updatedAtIso: isoDate, source: "Mock Fixed" },
+      SGD: { rate: parseFloat(this.rates.SGD), decimals: 2, formatted: this.rates.SGD, updatedAtIso: isoDate, source: "Mock Fixed" },
+      KRW: { rate: parseFloat(this.rates.KRW), decimals: 0, formatted: this.rates.KRW, updatedAtIso: isoDate, source: "Mock Fixed" },
+      JPY: { rate: parseFloat(this.rates.JPY), decimals: 2, formatted: this.rates.JPY, updatedAtIso: isoDate, source: "Mock Fixed" },
     };
   }
 

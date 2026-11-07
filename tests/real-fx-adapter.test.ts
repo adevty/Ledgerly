@@ -11,6 +11,10 @@ describe("RealFxAdapter (Live Real-Time Forex API)", () => {
     expect(rates.IDR.rate).toBeGreaterThan(10000);
     expect(rates.PHP.rate).toBeGreaterThan(40);
     expect(rates.EUR.rate).toBeGreaterThan(0.5);
+    expect(rates.AUD.rate).toBeGreaterThan(1.0);
+    expect(rates.SGD.rate).toBeGreaterThan(1.0);
+    expect(rates.KRW.rate).toBeGreaterThan(1000);
+    expect(rates.JPY.rate).toBeGreaterThan(100);
     expect(rates.IDR.formatted).toBeDefined();
     expect(rates.IDR.source).toBeDefined();
     expect(rates.IDR.updatedAtIso).toBeDefined();

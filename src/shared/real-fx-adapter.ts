@@ -20,6 +20,10 @@ const DEFAULT_FALLBACK_RATES: Record<Currency, number> = {
   IDR: 18080.0,
   INR: 86.5,
   MXN: 20.3,
+  AUD: 1.45,
+  SGD: 1.28,
+  KRW: 1356.0,
+  JPY: 158.0,
 };
 
 const CACHE_TTL_MS = 60_000; // 1 minute in-memory cache
@@ -160,6 +164,10 @@ export class RealFxAdapter implements FxRatePort {
       IDR: { rate: getVal("IDR"), decimals: 2, formatted: formatRate(getVal("IDR"), 2), updatedAtIso: isoDate, source },
       INR: { rate: getVal("INR"), decimals: 2, formatted: formatRate(getVal("INR"), 2), updatedAtIso: isoDate, source },
       MXN: { rate: getVal("MXN"), decimals: 2, formatted: formatRate(getVal("MXN"), 2), updatedAtIso: isoDate, source },
+      AUD: { rate: getVal("AUD"), decimals: 2, formatted: formatRate(getVal("AUD"), 2), updatedAtIso: isoDate, source },
+      SGD: { rate: getVal("SGD"), decimals: 2, formatted: formatRate(getVal("SGD"), 2), updatedAtIso: isoDate, source },
+      KRW: { rate: getVal("KRW"), decimals: 0, formatted: formatRate(getVal("KRW"), 0), updatedAtIso: isoDate, source },
+      JPY: { rate: getVal("JPY"), decimals: 2, formatted: formatRate(getVal("JPY"), 2), updatedAtIso: isoDate, source },
     };
   }
 
@@ -167,7 +175,7 @@ export class RealFxAdapter implements FxRatePort {
     const isoDate = new Date().toISOString();
     const result = {} as Record<Currency, LiveFxRateEntry>;
     for (const [key, val] of Object.entries(this.fallbackRates) as [Currency, number][]) {
-      const decimals = key === "IDR" || key === "INR" || key === "PHP" ? 2 : key === "EUR" ? 4 : 2;
+      const decimals = key === "KRW" ? 0 : key === "EUR" ? 4 : 2;
       result[key] = {
         rate: val,
         decimals,
