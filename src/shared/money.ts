@@ -47,7 +47,8 @@ export class Money {
    * Rejects more fractional digits than the currency supports.
    */
   static parse(decimal: string, currency: Currency): Result<Money, DomainError> {
-    const m = /^(\d+)(?:\.(\d+))?$/.exec(decimal.trim());
+    const sanitized = decimal.replace(/,/g, "").trim();
+    const m = /^(\d+)(?:\.(\d+))?$/.exec(sanitized);
     if (!m) return err(domainError("INVALID_AMOUNT", `Invalid amount '${decimal}'`));
     const decimals = CURRENCY_DECIMALS[currency];
     const frac = m[2] ?? "";

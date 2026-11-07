@@ -230,11 +230,14 @@ export async function POST(request: Request) {
   }
 
   if (action === "CREATE_AND_FUND_REMITTANCE") {
-    const sourceUsdcDecimal = String(body.sourceUsdcDecimal ?? "200.00");
+    const sourceUsdcDecimal = String(body.sourceUsdcDecimal ?? "200.00").replace(/,/g, "").trim();
     const targetCurrency = String(body.targetCurrency ?? "PHP") as Currency;
     const recipientType = (body.recipientType ?? "EWALLET") as "NEAR_ACCOUNT" | "BANK" | "EWALLET";
-    const recipientName = String(body.recipientName ?? "Maria Clara Textiles");
-    const recipientAccountOrWallet = String(body.recipientAccountOrWallet ?? "GCASH:+63-917-882-1900");
+    const recipientName = String(body.recipientName ?? "Maria Clara Textiles").trim();
+    let recipientAccountOrWallet = String(body.recipientAccountOrWallet ?? "GCASH:+63-917-882-1900").trim();
+    if (recipientType === "NEAR_ACCOUNT" && !recipientAccountOrWallet.includes(".")) {
+      recipientAccountOrWallet = `${recipientAccountOrWallet}.testnet`;
+    }
     const recipientCountry = String(body.recipientCountry ?? "PH");
     const simulateMode = String(body.offRampMode ?? "SUCCESS") as
       | "SUCCESS"
@@ -248,7 +251,7 @@ export async function POST(request: Request) {
     }
 
     const travelRule =
-      sourceMoney.value.amountMinor >= 1_000_000_000n && body.includeTravelRule !== false
+      sourceMoney.value.amountMinor >= 1_000_000_000n
         ? {
             originatorName: "Atelier Sari Global Ltd.",
             originatorCountry: "SG",

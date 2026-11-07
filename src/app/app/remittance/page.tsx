@@ -145,6 +145,7 @@ export default function RemittancePage() {
   };
 
   const handleSendRemittance = async () => {
+    const cleanAmount = remitAmount.replace(/,/g, "").trim();
     if (!remitRecipient.trim() || !remitDest.trim()) {
       const msg = "Recipient name and destination account or wallet are required.";
       setInlineError({ scope: "remit_form", code: "MISSING_RECIPIENT", message: msg });
@@ -152,10 +153,27 @@ export default function RemittancePage() {
       return;
     }
 
+    let destination = remitDest.trim();
+    if (remitCurrency === "USDC") {
+      destination = destination || "rosa.ledgerly.testnet";
+      if (!destination.includes(".")) {
+        destination = `${destination}.testnet`;
+      }
+    }
+
+    const country =
+      remitCurrency === "PHP"
+        ? "PH"
+        : remitCurrency === "IDR"
+          ? "ID"
+          : remitCurrency === "EUR"
+            ? "DE"
+            : "SG";
+
     const ok = await runAction(
       {
         action: "CREATE_AND_FUND_REMITTANCE",
-        sourceUsdcDecimal: remitAmount.trim(),
+        sourceUsdcDecimal: cleanAmount,
         targetCurrency: remitCurrency,
         recipientType:
           remitCurrency === "USDC"
@@ -164,20 +182,26 @@ export default function RemittancePage() {
               ? "EWALLET"
               : "BANK",
         recipientName: remitRecipient.trim(),
-        recipientAccountOrWallet:
-          remitCurrency === "USDC" ? "rosa.ledgerly.testnet" : remitDest.trim(),
-        recipientCountry:
-          remitCurrency === "PHP"
-            ? "PH"
-            : remitCurrency === "IDR"
-              ? "ID"
-              : "DE",
+        recipientAccountOrWallet: destination,
+        recipientCountry: country,
         offRampMode: remitMode,
         includeTravelRule,
       },
       remitMode === "SUCCESS"
-        ? `Dispatched & settled ${remitAmount.trim()} USDC to ${remitRecipient.trim()} (${remitCurrency}).`
+        ? `Dispatched & settled ${cleanAmount} USDC to ${remitRecipient.trim()} (${remitCurrency}).`
         : `Partner timeout simulated -> Remittance queued in PAYOUT_FAILED for bounded retry.`,
+      {
+        actionKey: "send_remittance",
+        errorScope: "remit_form",
+        successTitle:
+          remitMode === "SUCCESS" ? "Remittance Settled" : "Queued for Retry (Partner Outage)",
+      },
+    );
+
+    if (ok) {
+      setLockedQuote(null);
+    }
+  };
       {
         actionKey: "send_remittance",
         errorScope: "remit_form",
@@ -296,8 +320,22 @@ export default function RemittancePage() {
                 className="ledger-select"
                 value={remitCurrency}
                 onChange={(e) => {
-                  setRemitCurrency(e.target.value as "PHP" | "IDR" | "EUR" | "USDC");
+                  const curr = e.target.value as "PHP" | "IDR" | "EUR" | "USDC";
+                  setRemitCurrency(curr);
                   setLockedQuote(null);
+                  if (curr === "PHP") {
+                    setRemitRecipient("Manila Loom Works");
+                    setRemitDest("GCASH:+63-917-402-8819");
+                  } else if (curr === "IDR") {
+                    setRemitRecipient("PT Artisan Nusantara");
+                    setRemitDest("BCA:0182-9910-442");
+                  } else if (curr === "EUR") {
+                    setRemitRecipient("Studio Forma GmbH");
+                    setRemitDest("IBAN:DE89370400440532013000");
+                  } else if (curr === "USDC") {
+                    setRemitRecipient("Rosa Santos");
+                    setRemitDest("rosa.ledgerly.testnet");
+                  }
                 }}
                 disabled={isBusy}
               >
