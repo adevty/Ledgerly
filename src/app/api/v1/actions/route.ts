@@ -7,16 +7,29 @@ import {
   type Currency,
   type EscrowId,
   type GrantId,
+  type OnchainEvent,
   type PaymentRequestId,
   type RemittanceId,
   type TxHash,
 } from "@/shared";
-import { DEMO_ACTOR, DEMO_ORG_ID, buildDashboardSnapshot, getRuntime } from "@/app/api/_runtime";
+import {
+  DEMO_ACTOR,
+  DEMO_ORG_ID,
+  buildDashboardSnapshot,
+  getRuntime,
+  resetRuntime,
+} from "@/app/api/_runtime";
 
 export async function POST(request: Request) {
-  const rt = await getRuntime();
   const body = (await request.json()) as Record<string, unknown>;
   const action = String(body.action ?? "");
+
+  if (action === "RESET_DEV_STATE") {
+    resetRuntime();
+    return NextResponse.json({ ok: true, message: "Runtime cache reset" });
+  }
+
+  const rt = await getRuntime();
 
   if (action === "CREATE_PAYMENT_REQUEST") {
     const orderRef = String(body.orderRef ?? "INV-2026-9001");
@@ -139,30 +152,72 @@ export async function POST(request: Request) {
       );
     }
 
-    if (rt.chain instanceof NearRpcChainGateway) {
+    const hasIngest =
+      "ingestExternalTransaction" in rt.chain &&
+      typeof (rt.chain as unknown as { ingestExternalTransaction?: unknown }).ingestExternalTransaction ===
+        "function";
+
+    if (hasIngest) {
+      let events: readonly OnchainEvent[] = [];
       try {
-        await rt.chain.ingestExternalTransaction(txHash, senderAccountId);
+        events = await (
+          rt.chain as unknown as {
+            ingestExternalTransaction: (h: TxHash, s?: AccountId) => Promise<readonly OnchainEvent[]>;
+          }
+        ).ingestExternalTransaction(txHash, senderAccountId);
       } catch (err) {
         return NextResponse.json(
           {
             ok: false,
             error: {
-              code: "TX_INGEST_FAILED",
+              code: "TX_NOT_FOUND",
               message:
                 err instanceof Error
                   ? err.message
-                  : "Transaction hash not found or could not be verified on NEAR RPC.",
+                  : `Transaction ${txHash} not found on NEAR RPC or indexer.`,
+            },
+          },
+          { status: 422 },
+        );
+      }
+
+      if (!events || events.length === 0) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: {
+              code: "NO_ESCROW_EVENTS_FOUND",
+              message: `Transaction ${txHash} was queried on-chain, but contains no valid NEP-297 escrow events for contract ${rt.escrowContractId}.`,
+            },
+          },
+          { status: 422 },
+        );
+      }
+    } else {
+      const mockChain = rt.chain as unknown as { getRecordedEvents?: () => readonly OnchainEvent[] };
+      const recorded =
+        typeof mockChain.getRecordedEvents === "function" ? mockChain.getRecordedEvents() : [];
+      const match = recorded.filter((e) => e.txHash === txHash);
+      if (match.length === 0) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: {
+              code: "TX_NOT_FOUND",
+              message: `Transaction ${txHash} not found in active chain events.`,
             },
           },
           { status: 422 },
         );
       }
     }
-    await rt.indexer.runOnce();
+
+    const indexerResult = await rt.indexer.runOnce();
     return NextResponse.json({
       ok: true,
       txHash,
       explorerUrl: `${rt.explorerBaseUrl}/txns/${txHash}`,
+      eventsProcessed: indexerResult.processedCount,
       state: await buildDashboardSnapshot(),
     });
   }

@@ -619,4 +619,8 @@ export class MockChainGateway implements ChainGateway {
   getAnchoredRoots(): readonly string[] {
     return this.anchors;
   }
+
+  getRecordedEvents(): readonly OnchainEvent[] {
+    return [...this.eventLog];
+  }
 }

@@ -386,10 +386,17 @@ export class NearRpcChainGateway implements ChainGateway {
     this.publicKeyNear = parsed.publicKeyNear;
   }
 
-  private async rpcCall<T>(method: string, params: unknown): Promise<T> {
-    const res = await fetch(this.rpcUrl, {
+  private async rpcCall<T>(
+    method: string,
+    params: unknown,
+    timeoutMs = 8000,
+    overrideRpcUrl?: string,
+  ): Promise<T> {
+    const targetUrl = overrideRpcUrl ?? this.rpcUrl;
+    const res = await fetch(targetUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      signal: AbortSignal.timeout(timeoutMs),
       body: JSON.stringify({
         jsonrpc: "2.0",
         id: "ledgerly-rpc",
@@ -405,6 +412,12 @@ export class NearRpcChainGateway implements ChainGateway {
       error?: { name?: string; cause?: unknown; message?: string; data?: unknown };
     };
     if (body.error) {
+      const errorCause = (body.error.cause as { cause?: string; name?: string })?.cause;
+      if (errorCause === "NOT_OBSERVED" || body.error.name === "TIMEOUT_ERROR") {
+        throw new Error(
+          `Transaction was not observed on NEAR RPC (TIMEOUT / NOT_OBSERVED)`,
+        );
+      }
       throw new Error(
         `NEAR RPC Error (${body.error.name ?? "RPC_ERROR"}): ${
           body.error.message ?? ""
@@ -705,11 +718,13 @@ export class NearRpcChainGateway implements ChainGateway {
       }
     }
 
-    const candidateAccounts: AccountId[] = [
-      ...(resolvedSigner ? [resolvedSigner] : []),
-      this.escrowContractId,
-      this.operatorAccountId,
-    ];
+    const candidateAccounts: AccountId[] = Array.from(
+      new Set([
+        ...(resolvedSigner ? [resolvedSigner] : []),
+        this.escrowContractId,
+        this.operatorAccountId,
+      ]),
+    );
 
     let outcome: {
       status?: { Failure?: unknown };
@@ -718,20 +733,44 @@ export class NearRpcChainGateway implements ChainGateway {
     } | null = null;
     let lastError: unknown = null;
 
-    for (const candidate of candidateAccounts) {
-      try {
-        const res = await this.rpcCall<{
-          status?: { Failure?: unknown };
-          transaction_outcome?: { outcome?: { logs?: string[] } };
-          receipts_outcome?: Array<{ outcome?: { logs?: string[] } }>;
-        }>("tx", [txHash, candidate]);
-        if (res && (res.transaction_outcome || res.receipts_outcome || res.status)) {
-          outcome = res;
-          break;
-        }
-      } catch (err) {
-        lastError = err;
+    const rpcEndpoints = Array.from(
+      new Set([
+        this.rpcUrl,
+        ...(this.rpcUrl.includes("testnet") || this.rpcUrl.includes("test.")
+          ? ["https://archival-rpc.testnet.near.org"]
+          : []),
+      ]),
+    );
+
+    const queries: Array<
+      Promise<{
+        status?: { Failure?: unknown };
+        transaction_outcome?: { outcome?: { logs?: string[] } };
+        receipts_outcome?: Array<{ outcome?: { logs?: string[] } }>;
+      }>
+    > = [];
+
+    for (const rpcUrl of rpcEndpoints) {
+      for (const candidate of candidateAccounts) {
+        queries.push(
+          this.rpcCall<{
+            status?: { Failure?: unknown };
+            transaction_outcome?: { outcome?: { logs?: string[] } };
+            receipts_outcome?: Array<{ outcome?: { logs?: string[] } }>;
+          }>("tx", [txHash, candidate], 4000, rpcUrl).then((res) => {
+            if (res && (res.transaction_outcome || res.receipts_outcome || res.status)) {
+              return res;
+            }
+            throw new Error(`Empty outcome for candidate ${candidate} on ${rpcUrl}`);
+          }),
+        );
       }
+    }
+
+    try {
+      outcome = await Promise.any(queries);
+    } catch (err) {
+      lastError = err;
     }
 
     if (!outcome) {

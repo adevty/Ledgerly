@@ -74,11 +74,15 @@ const globalForLedgerly = globalThis as unknown as {
   __ledgerlyRuntime?: Promise<LedgerlyRuntime>;
 };
 
-export function getRuntime(): Promise<LedgerlyRuntime> {
-  if (!globalForLedgerly.__ledgerlyRuntime) {
+export function getRuntime(forceFresh = false): Promise<LedgerlyRuntime> {
+  if (!globalForLedgerly.__ledgerlyRuntime || forceFresh) {
     globalForLedgerly.__ledgerlyRuntime = createSeededRuntime();
   }
   return globalForLedgerly.__ledgerlyRuntime;
+}
+
+export function resetRuntime(): void {
+  globalForLedgerly.__ledgerlyRuntime = undefined;
 }
 
 async function createSeededRuntime(): Promise<LedgerlyRuntime> {

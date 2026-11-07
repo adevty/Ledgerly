@@ -236,4 +236,99 @@ describe("NEAR RPC Gateway & Borsh / Ed25519 Protocol Layer", () => {
       vi.unstubAllGlobals();
     }
   });
+
+  it("ingests external transactions with valid NEP-297 events and rejects unrelated or missing transactions", async () => {
+    const seed = new Uint8Array(32).fill(5);
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.includes("nearblocks.io")) {
+        return new Response(JSON.stringify({ data: { signer_account_id: "buyer.testnet" } }), {
+          status: 200,
+        });
+      }
+
+      const body = JSON.parse(String(init?.body ?? "{}")) as {
+        method: string;
+        params: unknown[];
+      };
+
+      if (body.method === "tx") {
+        const [txHash] = body.params as [string, string];
+        if (txHash === "valid_escrow_tx") {
+          return new Response(
+            JSON.stringify({
+              jsonrpc: "2.0",
+              id: "ledgerly-rpc",
+              result: {
+                transaction_outcome: {
+                  outcome: {
+                    logs: [
+                      'EVENT_JSON:{"standard":"ledgerly-escrow","version":"1.0.0","event":"escrow_funded","data":[{"escrow_id":"esc_live_2","depositor":"buyer.testnet","amount":"420000000","held":"420000000"}]}',
+                    ],
+                  },
+                },
+              },
+            }),
+            { status: 200 },
+          );
+        }
+        if (txHash === "unrelated_tx") {
+          return new Response(
+            JSON.stringify({
+              jsonrpc: "2.0",
+              id: "ledgerly-rpc",
+              result: {
+                transaction_outcome: {
+                  outcome: {
+                    logs: ["Transfer 10 NEAR to friend.testnet"],
+                  },
+                },
+              },
+            }),
+            { status: 200 },
+          );
+        }
+
+        return new Response(
+          JSON.stringify({
+            jsonrpc: "2.0",
+            id: "ledgerly-rpc",
+            error: {
+              name: "HANDLER_ERROR",
+              cause: { info: { cause: "NOT_OBSERVED" }, name: "TIMEOUT_ERROR" },
+            },
+          }),
+          { status: 200 },
+        );
+      }
+
+      throw new Error(`Unexpected RPC call: ${body.method}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      const gw = new NearRpcChainGateway({
+        rpcUrl: "https://test.rpc.fastnear.com",
+        escrowContractId: "escrow.ledgerly.testnet" as AccountId,
+        usdcContractId: "usdc.fakes.testnet" as AccountId,
+        operatorAccountId: "operator.ledgerly.testnet" as AccountId,
+        operatorPrivateKey: `ed25519:${base58Encode(seed)}`,
+      });
+
+      // 1. Valid escrow transaction returns parsed events
+      const validEvents = await gw.ingestExternalTransaction("valid_escrow_tx" as TxHash);
+      expect(validEvents).toHaveLength(1);
+      expect(validEvents[0]?.escrowId).toBe("esc_live_2");
+
+      // 2. Unrelated transaction on NEAR returns 0 escrow events
+      const unrelatedEvents = await gw.ingestExternalTransaction("unrelated_tx" as TxHash);
+      expect(unrelatedEvents).toHaveLength(0);
+
+      // 3. Unknown transaction throws
+      await expect(
+        gw.ingestExternalTransaction("unknown_tx" as TxHash),
+      ).rejects.toThrow();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
 });
