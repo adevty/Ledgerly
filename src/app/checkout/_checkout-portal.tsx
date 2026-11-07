@@ -74,6 +74,10 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
   const [oneClickStatus, setOneClickStatus] = useState<string | null>(null);
   const [oneClickLoading, setOneClickLoading] = useState(false);
 
+  const dismissToast = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
   const pushToast = useCallback((kind: "success" | "error", title: string, detail?: string) => {
     const id = `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
     setToasts((prev) => [...prev.slice(-2), { id, kind, title, detail }]);
@@ -149,13 +153,13 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
         let body: {
           ok?: boolean;
           txHash?: string;
-          error?: { message?: string };
+          error?: { code?: string; message?: string };
         } | null = null;
         try {
           body = (await res.json()) as {
             ok?: boolean;
             txHash?: string;
-            error?: { message?: string };
+            error?: { code?: string; message?: string };
           };
         } catch {
           // If response body is empty or non-JSON
@@ -167,13 +171,31 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
           await loadState();
           pushToast(
             "success",
-            "On-chain transaction verified",
+            "On-Chain Transaction Verified",
             `Receipt ${cleanHash.slice(0, 14)}… ingested from NEAR RPC`,
           );
         } else {
-          setErrorBanner(
-            body?.error?.message ?? `Could not verify transaction hash on NEAR RPC (HTTP ${res.status}).`,
-          );
+          const errCode = body?.error?.code;
+          const rawMsg = body?.error?.message ?? "";
+          if (errCode === "TX_NOT_FOUND" || rawMsg.includes("not found on NEAR RPC") || rawMsg.includes("NOT_OBSERVED")) {
+            pushToast(
+              "error",
+              "Transaction Not Found",
+              `Tx hash ${cleanHash.slice(0, 16)}… was not observed on NEAR RPC.`,
+            );
+          } else if (errCode === "NO_ESCROW_EVENTS_FOUND") {
+            pushToast(
+              "error",
+              "Unmatched Escrow Transaction",
+              `Tx verified on NEAR, but contains no deposit events for this escrow contract.`,
+            );
+          } else {
+            pushToast(
+              "error",
+              "Transaction Verification Failed",
+              body?.error?.message ?? `Could not verify transaction hash on NEAR RPC (HTTP ${res.status}).`,
+            );
+          }
         }
       } finally {
         setBusyKey(null);
@@ -1910,14 +1932,88 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                 t.kind === "error" ? "toast-item-error" : "toast-item-success"
               }`}
             >
-              <div>
-                <div style={{ fontSize: "0.82rem", fontWeight: 600 }}>{t.title}</div>
-                {t.detail && (
-                  <div className="mono-data" style={{ fontSize: "0.72rem", color: "var(--ink-muted)", marginTop: "0.15rem" }}>
-                    {t.detail}
-                  </div>
+              <div style={{ display: "flex", gap: "0.6rem", alignItems: "flex-start", flex: 1, minWidth: 0 }}>
+                {t.kind === "error" ? (
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: "1.1rem",
+                      height: "1.1rem",
+                      borderRadius: "50%",
+                      backgroundColor: "var(--crimson-red-soft)",
+                      color: "var(--crimson-red)",
+                      fontSize: "0.68rem",
+                      fontWeight: 700,
+                      flexShrink: 0,
+                      marginTop: "0.08rem",
+                    }}
+                    aria-hidden="true"
+                  >
+                    !
+                  </span>
+                ) : (
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: "1.1rem",
+                      height: "1.1rem",
+                      borderRadius: "50%",
+                      backgroundColor: "var(--sage-green-soft)",
+                      color: "var(--sage-green)",
+                      fontSize: "0.68rem",
+                      fontWeight: 700,
+                      flexShrink: 0,
+                      marginTop: "0.08rem",
+                    }}
+                    aria-hidden="true"
+                  >
+                    ✓
+                  </span>
                 )}
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontSize: "0.82rem", fontWeight: 600, color: "var(--ink-charcoal)" }}>
+                    {t.title}
+                  </div>
+                  {t.detail && (
+                    <div
+                      className="mono-data"
+                      style={{
+                        fontSize: "0.72rem",
+                        color: "var(--ink-muted)",
+                        marginTop: "0.2rem",
+                        lineHeight: 1.35,
+                        wordBreak: "break-word",
+                      }}
+                    >
+                      {t.detail}
+                    </div>
+                  )}
+                </div>
               </div>
+              <button
+                type="button"
+                onClick={() => dismissToast(t.id)}
+                aria-label="Dismiss notification"
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  padding: "0 0.2rem",
+                  cursor: "pointer",
+                  color: "var(--ink-muted)",
+                  fontSize: "1rem",
+                  lineHeight: 1,
+                  opacity: 0.65,
+                  marginTop: "-0.1rem",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
+                onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.65")}
+              >
+                ×
+              </button>
             </div>
           ))}
         </div>
