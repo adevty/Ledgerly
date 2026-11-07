@@ -655,36 +655,25 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
             </a>
 
             {wallet ? (
-              <div style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
-                <span className="status-pill status-pill-emerald">
-                  <span className="status-pill-dot" />
+              <span
+                className="status-pill status-pill-emerald"
+                title={`Connected NEAR Account: ${wallet.accountId} (${wallet.provider})`}
+                style={{ cursor: "default" }}
+              >
+                <span className="status-pill-dot" />
+                <span className="mono-data" style={{ fontWeight: 500 }}>
                   {wallet.accountId}
                 </span>
-                <button
-                  type="button"
-                  className="btn-quiet"
-                  style={{ padding: "0.24rem 0.55rem", fontSize: "0.72rem" }}
-                  onClick={handleDisconnectWallet}
-                >
-                  Disconnect
-                </button>
-              </div>
+              </span>
             ) : (
               <button
                 type="button"
-                className="btn-primary"
-                style={{ padding: "0.36rem 0.75rem", fontSize: "0.76rem" }}
+                className="btn-quiet"
+                style={{ padding: "0.26rem 0.6rem", fontSize: "0.74rem", textDecoration: "none" }}
                 disabled={busyKey === "connect_meteor"}
                 onClick={() => void handleConnectMeteor()}
               >
-                {busyKey === "connect_meteor" ? (
-                  <>
-                    <span className="btn-spinner" aria-hidden="true" />
-                    <span>Opening Meteor…</span>
-                  </>
-                ) : (
-                  <span>Connect Meteor Wallet</span>
-                )}
+                {busyKey === "connect_meteor" ? "Connecting…" : "Connect Wallet"}
               </button>
             )}
 
@@ -1456,12 +1445,22 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                         display: "flex",
                         alignItems: "center",
                         gap: "0.45rem",
+                        flexWrap: "wrap",
                       }}
                     >
                       <span>Meteor Wallet</span>
                       <span className="mono-label" style={{ fontSize: "0.62rem" }}>
                         {meteorDetected ? "CHROME EXTENSION" : "EXTENSION / POPUP"}
                       </span>
+                      {wallet?.provider === "METEOR_WALLET" && (
+                        <span
+                          className="status-pill status-pill-emerald"
+                          style={{ fontSize: "0.68rem", padding: "0.15rem 0.5rem" }}
+                        >
+                          <span className="status-pill-dot" />
+                          Connected: <span className="mono-data">{wallet.accountId}</span>
+                        </span>
+                      )}
                     </div>
                     <div className="field-hint" style={{ marginTop: "0.18rem" }}>
                       Connect via injected <code>window.meteorCom</code> bridge or Meteor Web Wallet
@@ -1469,7 +1468,7 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                     </div>
                   </div>
 
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                     <div className="filter-pill-group" aria-label="Meteor Network">
                       <button
                         type="button"
@@ -1509,24 +1508,41 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                       </button>
                     </div>
 
-                    <button
-                      type="button"
-                      className="btn-primary"
-                      style={{ padding: "0.48rem 0.9rem", fontSize: "0.8rem" }}
-                      disabled={Boolean(busyKey)}
-                      onClick={() => void handleConnectMeteor()}
-                    >
-                      {busyKey === "connect_meteor" ? (
-                        <>
-                          <span className="btn-spinner" aria-hidden="true" />
-                          <span>Connecting…</span>
-                        </>
-                      ) : wallet?.provider === "METEOR_WALLET" ? (
-                        <span>Reconnect ({meteorNetwork.toUpperCase()})</span>
-                      ) : (
-                        <span>Connect Meteor</span>
-                      )}
-                    </button>
+                    {wallet?.provider === "METEOR_WALLET" ? (
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        style={{
+                          padding: "0.48rem 0.95rem",
+                          fontSize: "0.8rem",
+                          color: "var(--crimson-red)",
+                          borderColor: "var(--crimson-red-border)",
+                          background: "var(--crimson-red-soft)",
+                          fontWeight: 500,
+                        }}
+                        disabled={Boolean(busyKey)}
+                        onClick={handleDisconnectWallet}
+                      >
+                        Disconnect
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn-primary"
+                        style={{ padding: "0.48rem 0.95rem", fontSize: "0.8rem" }}
+                        disabled={Boolean(busyKey)}
+                        onClick={() => void handleConnectMeteor()}
+                      >
+                        {busyKey === "connect_meteor" ? (
+                          <>
+                            <span className="btn-spinner" aria-hidden="true" />
+                            <span>Connecting…</span>
+                          </>
+                        ) : (
+                          <span>Connect Meteor</span>
+                        )}
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1559,7 +1575,9 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                       disabled={Boolean(busyKey)}
                       onClick={handleConnectEmbedded}
                     >
-                      Use Ed25519 Signer
+                      {wallet?.provider === "EMBEDDED_TESTNET_SIGNER"
+                        ? "Signer Active ✓"
+                        : "Use Ed25519 Signer"}
                     </button>
                     <button
                       type="button"
@@ -1570,6 +1588,24 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                     >
                       MyNearWallet ↗
                     </button>
+                    {wallet?.provider === "EMBEDDED_TESTNET_SIGNER" && (
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        style={{
+                          padding: "0.52rem 0.7rem",
+                          fontSize: "0.78rem",
+                          color: "var(--crimson-red)",
+                          borderColor: "var(--crimson-red-border)",
+                          background: "var(--crimson-red-soft)",
+                          fontWeight: 500,
+                        }}
+                        onClick={handleDisconnectWallet}
+                        title="Disconnect Ed25519 signer session"
+                      >
+                        Disconnect
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
