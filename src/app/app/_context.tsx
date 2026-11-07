@@ -223,13 +223,13 @@ export function LedgerlyDashboardProvider({ children }: { children: React.ReactN
     try {
       const res = await fetch("/api/v1/state", { cache: "no-store" });
       if (res.ok) {
-        let next: DashboardState | null = null;
+        let next: (DashboardState & { ok?: boolean }) | null = null;
         try {
-          next = (await res.json()) as DashboardState;
+          next = (await res.json()) as DashboardState & { ok?: boolean };
         } catch {
           return;
         }
-        if (next && typeof next === "object") {
+        if (next && typeof next === "object" && next.ok !== false && next.organization) {
           recordTransitions(stateRef.current, next);
           stateRef.current = next;
           setState(next);
@@ -246,7 +246,7 @@ export function LedgerlyDashboardProvider({ children }: { children: React.ReactN
       if (typeof document !== "undefined" && document.visibilityState === "visible") {
         void fetchState();
       }
-    }, 4000);
+    }, 7000);
     return () => clearInterval(interval);
   }, [fetchState]);
 

@@ -55,7 +55,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: res.error }, { status: 422 });
     }
     await refreshAuditorGrant(rt);
-    return NextResponse.json({ ok: true, result: res.value, state: await buildDashboardSnapshot() });
+    return NextResponse.json({ ok: true, result: res.value, state: await buildDashboardSnapshot(true) });
   }
 
   if (action === "SIMULATE_BUYER_DEPOSIT") {
@@ -77,7 +77,7 @@ export async function POST(request: Request) {
       ok: true,
       txHash,
       explorerUrl: `${rt.explorerBaseUrl}/txns/${txHash}`,
-      state: await buildDashboardSnapshot(),
+      state: await buildDashboardSnapshot(true),
     });
   }
 
@@ -219,7 +219,7 @@ export async function POST(request: Request) {
       txHash,
       explorerUrl: `${rt.explorerBaseUrl}/txns/${txHash}`,
       eventsProcessed: indexerResult.processedCount,
-      state: await buildDashboardSnapshot(),
+      state: await buildDashboardSnapshot(true),
     });
   }
 
@@ -285,18 +285,18 @@ export async function POST(request: Request) {
     }
 
     await refreshAuditorGrant(rt);
-    return NextResponse.json({ ok: true, state: await buildDashboardSnapshot() });
+    return NextResponse.json({ ok: true, state: await buildDashboardSnapshot(true) });
   }
 
   if (action === "RETRY_FAILED_SETTLEMENTS") {
     rt.offRamp.setBehavior({ mode: "SUCCESS" });
     const stats = await rt.settlement.runOnce();
-    return NextResponse.json({ ok: true, stats, state: await buildDashboardSnapshot() });
+    return NextResponse.json({ ok: true, stats, state: await buildDashboardSnapshot(true) });
   }
 
   if (action === "REFRESH_AUDIT_GRANT") {
     await refreshAuditorGrant(rt);
-    return NextResponse.json({ ok: true, state: await buildDashboardSnapshot() });
+    return NextResponse.json({ ok: true, state: await buildDashboardSnapshot(true) });
   }
 
     return NextResponse.json(

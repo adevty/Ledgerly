@@ -362,6 +362,8 @@ const GAS_50_TGAS = 50_000_000_000_000n;
  */
 export class NearRpcChainGateway implements ChainGateway {
   private readonly rpcUrl: string;
+  private readonly rpcEndpoints: string[];
+  private activeRpcIndex = 0;
   public readonly escrowContractId: AccountId;
   public readonly usdcContractId: AccountId;
   public readonly operatorAccountId: AccountId;
@@ -374,16 +376,41 @@ export class NearRpcChainGateway implements ChainGateway {
   private latestBlockHeight = 185_420_000n;
   private lastUsedNonce = 0n;
 
+  private readonly escrowCache = new Map<
+    EscrowId,
+    {
+      view: OnchainEscrowView | null;
+      cachedAt: number;
+    }
+  >();
+
   constructor(config: NearRpcChainGatewayConfig) {
     this.rpcUrl = config.rpcUrl;
     this.escrowContractId = config.escrowContractId;
     this.usdcContractId = config.usdcContractId;
     this.operatorAccountId = config.operatorAccountId;
 
+    const envUrls = (config.rpcUrl ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+    const candidateEndpoints = [
+      ...envUrls,
+      "https://rpc.testnet.near.org",
+      "https://test.rpc.fastnear.com",
+      "https://archival-rpc.testnet.near.org",
+    ];
+    this.rpcEndpoints = Array.from(new Set(candidateEndpoints.filter(Boolean)));
+
     const parsed = parseNearEd25519SecretKey(config.operatorPrivateKey);
     this.seed32 = parsed.seed32;
     this.publicKey32 = parsed.publicKey32;
     this.publicKeyNear = parsed.publicKeyNear;
+  }
+
+  public invalidateCache(escrowId?: EscrowId): void {
+    if (escrowId) {
+      this.escrowCache.delete(escrowId);
+    } else {
+      this.escrowCache.clear();
+    }
   }
 
   private async rpcCall<T>(
@@ -392,39 +419,126 @@ export class NearRpcChainGateway implements ChainGateway {
     timeoutMs = 8000,
     overrideRpcUrl?: string,
   ): Promise<T> {
-    const targetUrl = overrideRpcUrl ?? this.rpcUrl;
-    const res = await fetch(targetUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      signal: AbortSignal.timeout(timeoutMs),
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        id: "ledgerly-rpc",
-        method,
-        params,
-      }),
-    });
-    if (!res.ok) {
-      throw new Error(`NEAR RPC HTTP ${res.status}: ${await res.text()}`);
-    }
-    const body = (await res.json()) as {
-      result?: T;
-      error?: { name?: string; cause?: unknown; message?: string; data?: unknown };
-    };
-    if (body.error) {
-      const errorCause = (body.error.cause as { cause?: string; name?: string })?.cause;
-      if (errorCause === "NOT_OBSERVED" || body.error.name === "TIMEOUT_ERROR") {
-        throw new Error(
-          `Transaction was not observed on NEAR RPC (TIMEOUT / NOT_OBSERVED)`,
-        );
+    const endpointsToTry = overrideRpcUrl
+      ? [overrideRpcUrl]
+      : this.rpcEndpoints.length > 0
+        ? Array.from(
+            { length: this.rpcEndpoints.length },
+            (_, i) => this.rpcEndpoints[(this.activeRpcIndex + i) % this.rpcEndpoints.length]!,
+          )
+        : [this.rpcUrl];
+
+    let lastError: unknown = null;
+
+    for (let i = 0; i < endpointsToTry.length; i++) {
+      const targetUrl = endpointsToTry[i]!;
+      try {
+        const res = await fetch(targetUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: AbortSignal.timeout(timeoutMs),
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            id: "ledgerly-rpc",
+            method,
+            params,
+          }),
+        });
+
+        if (
+          res.status === 429 ||
+          res.status === 502 ||
+          res.status === 503 ||
+          res.status === 504
+        ) {
+          const bodyText = await res.text().catch(() => "");
+          console.warn(
+            `[NearRpcChainGateway] HTTP ${res.status} from ${targetUrl} (method: ${method}). Rotating RPC endpoint...`,
+          );
+          if (!overrideRpcUrl) {
+            this.activeRpcIndex = (this.activeRpcIndex + 1) % this.rpcEndpoints.length;
+          }
+          lastError = new Error(`NEAR RPC HTTP ${res.status}: ${bodyText}`);
+          continue;
+        }
+
+        if (!res.ok) {
+          throw new Error(`NEAR RPC HTTP ${res.status}: ${await res.text()}`);
+        }
+
+        const body = (await res.json()) as {
+          result?: T;
+          error?: {
+            name?: string;
+            cause?: unknown;
+            message?: string;
+            data?: unknown;
+            code?: number;
+          };
+        };
+
+        if (body.error) {
+          const is429 =
+            body.error.code === -429 ||
+            body.error.code === 429 ||
+            (typeof body.error.message === "string" &&
+              body.error.message.toLowerCase().includes("rate limit"));
+
+          if (is429) {
+            console.warn(
+              `[NearRpcChainGateway] RPC Rate limit (-429) from ${targetUrl} (method: ${method}). Rotating RPC endpoint...`,
+            );
+            if (!overrideRpcUrl) {
+              this.activeRpcIndex = (this.activeRpcIndex + 1) % this.rpcEndpoints.length;
+            }
+            lastError = new Error(
+              `NEAR RPC Error (-429 Rate Limit): ${body.error.message ?? ""}`,
+            );
+            continue;
+          }
+
+          const errorCause = (body.error.cause as { cause?: string; name?: string })?.cause;
+          if (errorCause === "NOT_OBSERVED" || body.error.name === "TIMEOUT_ERROR") {
+            throw new Error(
+              `Transaction was not observed on NEAR RPC (TIMEOUT / NOT_OBSERVED)`,
+            );
+          }
+          throw new Error(
+            `NEAR RPC Error (${body.error.name ?? "RPC_ERROR"}): ${
+              body.error.message ?? ""
+            } ${JSON.stringify(body.error.data ?? body.error.cause ?? body.error)}`,
+          );
+        }
+
+        return body.result as T;
+      } catch (err) {
+        lastError = err;
+        const msg = err instanceof Error ? err.message : String(err);
+        const isAbortOrNetwork =
+          msg.includes("aborted") ||
+          msg.includes("timeout") ||
+          msg.includes("fetch failed") ||
+          msg.includes("ECONNREFUSED") ||
+          msg.includes("Rate limits exceeded") ||
+          msg.includes("429");
+
+        if (isAbortOrNetwork && i < endpointsToTry.length - 1) {
+          console.warn(
+            `[NearRpcChainGateway] Connection or rate limit issue with ${targetUrl}: ${msg}. Trying next provider...`,
+          );
+          if (!overrideRpcUrl) {
+            this.activeRpcIndex = (this.activeRpcIndex + 1) % this.rpcEndpoints.length;
+          }
+          continue;
+        }
+        throw err;
       }
-      throw new Error(
-        `NEAR RPC Error (${body.error.name ?? "RPC_ERROR"}): ${
-          body.error.message ?? ""
-        } ${JSON.stringify(body.error.data ?? body.error.cause ?? body.error)}`,
-      );
     }
-    return body.result as T;
+
+    throw (
+      (lastError instanceof Error ? lastError : null) ??
+      new Error(`Exhausted all NEAR RPC endpoints for ${method}: ${String(lastError)}`)
+    );
   }
 
   private async getAccessKeyNonceAndBlockHash(): Promise<{
@@ -534,6 +648,7 @@ export class NearRpcChainGateway implements ChainGateway {
     commitment: string;
     refundAfterNs: bigint;
   }): Promise<{ txHash: TxHash }> {
+    this.escrowCache.delete(input.escrowId);
     const { txHash } = await this.sendFunctionCall(
       this.escrowContractId,
       "register",
@@ -554,6 +669,7 @@ export class NearRpcChainGateway implements ChainGateway {
     receiver: AccountId;
     amountMinor: bigint;
   }): Promise<{ txHash: TxHash }> {
+    this.escrowCache.delete(input.escrowId);
     const { txHash } = await this.sendFunctionCall(
       this.escrowContractId,
       "release",
@@ -572,6 +688,7 @@ export class NearRpcChainGateway implements ChainGateway {
     escrowId: EscrowId;
     amountMinor: bigint;
   }): Promise<{ txHash: TxHash }> {
+    this.escrowCache.delete(input.escrowId);
     const { txHash } = await this.sendFunctionCall(
       this.escrowContractId,
       "refund",
@@ -603,7 +720,18 @@ export class NearRpcChainGateway implements ChainGateway {
     return this.anchoredRoots;
   }
 
-  async getEscrow(escrowId: EscrowId): Promise<OnchainEscrowView | null> {
+  async getEscrow(escrowId: EscrowId, forceFresh = false): Promise<OnchainEscrowView | null> {
+    const now = Date.now();
+    const cached = this.escrowCache.get(escrowId);
+    if (!forceFresh && cached) {
+      // Closed escrows are terminal and never change on chain (10 min TTL)
+      // Active or uninitialized escrows cached for 12 seconds to prevent burst spamming
+      const ttlMs = cached.view?.status === "Closed" ? 600_000 : 12_000;
+      if (now - cached.cachedAt < ttlMs) {
+        return cached.view;
+      }
+    }
+
     const argsBase64 = Buffer.from(
       JSON.stringify({ escrow_id: escrowId }),
       "utf8",
@@ -631,8 +759,12 @@ export class NearRpcChainGateway implements ChainGateway {
       refund_after: number;
     } | null;
 
-    if (!parsed) return null;
-    return {
+    if (!parsed) {
+      this.escrowCache.set(escrowId, { view: null, cachedAt: now });
+      return null;
+    }
+
+    const view: OnchainEscrowView = {
       kind: parsed.kind,
       depositor: parsed.depositor,
       heldMinor: BigInt(parsed.held),
@@ -640,6 +772,8 @@ export class NearRpcChainGateway implements ChainGateway {
       status: parsed.status,
       refundAfterNs: BigInt(parsed.refund_after),
     };
+    this.escrowCache.set(escrowId, { view, cachedAt: now });
+    return view;
   }
 
   /**
@@ -653,6 +787,7 @@ export class NearRpcChainGateway implements ChainGateway {
     kind?: OnchainEscrowKind;
     refundAfterNs?: bigint;
   }): Promise<TxHash> {
+    this.escrowCache.delete(input.escrowId);
     const defaultRefundAfterNs = BigInt(Date.now() + 48 * 3600 * 1000) * 1_000_000n;
     const msgObj: Record<string, unknown> = {
       escrow_id: input.escrowId,
@@ -785,6 +920,11 @@ export class NearRpcChainGateway implements ChainGateway {
 
     this.latestBlockHeight += 1n;
     const parsedEvents = parseNep297EscrowEvents(logs, txHash, this.latestBlockHeight);
+    for (const ev of parsedEvents) {
+      if ("escrowId" in ev && ev.escrowId) {
+        this.escrowCache.delete(ev.escrowId);
+      }
+    }
     if (parsedEvents.length > 0) {
       this.recordedEvents.push(...parsedEvents);
     }

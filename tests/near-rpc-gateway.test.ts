@@ -331,4 +331,102 @@ describe("NEAR RPC Gateway & Borsh / Ed25519 Protocol Layer", () => {
       vi.unstubAllGlobals();
     }
   });
+
+  it("rotates RPC provider on HTTP 429 rate limit and caches getEscrow views", async () => {
+    const seed = new Uint8Array(32).fill(4);
+    let rpcCallCount = 0;
+    const fetchCalls: string[] = [];
+
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      fetchCalls.push(url);
+      rpcCallCount++;
+      const body = JSON.parse(String(init?.body ?? "{}")) as {
+        method: string;
+        params: Record<string, unknown>;
+      };
+
+      // Simulate Fastnear returning 429 Rate Limit
+      if (url.includes("fastnear.com")) {
+        return new Response(
+          JSON.stringify({
+            jsonrpc: "2.0",
+            error: {
+              code: -429,
+              message:
+                "Rate limits exceeded. For higher rate limits get a subscription at https://fastnear.com",
+            },
+            id: "ledgerly-rpc",
+          }),
+          { status: 429 },
+        );
+      }
+
+      // Fallback endpoint (rpc.testnet.near.org) returns valid response
+      if (body.method === "query" && body.params.method_name === "get_escrow") {
+        return new Response(
+          JSON.stringify({
+            jsonrpc: "2.0",
+            id: "ledgerly-rpc",
+            result: {
+              result: Array.from(
+                Buffer.from(
+                  JSON.stringify({
+                    kind: "Payment",
+                    depositor: "buyer.testnet",
+                    held: "500000000",
+                    commitment: "commit123",
+                    status: "Held",
+                    refund_after: 1800000000,
+                  }),
+                  "utf8",
+                ),
+              ),
+              block_height: 190000000,
+            },
+          }),
+          { status: 200 },
+        );
+      }
+
+      return new Response(
+        JSON.stringify({
+          jsonrpc: "2.0",
+          id: "ledgerly-rpc",
+          error: { message: "Unrecognized test query" },
+        }),
+        { status: 400 },
+      );
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      const gw = new NearRpcChainGateway({
+        rpcUrl: "https://test.rpc.fastnear.com",
+        escrowContractId: "escrow.ledgerly.testnet" as AccountId,
+        usdcContractId: "usdc.fakes.testnet" as AccountId,
+        operatorAccountId: "operator.ledgerly.testnet" as AccountId,
+        operatorPrivateKey: `ed25519:${base58Encode(seed)}`,
+      });
+
+      // 1. Initial call should fail on fastnear, auto-rotate to rpc.testnet.near.org, and succeed
+      const escrow1 = await gw.getEscrow("esc_test_1" as EscrowId);
+      expect(escrow1).not.toBeNull();
+      expect(escrow1?.heldMinor).toBe(500000000n);
+      expect(fetchCalls).toContain("https://test.rpc.fastnear.com");
+      expect(fetchCalls).toContain("https://rpc.testnet.near.org");
+
+      // 2. Second call to the same escrow should be served from in-memory TTL cache (no new fetch)
+      const countBefore = rpcCallCount;
+      const escrowCached = await gw.getEscrow("esc_test_1" as EscrowId);
+      expect(escrowCached).toEqual(escrow1);
+      expect(rpcCallCount).toBe(countBefore);
+
+      // 3. Forcing fresh invalidates cache and queries working endpoint
+      const escrowFresh = await gw.getEscrow("esc_test_1" as EscrowId, true);
+      expect(escrowFresh).toEqual(escrow1);
+      expect(rpcCallCount).toBe(countBefore + 1);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
 });

@@ -81,8 +81,18 @@ export function getRuntime(forceFresh = false): Promise<LedgerlyRuntime> {
   return globalForLedgerly.__ledgerlyRuntime;
 }
 
+let cachedDashboardSnapshot: {
+  data: DashboardSnapshot;
+  cachedAt: number;
+} | null = null;
+
 export function resetRuntime(): void {
   globalForLedgerly.__ledgerlyRuntime = undefined;
+  cachedDashboardSnapshot = null;
+}
+
+export function invalidateDashboardSnapshotCache(): void {
+  cachedDashboardSnapshot = null;
 }
 
 async function createSeededRuntime(): Promise<LedgerlyRuntime> {
@@ -346,7 +356,7 @@ async function createSeededRuntime(): Promise<LedgerlyRuntime> {
   };
 }
 
-export async function buildDashboardSnapshot() {
+async function computeDashboardSnapshot() {
   const rt = await getRuntime();
   await rt.indexer.runOnce();
   await rt.expiry.runOnce();
@@ -439,4 +449,16 @@ export async function buildDashboardSnapshot() {
     },
     fxRates: await rt.fx.getLiveRates(),
   };
+}
+
+export type DashboardSnapshot = Awaited<ReturnType<typeof computeDashboardSnapshot>>;
+
+export async function buildDashboardSnapshot(forceFresh = false): Promise<DashboardSnapshot> {
+  const now = Date.now();
+  if (!forceFresh && cachedDashboardSnapshot && now - cachedDashboardSnapshot.cachedAt < 3000) {
+    return cachedDashboardSnapshot.data;
+  }
+  const data = await computeDashboardSnapshot();
+  cachedDashboardSnapshot = { data, cachedAt: now };
+  return data;
 }

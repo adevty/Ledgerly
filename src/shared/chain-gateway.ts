@@ -65,7 +65,7 @@ export interface ChainGateway {
 
   anchorAuditRoot(logRootHex: string): Promise<{ txHash: TxHash }>;
 
-  getEscrow(escrowId: EscrowId): Promise<OnchainEscrowView | null>;
+  getEscrow(escrowId: EscrowId, forceFresh?: boolean): Promise<OnchainEscrowView | null>;
 
   pollEvents(fromBlockHeightExclusive: bigint): Promise<{
     readonly events: readonly OnchainEvent[];
