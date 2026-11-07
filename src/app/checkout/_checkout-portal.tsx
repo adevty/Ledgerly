@@ -297,7 +297,7 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
     pushToast(
       "success",
       `1Click Deposit Address Generated for ${oneClickAsset.name}`,
-      `Send funds on ${oneClickAsset.name} to complete intent.`,
+      `Intent created. Use Simulate Solver Settlement below to execute testnet escrow fulfillment.`,
     );
   };
 
@@ -881,6 +881,33 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                   </span>
                 </div>
 
+                {/* Testnet Evaluation & Safety Warning Banner */}
+                <div
+                  style={{
+                    padding: "0.85rem 1rem",
+                    borderRadius: 6,
+                    border: "1px solid #f59e0b",
+                    background: "#fffbeb",
+                    marginBottom: "1rem",
+                    display: "flex",
+                    gap: "0.75rem",
+                    alignItems: "flex-start",
+                  }}
+                >
+                  <span style={{ fontSize: "1.25rem", lineHeight: 1 }}>⚠️</span>
+                  <div style={{ fontSize: "0.78rem", lineHeight: 1.45, color: "#92400e" }}>
+                    <div style={{ fontWeight: 700, marginBottom: "0.2rem", color: "#b45309" }}>
+                      Hackathon Evaluation Mode (NEAR Testnet Escrow Contract)
+                    </div>
+                    <div>
+                      Quotes and single-use deposit addresses are queried from the <strong>live NEAR Intents mainnet solver API</strong>.
+                      Because Ledgerly’s escrow contract is currently deployed on <strong>NEAR Testnet</strong> (for zero-cost judge evaluation),
+                      <strong> please do NOT send real mainnet SOL/ETH funds</strong>.
+                      Use the <strong>Simulate Solver Settlement</strong> button below to test zero-cost atomic settlement into the escrow contract.
+                    </div>
+                  </div>
+                </div>
+
                 <div className="field-group" style={{ marginBottom: "1rem" }}>
                   <label className="field-label">
                     <span>Select Source Token &amp; Chain</span>
@@ -1074,8 +1101,8 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                     style={{
                       padding: "1rem",
                       borderRadius: 6,
-                      border: "1px solid var(--sage-green)",
-                      background: "var(--sage-green-soft)",
+                      border: "1px solid #f59e0b",
+                      background: "#fffbeb",
                       marginBottom: "1rem",
                     }}
                   >
@@ -1085,14 +1112,31 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                         justifyContent: "space-between",
                         alignItems: "center",
                         marginBottom: "0.5rem",
+                        flexWrap: "wrap",
+                        gap: "0.4rem",
                       }}
                     >
-                      <span
-                        className="mono-label"
-                        style={{ color: "var(--sage-green)", fontWeight: 600 }}
-                      >
-                        Single-Use Deposit Address ({oneClickAsset.name})
-                      </span>
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.45rem", flexWrap: "wrap" }}>
+                        <span
+                          className="mono-label"
+                          style={{ color: "#92400e", fontWeight: 700 }}
+                        >
+                          Single-Use Deposit Address ({oneClickAsset.name})
+                        </span>
+                        <span
+                          style={{
+                            fontSize: "0.62rem",
+                            background: "#fee2e2",
+                            color: "#991b1b",
+                            border: "1px solid #f87171",
+                            padding: "0.1rem 0.35rem",
+                            borderRadius: 3,
+                            fontWeight: 700,
+                          }}
+                        >
+                          DO NOT SEND REAL FUNDS
+                        </span>
+                      </div>
                       <span className="status-pill status-pill-emerald">
                         <span className="status-pill-dot" />
                         {oneClickStatus ?? "PENDING_DEPOSIT"}
@@ -1105,39 +1149,62 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                         padding: "0.55rem 0.75rem",
                         background: "#ffffff",
                         borderRadius: 4,
-                        border: "1px solid var(--line-soft)",
+                        border: "1px solid #fed7aa",
                         fontSize: "0.8rem",
                         wordBreak: "break-all",
                         marginBottom: "0.5rem",
+                        color: "#78350f",
                       }}
                     >
                       {oneClickDepositAddress}
                     </div>
 
+                    <div
+                      style={{
+                        fontSize: "0.74rem",
+                        color: "#92400e",
+                        marginBottom: "0.75rem",
+                        lineHeight: 1.45,
+                      }}
+                    >
+                      Programmatic intent address generated via NEAR Intents 1Click API.
+                      To avoid loss of real funds during hackathon testing, do <strong>NOT</strong> transfer real mainnet assets. Click <strong>Simulate Solver Settlement</strong> below to test zero-cost atomic settlement into our testnet escrow contract.
+                    </div>
+
                     <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
                       <button
                         type="button"
-                        className="btn-secondary mono-data"
-                        style={{ fontSize: "0.75rem", padding: "0.35rem 0.65rem" }}
-                        onClick={() => {
-                          if (navigator.clipboard) {
-                            void navigator.clipboard.writeText(oneClickDepositAddress);
-                            pushToast("success", "Address Copied", oneClickDepositAddress);
-                          }
-                        }}
-                      >
-                        Copy Address
-                      </button>
-                      <button
-                        type="button"
                         className="btn-primary mono-data"
-                        style={{ fontSize: "0.75rem", padding: "0.35rem 0.65rem" }}
+                        style={{
+                          fontSize: "0.78rem",
+                          padding: "0.45rem 0.85rem",
+                          background: "var(--sage-green)",
+                          border: "none",
+                          fontWeight: 600,
+                        }}
                         disabled={Boolean(busyKey)}
                         onClick={handleSimulateOneClickFulfillment}
                       >
                         {busyKey === "simulate_oneclick"
                           ? "Simulating Fulfillment…"
-                          : "Simulate Solver Settlement (Testnet)"}
+                          : "⚡ Simulate Solver Settlement (Testnet)"}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-secondary mono-data"
+                        style={{ fontSize: "0.75rem", padding: "0.45rem 0.65rem" }}
+                        onClick={() => {
+                          if (navigator.clipboard) {
+                            void navigator.clipboard.writeText(oneClickDepositAddress);
+                            pushToast(
+                              "success",
+                              "Deposit Address Copied",
+                              "Inspection only: Do NOT send real mainnet funds during testnet demo.",
+                            );
+                          }
+                        }}
+                      >
+                        Copy Address (Inspection)
                       </button>
                     </div>
                   </div>
