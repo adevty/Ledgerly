@@ -17,6 +17,7 @@ import {
   DEMO_ORG_ID,
   buildDashboardSnapshot,
   getRuntime,
+  invalidateDashboardSnapshotCache,
   resetRuntime,
 } from "@/app/api/_runtime";
 
@@ -305,6 +306,38 @@ export async function POST(request: Request) {
 
   if (action === "REFRESH_AUDIT_GRANT") {
     await refreshAuditorGrant(rt);
+    return NextResponse.json({ ok: true, state: await buildDashboardSnapshot(true) });
+  }
+
+  if (action === "AUTO_RECONCILE_DISCREPANCIES") {
+    rt.offRamp.setBehavior({ mode: "SUCCESS" });
+    const recon = await rt.reconciliation.runOnce();
+    for (const d of recon.discrepancies) {
+      try {
+        if (d.onchainHeldMinor > 0n) {
+          if (d.status === "SETTLED") {
+            const receiver =
+              d.kind === "PAYMENT_REQUEST"
+                ? ("atelier-sari.ledgerly.testnet" as AccountId)
+                : ("offramp-pool.ledgerly.testnet" as AccountId);
+            await rt.chain.release({
+              escrowId: d.escrowId,
+              receiver,
+              amountMinor: d.onchainHeldMinor,
+            });
+          } else if (d.status === "EXPIRED" || d.status === "QUOTED") {
+            await rt.chain.refund({
+              escrowId: d.escrowId,
+              amountMinor: d.onchainHeldMinor,
+            });
+          }
+        }
+      } catch (err) {
+        console.warn(`[Auto-Reconcile] Could not reconcile ${d.recordId}:`, err);
+      }
+    }
+    await rt.settlement.runOnce();
+    invalidateDashboardSnapshotCache();
     return NextResponse.json({ ok: true, state: await buildDashboardSnapshot(true) });
   }
 

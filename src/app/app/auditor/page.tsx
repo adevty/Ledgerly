@@ -35,6 +35,17 @@ export default function AuditorVerificationPage() {
       },
     );
 
+  const handleAutoReconcile = () =>
+    runAction(
+      { action: "AUTO_RECONCILE_DISCREPANCIES" },
+      "Executed on-chain settlement releases and refunds on NEAR Testnet. All escrows balanced.",
+      {
+        actionKey: "auto_reconcile",
+        errorScope: "auditor_page",
+        successTitle: "Escrows Reconciled On-Chain",
+      },
+    );
+
   return (
     <div>
       {/* Page Header */}
@@ -359,14 +370,27 @@ export default function AuditorVerificationPage() {
             </div>
           </div>
 
-          <StatusBadge
-            status={state?.reconciliation.discrepancies.length === 0 ? "SETTLED" : "PAYOUT_FAILED"}
-            label={
-              state?.reconciliation.discrepancies.length === 0
-                ? "Reconciled"
-                : `${state?.reconciliation.discrepancies.length ?? 0} Discrepancies`
-            }
-          />
+          <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap" }}>
+            <StatusBadge
+              status={state?.reconciliation.discrepancies.length === 0 ? "SETTLED" : "PAYOUT_FAILED"}
+              label={
+                state?.reconciliation.discrepancies.length === 0
+                  ? "Reconciled"
+                  : `${state?.reconciliation.discrepancies.length ?? 0} Discrepancies`
+              }
+            />
+            {state?.reconciliation.discrepancies && state.reconciliation.discrepancies.length > 0 && (
+              <button
+                type="button"
+                className="btn-secondary"
+                disabled={busy}
+                onClick={handleAutoReconcile}
+                style={{ fontSize: "0.78rem", padding: "0.35rem 0.75rem", height: "auto" }}
+              >
+                {pendingKey === "auto_reconcile" ? "Reconciling on NEAR…" : "⚡ Auto-Reconcile On-Chain Balances"}
+              </button>
+            )}
+          </div>
         </div>
 
         {(state?.reconciliation.discrepancies.length ?? 0) > 0 && (
