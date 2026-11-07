@@ -220,12 +220,23 @@ export function LedgerlyDashboardProvider({ children }: { children: React.ReactN
   );
 
   const fetchState = useCallback(async () => {
-    const res = await fetch("/api/v1/state", { cache: "no-store" });
-    if (res.ok) {
-      const next = (await res.json()) as DashboardState;
-      recordTransitions(stateRef.current, next);
-      stateRef.current = next;
-      setState(next);
+    try {
+      const res = await fetch("/api/v1/state", { cache: "no-store" });
+      if (res.ok) {
+        let next: DashboardState | null = null;
+        try {
+          next = (await res.json()) as DashboardState;
+        } catch {
+          return;
+        }
+        if (next && typeof next === "object") {
+          recordTransitions(stateRef.current, next);
+          stateRef.current = next;
+          setState(next);
+        }
+      }
+    } catch {
+      // transient background network error ignored
     }
   }, [recordTransitions]);
 
@@ -260,11 +271,21 @@ export function LedgerlyDashboardProvider({ children }: { children: React.ReactN
           body: JSON.stringify(payload),
         });
 
-        const data = (await res.json()) as {
-          ok: boolean;
+        let data: {
+          ok?: boolean;
           state?: DashboardState;
-          error?: { code: string; message: string };
-        };
+          error?: { code?: string; message?: string };
+        } | null = null;
+
+        try {
+          data = (await res.json()) as {
+            ok?: boolean;
+            state?: DashboardState;
+            error?: { code?: string; message?: string };
+          };
+        } catch {
+          // If response body is empty or non-JSON
+        }
 
         // Ensure a calm, perceptible loading state (~360ms minimum)
         const elapsed = Date.now() - startedAt;
@@ -272,9 +293,12 @@ export function LedgerlyDashboardProvider({ children }: { children: React.ReactN
           await new Promise((resolve) => setTimeout(resolve, 360 - elapsed));
         }
 
-        if (!res.ok || !data.ok) {
-          const code = data.error?.code ?? "VALIDATION_ERROR";
-          const message = data.error?.message ?? "Unable to process request.";
+        if (!res.ok || !data?.ok) {
+          const code =
+            data?.error?.code ?? (res.status >= 500 ? "SERVER_ERROR" : "ACTION_FAILED");
+          const message =
+            data?.error?.message ??
+            `Server returned HTTP ${res.status}. Please check network connection or logs.`;
           setInlineError({ scope, code, message });
           pushToast({
             kind: "error",

@@ -21,15 +21,16 @@ import {
 } from "@/app/api/_runtime";
 
 export async function POST(request: Request) {
-  const body = (await request.json()) as Record<string, unknown>;
-  const action = String(body.action ?? "");
+  try {
+    const body = (await request.json()) as Record<string, unknown>;
+    const action = String(body.action ?? "");
 
-  if (action === "RESET_DEV_STATE") {
-    resetRuntime();
-    return NextResponse.json({ ok: true, message: "Runtime cache reset" });
-  }
+    if (action === "RESET_DEV_STATE") {
+      resetRuntime();
+      return NextResponse.json({ ok: true, message: "Runtime cache reset" });
+    }
 
-  const rt = await getRuntime();
+    const rt = await getRuntime();
 
   if (action === "CREATE_PAYMENT_REQUEST") {
     const orderRef = String(body.orderRef ?? "INV-2026-9001");
@@ -298,7 +299,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, state: await buildDashboardSnapshot() });
   }
 
-  return NextResponse.json({ ok: false, error: { code: "UNKNOWN_ACTION", message: action } }, { status: 400 });
+    return NextResponse.json(
+      { ok: false, error: { code: "UNKNOWN_ACTION", message: action } },
+      { status: 400 },
+    );
+  } catch (err) {
+    console.error("[API /api/v1/actions] Unhandled error:", err);
+    return NextResponse.json(
+      {
+        ok: false,
+        error: {
+          code: "INTERNAL_SERVER_ERROR",
+          message: err instanceof Error ? err.message : String(err),
+        },
+      },
+      { status: 500 },
+    );
+  }
 }
 
 async function refreshAuditorGrant(rt: Awaited<ReturnType<typeof getRuntime>>) {

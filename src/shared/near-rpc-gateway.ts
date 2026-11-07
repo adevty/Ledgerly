@@ -742,35 +742,23 @@ export class NearRpcChainGateway implements ChainGateway {
       ]),
     );
 
-    const queries: Array<
-      Promise<{
-        status?: { Failure?: unknown };
-        transaction_outcome?: { outcome?: { logs?: string[] } };
-        receipts_outcome?: Array<{ outcome?: { logs?: string[] } }>;
-      }>
-    > = [];
-
     for (const rpcUrl of rpcEndpoints) {
+      if (outcome) break;
       for (const candidate of candidateAccounts) {
-        queries.push(
-          this.rpcCall<{
+        try {
+          const res = await this.rpcCall<{
             status?: { Failure?: unknown };
             transaction_outcome?: { outcome?: { logs?: string[] } };
             receipts_outcome?: Array<{ outcome?: { logs?: string[] } }>;
-          }>("tx", [txHash, candidate], 4000, rpcUrl).then((res) => {
-            if (res && (res.transaction_outcome || res.receipts_outcome || res.status)) {
-              return res;
-            }
-            throw new Error(`Empty outcome for candidate ${candidate} on ${rpcUrl}`);
-          }),
-        );
+          }>("tx", [txHash, candidate], 5000, rpcUrl);
+          if (res && (res.transaction_outcome || res.receipts_outcome || res.status)) {
+            outcome = res;
+            break;
+          }
+        } catch (err) {
+          lastError = err;
+        }
       }
-    }
-
-    try {
-      outcome = await Promise.any(queries);
-    } catch (err) {
-      lastError = err;
     }
 
     if (!outcome) {
