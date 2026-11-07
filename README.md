@@ -7,7 +7,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Rust](https://img.shields.io/badge/Rust-near--sdk%205.5-DEA584?logo=rust&logoColor=black)](https://near-sdk.io/)
 [![Next.js](https://img.shields.io/badge/Next.js-16%20Turbopack-000000?logo=next.js&logoColor=white)](https://nextjs.org/)
-[![Vitest](https://img.shields.io/badge/Tests-52%20Passing-6E9F18?logo=vitest&logoColor=white)](https://vitest.dev/)
+[![Vitest](https://img.shields.io/badge/Tests-59%20Passing-6E9F18?logo=vitest&logoColor=white)](https://vitest.dev/)
 [![Security Audit](https://img.shields.io/badge/Security-0%20Vulnerabilities-brightgreen)](https://docs.npmjs.com/cli/v10/commands/npm-audit)
 
 ---
@@ -129,7 +129,7 @@ Both the **Escrow Smart Contract** and the **NEP-141 Mock USDC Token** are live 
 
 ```bash
 # Clone the repository
-git clone https://github.com/fzn-sh/Ledgerly.git
+git clone https://github.com/adevty/Ledgerly.git
 cd Ledgerly
 
 # Install dependencies (0 vulnerabilities)
