@@ -10,19 +10,62 @@ import {
 } from "../_context";
 
 type AuditRecordFilter = "ALL" | "PAYMENT" | "REMITTANCE" | "UNVERIFIED";
+type AuditSortOrder = "NEWEST" | "OLDEST" | "RECORD_ID" | "UNVERIFIED";
 
 export default function AuditorVerificationPage() {
   const { state, busy, pendingKey, runAction, downloadCsv } = useLedgerlyDashboard();
   const [recordFilter, setRecordFilter] = useState<AuditRecordFilter>("ALL");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortOrder, setSortOrder] = useState<AuditSortOrder>("NEWEST");
 
   const allRecords = state?.audit.records ?? [];
 
   const filteredRecords = useMemo(() => {
-    if (recordFilter === "ALL") return allRecords;
-    if (recordFilter === "PAYMENT") return allRecords.filter((r) => r.kind === "PAYMENT");
-    if (recordFilter === "REMITTANCE") return allRecords.filter((r) => r.kind === "REMITTANCE");
-    return allRecords.filter((r) => !r.verifiedOnchain);
-  }, [allRecords, recordFilter]);
+    let list = allRecords;
+
+    // 1. Filter by category
+    if (recordFilter === "PAYMENT") {
+      list = list.filter((r) => r.kind === "PAYMENT");
+    } else if (recordFilter === "REMITTANCE") {
+      list = list.filter((r) => r.kind === "REMITTANCE");
+    } else if (recordFilter === "UNVERIFIED") {
+      list = list.filter((r) => !r.verifiedOnchain);
+    }
+
+    // 2. Filter by search query
+    const q = searchQuery.trim().toLowerCase();
+    if (q) {
+      list = list.filter((r) => {
+        if (r.recordId.toLowerCase().includes(q)) return true;
+        if (r.escrowId.toLowerCase().includes(q)) return true;
+        if (r.commitment.toLowerCase().includes(q)) return true;
+        const payloadStr = JSON.stringify(r.decryptedPayload).toLowerCase();
+        return payloadStr.includes(q);
+      });
+    }
+
+    // 3. Sort records (default: NEWEST first)
+    return [...list].sort((a, b) => {
+      const timeA = new Date(a.createdAtIso).getTime();
+      const timeB = new Date(b.createdAtIso).getTime();
+
+      if (sortOrder === "NEWEST") {
+        return timeB - timeA;
+      }
+      if (sortOrder === "OLDEST") {
+        return timeA - timeB;
+      }
+      if (sortOrder === "RECORD_ID") {
+        return a.recordId.localeCompare(b.recordId);
+      }
+      if (sortOrder === "UNVERIFIED") {
+        if (!a.verifiedOnchain && b.verifiedOnchain) return -1;
+        if (a.verifiedOnchain && !b.verifiedOnchain) return 1;
+        return timeB - timeA;
+      }
+      return 0;
+    });
+  }, [allRecords, recordFilter, searchQuery, sortOrder]);
 
   const handleRotateKey = () =>
     runAction(
@@ -233,6 +276,116 @@ export default function AuditorVerificationPage() {
           </div>
         </div>
 
+        {/* Search & Sort Secondary Toolbar */}
+        <div
+          style={{
+            padding: "0.75rem 1.25rem",
+            background: "var(--bg-ivory-subtle)",
+            borderBottom: "1px solid var(--line-soft)",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: "0.75rem",
+          }}
+        >
+          {/* Search Input */}
+          <div
+            style={{
+              position: "relative",
+              flex: "1 1 260px",
+              maxWidth: 440,
+            }}
+          >
+            <span
+              style={{
+                position: "absolute",
+                left: "0.65rem",
+                top: "50%",
+                transform: "translateY(-50%)",
+                fontSize: "0.82rem",
+                color: "var(--ink-muted)",
+                pointerEvents: "none",
+              }}
+              aria-hidden="true"
+            >
+              🔍
+            </span>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by ID, email, memo, order ref, or counterparty…"
+              style={{
+                width: "100%",
+                paddingLeft: "2rem",
+                paddingRight: searchQuery ? "2rem" : "0.75rem",
+                fontSize: "0.8rem",
+                height: 32,
+                borderRadius: 4,
+                border: "1px solid var(--line-medium)",
+                background: "var(--bg-ivory-card)",
+                color: "var(--ink-charcoal)",
+                outline: "none",
+              }}
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                style={{
+                  position: "absolute",
+                  right: "0.45rem",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  background: "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "var(--ink-muted)",
+                  fontSize: "0.8rem",
+                  padding: "0.2rem",
+                }}
+                title="Clear search"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+
+          {/* Sort Controls */}
+          <div style={{ display: "flex", alignItems: "center", gap: "0.55rem", flexWrap: "wrap" }}>
+            <span className="mono-label" style={{ fontSize: "0.72rem" }}>
+              Sort:
+            </span>
+            <div className="filter-pill-group" role="group" aria-label="Sort auditor records">
+              {(
+                [
+                  { id: "NEWEST", label: "Newest First ↓" },
+                  { id: "OLDEST", label: "Oldest First ↑" },
+                  { id: "RECORD_ID", label: "ID (A-Z)" },
+                  { id: "UNVERIFIED", label: "Status" },
+                ] as const
+              ).map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  className={`filter-pill ${sortOrder === s.id ? "filter-pill-active" : ""}`}
+                  style={{ fontSize: "0.72rem", height: 26, padding: "0 0.55rem" }}
+                  onClick={() => setSortOrder(s.id)}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+
+            {searchQuery && (
+              <span className="mono-label" style={{ fontSize: "0.72rem", color: "var(--sage-green)" }}>
+                Matched {filteredRecords.length}
+              </span>
+            )}
+          </div>
+        </div>
+
         {state === null ? (
           <SkeletonRows count={2} />
         ) : filteredRecords.length === 0 ? (
@@ -240,16 +393,20 @@ export default function AuditorVerificationPage() {
             title={
               allRecords.length === 0
                 ? "No decrypted auditor records in scope"
-                : recordFilter === "UNVERIFIED"
-                  ? "Zero unverified records"
-                  : `No ${recordFilter.toLowerCase()} records in current view`
+                : searchQuery
+                  ? `No records matching "${searchQuery}"`
+                  : recordFilter === "UNVERIFIED"
+                    ? "Zero unverified records"
+                    : `No ${recordFilter.toLowerCase()} records in current view`
             }
             description={
               allRecords.length === 0
                 ? "Issue or rotate a scoped X25519 view key grant to decrypt authorized payment and remittance envelopes for external verification."
-                : recordFilter === "UNVERIFIED"
-                  ? "Every decrypted record in this grant matches its immutable SHA-256 commitment stored on the NEAR escrow contract."
-                  : "Switch back to All to inspect all decrypted envelopes in the active auditor grant."
+                : searchQuery
+                  ? "Try searching with another keyword or clear the search field to view all scope records."
+                  : recordFilter === "UNVERIFIED"
+                    ? "Every decrypted record in this grant matches its immutable SHA-256 commitment stored on the NEAR escrow contract."
+                    : "Switch back to All to inspect all decrypted envelopes in the active auditor grant."
             }
             primaryAction={
               allRecords.length === 0
@@ -259,13 +416,18 @@ export default function AuditorVerificationPage() {
                       void handleRotateKey();
                     },
                   }
-                : {
-                    label: `Show All Records (${allRecords.length})`,
-                    onClick: () => setRecordFilter("ALL"),
-                  }
+                : searchQuery
+                  ? {
+                      label: "Clear Search Query",
+                      onClick: () => setSearchQuery(""),
+                    }
+                  : {
+                      label: `Show All Records (${allRecords.length})`,
+                      onClick: () => setRecordFilter("ALL"),
+                    }
             }
             secondaryAction={
-              allRecords.length > 0
+              allRecords.length > 0 && !searchQuery
                 ? {
                     label: "Rotate Scoped View Key",
                     onClick: () => {
@@ -281,7 +443,7 @@ export default function AuditorVerificationPage() {
               <thead>
                 <tr>
                   <th>Kind</th>
-                  <th>Record ID</th>
+                  <th>Record ID &amp; Timestamp</th>
                   <th>Decrypted Envelope Payload</th>
                   <th>Escrow &amp; Commitment</th>
                   <th className="col-num">Verification</th>
@@ -312,6 +474,14 @@ export default function AuditorVerificationPage() {
                       <span className="mono-data" style={{ fontWeight: 600 }}>
                         {rec.recordId}
                       </span>
+                      <div className="mono-label" style={{ fontSize: "0.68rem", color: "var(--ink-muted)", marginTop: "0.15rem" }}>
+                        {new Date(rec.createdAtIso).toLocaleString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </div>
                     </td>
                     <td style={{ maxWidth: 420 }}>
                       <div
