@@ -413,6 +413,7 @@ async function computeDashboardSnapshot() {
         id: s.id,
         escrowId: s.escrowId,
         status: s.status,
+        fundingTx: s.fundingTx ?? null,
         sourceDecimal: s.quote.source.toDecimalString(),
         feeDecimal: s.quote.fee.toDecimalString(),
         targetDecimal: s.quote.target.toDecimalString(),

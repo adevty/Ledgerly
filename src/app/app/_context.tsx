@@ -22,6 +22,7 @@ export interface RemittanceItem {
   id: string;
   escrowId: string;
   status: string;
+  fundingTx?: string | null;
   sourceDecimal: string;
   feeDecimal: string;
   targetDecimal: string;

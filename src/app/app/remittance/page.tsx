@@ -709,6 +709,48 @@ export default function RemittancePage() {
                         <span className="mono-data" style={{ fontWeight: 600 }}>
                           {rm.id}
                         </span>
+                        <div>
+                          {rm.fundingTx ? (
+                            <a
+                              href={`${state?.network?.explorerBaseUrl ?? "https://testnet.nearblocks.io"}/txns/${rm.fundingTx}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="mono-label"
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "0.2rem",
+                                color: "var(--slate-blue)",
+                                textDecoration: "underline",
+                                fontSize: "0.72rem",
+                                marginTop: "0.15rem",
+                              }}
+                              title="Verify onchain deposit on Nearblocks"
+                            >
+                              <span>tx:{rm.fundingTx.slice(0, 8)}…</span>
+                              <span aria-hidden="true">↗</span>
+                            </a>
+                          ) : (
+                            <a
+                              href={`${state?.network?.explorerBaseUrl ?? "https://testnet.nearblocks.io"}/address/${state?.network?.escrowContractId ?? "ledgerly-escrow-9e70f9ea.testnet"}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="mono-label"
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "0.2rem",
+                                color: "var(--ink-muted)",
+                                fontSize: "0.72rem",
+                                marginTop: "0.15rem",
+                              }}
+                              title="Verify escrow on Nearblocks"
+                            >
+                              <span>escrow:{rm.escrowId.slice(0, 8)}…</span>
+                              <span aria-hidden="true">↗</span>
+                            </a>
+                          )}
+                        </div>
                       </td>
                       <td>
                         <span style={{ fontWeight: 500 }}>{rm.country}</span>{" "}
