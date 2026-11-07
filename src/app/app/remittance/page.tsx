@@ -4,6 +4,7 @@ import React, { useMemo, useRef, useState } from "react";
 import {
   DashboardEmptyState,
   InlineErrorBanner,
+  RemittanceItem,
   SkeletonRows,
   StatusBadge,
   StatusBadgeWithTransition,
@@ -56,6 +57,7 @@ export default function RemittancePage() {
   const [lockedQuote, setLockedQuote] = useState<LockedQuotePreview | null>(null);
   const [lockingQuote, setLockingQuote] = useState(false);
   const [statusFilter, setStatusFilter] = useState<RemittanceFilter>("ALL");
+  const [selectedRemittance, setSelectedRemittance] = useState<RemittanceItem | null>(null);
 
   const allRemittances = state?.remittances ?? [];
 
@@ -598,6 +600,73 @@ export default function RemittancePage() {
         </div>
       </div>
 
+      {/* NEAR Blockchain Rail & Settlement Architecture Banner */}
+      <div
+        className="kpi-strip"
+        style={{
+          gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+          marginBottom: "1.25rem",
+        }}
+      >
+        <div className="kpi-cell">
+          <span className="mono-label">NEAR Escrow Contract</span>
+          <div className="mono-data" style={{ fontWeight: 600, fontSize: "0.88rem", margin: "0.2rem 0" }}>
+            {state?.network?.escrowContractId ?? "ledgerly-escrow.testnet"}
+          </div>
+          <a
+            href={`${state?.network?.explorerBaseUrl ?? "https://testnet.nearblocks.io"}/address/${state?.network?.escrowContractId ?? "ledgerly-escrow-9e70f9ea.testnet"}`}
+            target="_blank"
+            rel="noreferrer"
+            className="mono-label"
+            style={{ color: "var(--slate-blue)", textDecoration: "underline" }}
+          >
+            Verify Escrow on Nearblocks ↗
+          </a>
+        </div>
+
+        <div className="kpi-cell">
+          <span className="mono-label">NEP-141 Settlement Token</span>
+          <div className="mono-data" style={{ fontWeight: 600, fontSize: "0.88rem", margin: "0.2rem 0" }}>
+            {state?.network?.usdcContractId ?? "ledgerly-usdc.testnet"}
+          </div>
+          <a
+            href={`${state?.network?.explorerBaseUrl ?? "https://testnet.nearblocks.io"}/address/${state?.network?.usdcContractId ?? "ledgerly-usdc-a627a4c0.testnet"}`}
+            target="_blank"
+            rel="noreferrer"
+            className="mono-label"
+            style={{ color: "var(--slate-blue)", textDecoration: "underline" }}
+          >
+            Verify USDC Token on Nearblocks ↗
+          </a>
+        </div>
+
+        <div className="kpi-cell">
+          <span className="mono-label">Off-Ramp Settlement Pool</span>
+          <div className="mono-data" style={{ fontWeight: 600, fontSize: "0.88rem", margin: "0.2rem 0" }}>
+            offramp-pool.ledgerly.testnet
+          </div>
+          <a
+            href={`${state?.network?.explorerBaseUrl ?? "https://testnet.nearblocks.io"}/address/offramp-pool.ledgerly.testnet`}
+            target="_blank"
+            rel="noreferrer"
+            className="mono-label"
+            style={{ color: "var(--slate-blue)", textDecoration: "underline" }}
+          >
+            Verify Liquidity Account ↗
+          </a>
+        </div>
+
+        <div className="kpi-cell">
+          <span className="mono-label">On-Chain Finality &amp; Gas</span>
+          <div className="mono-data" style={{ fontWeight: 600, fontSize: "0.88rem", margin: "0.2rem 0", color: "var(--sage-green)" }}>
+            NEAR Testnet (~1.2s Finality)
+          </div>
+          <span className="mono-label" style={{ color: "var(--ink-muted)" }}>
+            Gas sponsored by Enterprise Treasury
+          </span>
+        </div>
+      </div>
+
       {/* High-Density Dispatched Remittances Ledger Table */}
       <div className="fin-card" style={{ padding: 0, overflow: "hidden" }}>
         <div
@@ -692,9 +761,11 @@ export default function RemittancePage() {
                   <th>Remittance ID</th>
                   <th>Corridor &amp; Rail</th>
                   <th>Status</th>
+                  <th>On-Chain Proof &amp; Tx</th>
                   <th>Attempts &amp; Partner Ref</th>
                   <th className="col-num">Source (USDC)</th>
                   <th className="col-num">Target Payout</th>
+                  <th style={{ textAlign: "right" }}>Chain History</th>
                 </tr>
               </thead>
               <tbody>
@@ -709,47 +780,13 @@ export default function RemittancePage() {
                         <span className="mono-data" style={{ fontWeight: 600 }}>
                           {rm.id}
                         </span>
-                        <div>
-                          {rm.fundingTx ? (
-                            <a
-                              href={`${state?.network?.explorerBaseUrl ?? "https://testnet.nearblocks.io"}/txns/${rm.fundingTx}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="mono-label"
-                              style={{
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: "0.2rem",
-                                color: "var(--slate-blue)",
-                                textDecoration: "underline",
-                                fontSize: "0.72rem",
-                                marginTop: "0.15rem",
-                              }}
-                              title="Verify onchain deposit on Nearblocks"
-                            >
-                              <span>tx:{rm.fundingTx.slice(0, 8)}…</span>
-                              <span aria-hidden="true">↗</span>
-                            </a>
-                          ) : (
-                            <a
-                              href={`${state?.network?.explorerBaseUrl ?? "https://testnet.nearblocks.io"}/address/${state?.network?.escrowContractId ?? "ledgerly-escrow-9e70f9ea.testnet"}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="mono-label"
-                              style={{
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: "0.2rem",
-                                color: "var(--ink-muted)",
-                                fontSize: "0.72rem",
-                                marginTop: "0.15rem",
-                              }}
-                              title="Verify escrow on Nearblocks"
-                            >
-                              <span>escrow:{rm.escrowId.slice(0, 8)}…</span>
-                              <span aria-hidden="true">↗</span>
-                            </a>
-                          )}
+                        <div className="mono-label" style={{ fontSize: "0.7rem", color: "var(--ink-muted)" }}>
+                          {new Date(rm.createdAtIso).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
                         </div>
                       </td>
                       <td>
@@ -760,11 +797,58 @@ export default function RemittancePage() {
                         <StatusBadgeWithTransition id={rm.id} status={rm.status} />
                       </td>
                       <td>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "0.2rem" }}>
+                          {rm.fundingTx ? (
+                            <a
+                              href={`${state?.network?.explorerBaseUrl ?? "https://testnet.nearblocks.io"}/txns/${rm.fundingTx}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="mono-label"
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "0.25rem",
+                                color: "var(--slate-blue)",
+                                fontWeight: 600,
+                                textDecoration: "underline",
+                                fontSize: "0.74rem",
+                              }}
+                              title={`NEAR Deposit Transaction: ${rm.fundingTx}`}
+                            >
+                              <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: "var(--sage-green)" }} />
+                              <span>Tx:{rm.fundingTx.slice(0, 8)}…</span>
+                              <span aria-hidden="true">↗</span>
+                            </a>
+                          ) : (
+                            <span className="mono-label" style={{ color: "var(--ink-muted)", fontSize: "0.72rem" }}>
+                              Deposit: Sandbox
+                            </span>
+                          )}
+                          <a
+                            href={`${state?.network?.explorerBaseUrl ?? "https://testnet.nearblocks.io"}/address/${state?.network?.escrowContractId ?? "ledgerly-escrow-9e70f9ea.testnet"}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="mono-label"
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "0.2rem",
+                              color: "var(--ink-muted)",
+                              fontSize: "0.7rem",
+                            }}
+                            title={`NEAR Escrow ID: ${rm.escrowId}`}
+                          >
+                            <span>escrow:{rm.escrowId.slice(0, 8)}…</span>
+                            <span aria-hidden="true">↗</span>
+                          </a>
+                        </div>
+                      </td>
+                      <td>
                         <span className="mono-label">
                           {rm.attempts}/3 ·{" "}
                           {rm.payoutRef
                             ? rm.payoutRef
-                            : rm.lastFailureCode ?? `${rm.commitment.slice(0, 10)}…`}
+                            : rm.lastFailureCode ?? `${rm.commitment.slice(0, 8)}…`}
                         </span>
                       </td>
                       <td className="col-num">
@@ -781,6 +865,22 @@ export default function RemittancePage() {
                           {rm.targetDecimal} {rm.targetCurrency}
                         </span>
                       </td>
+                      <td style={{ textAlign: "right" }}>
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          onClick={() => setSelectedRemittance(rm)}
+                          style={{
+                            padding: "0.25rem 0.55rem",
+                            fontSize: "0.72rem",
+                            fontWeight: 500,
+                            height: "auto",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          Audit History ↗
+                        </button>
+                      </td>
                     </tr>
                   );
                 })}
@@ -789,6 +889,303 @@ export default function RemittancePage() {
           </div>
         )}
       </div>
+
+      {/* On-Chain Transaction Lifecycle Modal */}
+      {selectedRemittance && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="chain-history-title"
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(20, 21, 23, 0.45)",
+            backdropFilter: "blur(3px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+            padding: "1rem",
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSelectedRemittance(null);
+          }}
+        >
+          <div
+            className="fin-card"
+            style={{
+              width: "100%",
+              maxWidth: 680,
+              maxHeight: "90vh",
+              overflowY: "auto",
+              padding: "1.4rem",
+              background: "var(--bg-ivory-card)",
+              boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
+              border: "1px solid var(--line-medium)",
+              borderRadius: 8,
+            }}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+                paddingBottom: "1rem",
+                borderBottom: "1px solid var(--line-soft)",
+                marginBottom: "1.25rem",
+              }}
+            >
+              <div>
+                <div className="eyebrow" style={{ marginBottom: "0.25rem" }}>
+                  NEAR Blockchain Transaction Lifecycle
+                </div>
+                <h2
+                  id="chain-history-title"
+                  style={{
+                    fontSize: "1.15rem",
+                    fontWeight: 600,
+                    color: "var(--ink-charcoal)",
+                  }}
+                >
+                  On-Chain Audit · {selectedRemittance.id}
+                </h2>
+                <div className="mono-label" style={{ marginTop: "0.2rem" }}>
+                  Dispatched at {new Date(selectedRemittance.createdAtIso).toLocaleString()}
+                </div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                <StatusBadge status={selectedRemittance.status} />
+                <button
+                  type="button"
+                  onClick={() => setSelectedRemittance(null)}
+                  className="btn-quiet"
+                  style={{
+                    width: 28,
+                    height: 28,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: 0,
+                    fontSize: "1rem",
+                    borderRadius: 4,
+                  }}
+                  aria-label="Close dialog"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* Stepper Timeline */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+              {/* Step 1: Envelope & Commitment */}
+              <div
+                style={{
+                  padding: "0.85rem 1rem",
+                  background: "var(--bg-ivory)",
+                  borderRadius: 6,
+                  border: "1px solid var(--line-soft)",
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.4rem" }}>
+                  <span style={{ fontWeight: 600, fontSize: "0.82rem" }}>
+                    1. Sealed Envelope &amp; SHA-256 Commitment
+                  </span>
+                  <span className="mono-label" style={{ color: "var(--sage-green)" }}>
+                    ✓ Sealed Off-Chain
+                  </span>
+                </div>
+                <p style={{ fontSize: "0.78rem", color: "var(--ink-muted)", marginBottom: "0.5rem" }}>
+                  Counterparty PII &amp; bank details were sealed with AES-256-GCM. Canonical commitment was registered to NEAR escrow.
+                </p>
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.74rem" }}>
+                    <span className="mono-label">Escrow ID:</span>
+                    <span className="mono-data" style={{ wordBreak: "break-all" }}>
+                      {selectedRemittance.escrowId}
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.74rem" }}>
+                    <span className="mono-label">Commitment:</span>
+                    <span className="mono-data" style={{ wordBreak: "break-all" }}>
+                      {selectedRemittance.commitment}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Step 2: On-Chain Deposit Tx */}
+              <div
+                style={{
+                  padding: "0.85rem 1rem",
+                  background: selectedRemittance.fundingTx ? "var(--slate-blue-soft)" : "var(--bg-ivory)",
+                  borderRadius: 6,
+                  border: selectedRemittance.fundingTx ? "1px solid rgba(59, 90, 117, 0.25)" : "1px solid var(--line-soft)",
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.4rem" }}>
+                  <span style={{ fontWeight: 600, fontSize: "0.82rem", color: "var(--slate-blue)" }}>
+                    2. NEP-141 USDC Escrow Funding Deposit
+                  </span>
+                  <span className="mono-label" style={{ color: selectedRemittance.fundingTx ? "var(--slate-blue)" : "var(--ink-muted)", fontWeight: 600 }}>
+                    {selectedRemittance.fundingTx ? "✓ Executed On-Chain" : "Sandbox Simulation"}
+                  </span>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "0.76rem" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span className="mono-label">Escrow Smart Contract:</span>
+                    <a
+                      href={`${state?.network?.explorerBaseUrl ?? "https://testnet.nearblocks.io"}/address/${state?.network?.escrowContractId ?? "ledgerly-escrow-9e70f9ea.testnet"}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mono-data"
+                      style={{ color: "var(--slate-blue)", textDecoration: "underline" }}
+                    >
+                      {state?.network?.escrowContractId ?? "ledgerly-escrow-9e70f9ea.testnet"} ↗
+                    </a>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span className="mono-label">NEP-141 Token Contract:</span>
+                    <a
+                      href={`${state?.network?.explorerBaseUrl ?? "https://testnet.nearblocks.io"}/address/${state?.network?.usdcContractId ?? "ledgerly-usdc-a627a4c0.testnet"}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mono-data"
+                      style={{ color: "var(--slate-blue)", textDecoration: "underline" }}
+                    >
+                      {state?.network?.usdcContractId ?? "ledgerly-usdc-a627a4c0.testnet"} ↗
+                    </a>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span className="mono-label">Deposited Amount:</span>
+                    <span className="mono-data" style={{ fontWeight: 600 }}>
+                      {selectedRemittance.sourceDecimal} USDC
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
+                    <span className="mono-label">Blockchain Tx Hash:</span>
+                    {selectedRemittance.fundingTx ? (
+                      <a
+                        href={`${state?.network?.explorerBaseUrl ?? "https://testnet.nearblocks.io"}/txns/${selectedRemittance.fundingTx}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mono-data"
+                        style={{
+                          color: "var(--slate-blue)",
+                          textDecoration: "underline",
+                          fontWeight: 600,
+                          wordBreak: "break-all",
+                        }}
+                      >
+                        {selectedRemittance.fundingTx} ↗
+                      </a>
+                    ) : (
+                      <span className="mono-label" style={{ color: "var(--ink-muted)" }}>
+                        Seeded prior to live tx tracking
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Step 3: Escrow Release & Off-Ramp Payout */}
+              <div
+                style={{
+                  padding: "0.85rem 1rem",
+                  background: selectedRemittance.status === "SETTLED" ? "var(--sage-green-soft)" : "var(--bg-ivory)",
+                  borderRadius: 6,
+                  border: selectedRemittance.status === "SETTLED" ? "1px solid rgba(47, 94, 75, 0.25)" : "1px solid var(--line-soft)",
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.4rem" }}>
+                  <span style={{ fontWeight: 600, fontSize: "0.82rem", color: selectedRemittance.status === "SETTLED" ? "var(--sage-green)" : "var(--ink-charcoal)" }}>
+                    3. Escrow Release &amp; Partner Settlement
+                  </span>
+                  <span className="mono-label" style={{ color: selectedRemittance.status === "SETTLED" ? "var(--sage-green)" : "var(--ink-muted)", fontWeight: 600 }}>
+                    {selectedRemittance.status === "SETTLED" ? "✓ Settled On-Chain" : selectedRemittance.status}
+                  </span>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "0.76rem" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span className="mono-label">Settlement Pool Account:</span>
+                    <a
+                      href={`${state?.network?.explorerBaseUrl ?? "https://testnet.nearblocks.io"}/address/offramp-pool.ledgerly.testnet`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mono-data"
+                      style={{ color: "var(--slate-blue)", textDecoration: "underline" }}
+                    >
+                      offramp-pool.ledgerly.testnet ↗
+                    </a>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span className="mono-label">Target Currency Payout:</span>
+                    <span className="mono-data" style={{ fontWeight: 600, color: "var(--sage-green)" }}>
+                      {selectedRemittance.targetDecimal} {selectedRemittance.targetCurrency}
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span className="mono-label">Partner Reference:</span>
+                    <span className="mono-data">
+                      {selectedRemittance.payoutRef ?? selectedRemittance.lastFailureCode ?? "Pending settlement"}
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span className="mono-label">Payout Attempts:</span>
+                    <span className="mono-data">
+                      {selectedRemittance.attempts} / 3 (Bounded Retry Policy)
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: "0.75rem",
+                marginTop: "1.25rem",
+                paddingTop: "1rem",
+                borderTop: "1px solid var(--line-soft)",
+              }}
+            >
+              <div>
+                {selectedRemittance.fundingTx && (
+                  <a
+                    href={`${state?.network?.explorerBaseUrl ?? "https://testnet.nearblocks.io"}/txns/${selectedRemittance.fundingTx}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="btn-primary"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "0.35rem",
+                      textDecoration: "none",
+                      fontSize: "0.8rem",
+                      padding: "0.45rem 0.85rem",
+                    }}
+                  >
+                    <span>View Deposit Tx on Nearblocks</span>
+                    <span aria-hidden="true">↗</span>
+                  </a>
+                )}
+              </div>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setSelectedRemittance(null)}
+                style={{ fontSize: "0.8rem", padding: "0.45rem 0.85rem" }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
