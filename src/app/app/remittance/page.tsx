@@ -202,18 +202,6 @@ export default function RemittancePage() {
       setLockedQuote(null);
     }
   };
-      {
-        actionKey: "send_remittance",
-        errorScope: "remit_form",
-        successTitle:
-          remitMode === "SUCCESS" ? "Remittance Settled" : "Queued for Retry (Partner Outage)",
-      },
-    );
-
-    if (ok) {
-      setLockedQuote(null);
-    }
-  };
 
   const isBusy = busy || lockingQuote;
 
