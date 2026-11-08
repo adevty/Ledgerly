@@ -346,27 +346,18 @@ async function main(): Promise<void> {
 
   // Step 3: Run Indexer Worker
   console.log("3. Running indexer worker to detect on-chain deposit event...");
-  let reloaded = await rt.paymentRepo.findById(reqId);
-  for (let attempt = 0; attempt < 12; attempt++) {
-    const indexerRes = await rt.indexer.runOnce();
-    if (indexerRes.processedCount > 0) {
-      console.log(`   ✓ Indexer processed ${indexerRes.processedCount} events (latestBlock: ${indexerRes.latestBlockHeight}) ... PASS`);
-    }
-    await rt.settlement.runOnce();
-    reloaded = await rt.paymentRepo.findById(reqId);
-    if (reloaded && reloaded.aggregate.snapshot().status === "SETTLED") {
-      break;
-    }
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-  }
+  const indexerRes = await rt.indexer.runOnce();
+  console.log(`   ✓ Indexer processed ${indexerRes.processedCount} events (latestBlock: ${indexerRes.latestBlockHeight}) ... PASS`);
 
+  // Step 4: Run Settlement Worker & Assert Status
+  console.log("4. Running settlement worker & asserting invoice status...");
+  await rt.settlement.runOnce();
+  const reloaded = await rt.paymentRepo.findById(reqId);
   if (!reloaded) {
     throw new Error(`Invoice record ${reqId} not found in database`);
   }
   const snap = reloaded.aggregate.snapshot();
 
-  // Step 4: Run Settlement Worker & Assert Status
-  console.log("4. Asserting settlement release & auto-refund status...");
   if (snap.status !== "SETTLED") {
     throw new Error(`Expected invoice status SETTLED, got ${snap.status}`);
   }

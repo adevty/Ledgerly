@@ -393,8 +393,8 @@ export class NearRpcChainGateway implements ChainGateway {
     const envUrls = (config.rpcUrl ?? "").split(",").map((s) => s.trim()).filter(Boolean);
     const candidateEndpoints = [
       ...envUrls,
-      "https://rpc.testnet.near.org",
       "https://test.rpc.fastnear.com",
+      "https://rpc.testnet.near.org",
       "https://archival-rpc.testnet.near.org",
     ];
     this.rpcEndpoints = Array.from(new Set(candidateEndpoints.filter(Boolean)));
@@ -811,7 +811,7 @@ export class NearRpcChainGateway implements ChainGateway {
     if (input.kind) msgObj.kind = input.kind;
     if (input.commitment) msgObj.commitment = input.commitment;
 
-    const { txHash } = await this.sendFunctionCall(
+    const { txHash, blockHeight } = await this.sendFunctionCall(
       this.usdcContractId,
       "ft_transfer_call",
       {
@@ -822,6 +822,17 @@ export class NearRpcChainGateway implements ChainGateway {
       GAS_50_TGAS,
       1n,
     );
+
+    const depositEvent: OnchainEvent = {
+      type: "OnchainDepositDetected",
+      txHash,
+      logIndex: 0,
+      blockHeight: blockHeight || this.latestBlockHeight,
+      escrowId: input.escrowId,
+      depositor: input.depositor,
+      amountMinor: input.amountMinor,
+    };
+    this.recordedEvents.push(depositEvent);
     return txHash;
   }
 
