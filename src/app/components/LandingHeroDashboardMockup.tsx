@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { SEED_DISPLAY_VALUES, SEED_INVOICES } from "@/lib/seed-data";
 
 /**
  * Static SVG mockup fallback of the real Ledgerly workspace dashboard.
@@ -192,7 +193,7 @@ export function LandingHeroDashboardMockup() {
             fontSize="30"
             fontWeight="700"
           >
-            4,390.00 USDC
+            {SEED_DISPLAY_VALUES.settledBalanceFormatted}
           </text>
           <text
             x="208"
@@ -202,7 +203,7 @@ export function LandingHeroDashboardMockup() {
             fontSize="11.5"
             fontWeight="600"
           >
-            2,040 checkout · 2,350 remitted · Balanced books
+            {SEED_DISPLAY_VALUES.subtitle}
           </text>
 
           {/* Action CTA in Mockup */}
@@ -373,7 +374,7 @@ export function LandingHeroDashboardMockup() {
               fontSize="12.5"
               fontWeight="600"
             >
-              INV-2026-8842
+              {SEED_INVOICES[1].orderRef}
             </text>
             <text
               x="164"
@@ -383,7 +384,7 @@ export function LandingHeroDashboardMockup() {
               fontSize="12.5"
               fontWeight="700"
             >
-              1,250.00 USDC
+              {`${SEED_INVOICES[1].amountDecimal} USDC`}
             </text>
             <rect
               x="300"

@@ -40,6 +40,7 @@ import {
   ReconciliationWorker,
   SettlementWorker,
 } from "@/workers";
+import { seedLedgerlyDataset } from "@/lib/seeder";
 
 export const DEMO_ORG_ID = "org_atelier_sari" as OrgId;
 export const DEMO_ACTOR: Actor = {
@@ -205,92 +206,46 @@ async function createSeededRuntime(): Promise<LedgerlyRuntime> {
     chain,
   });
 
-  const alreadySeeded = metaStore.get<boolean>("seeded_v1") === true;
+  const alreadySeeded = metaStore.get<boolean>("seeded_v2") === true;
   let defaultGrantId =
     metaStore.get<GrantId>("default_grant_id") ?? ("grant_q4_external_audit" as GrantId);
 
+  const runtimeInstance: LedgerlyRuntime = {
+    networkMode,
+    rpcUrl,
+    escrowContractId,
+    usdcContractId,
+    explorerBaseUrl,
+    orgKeys,
+    auditorKeys,
+    metaStore,
+    outbox,
+    chain,
+    ledger,
+    fx,
+    offRamp,
+    screening,
+    paymentRepo,
+    remittanceRepo,
+    grantRepo,
+    payments,
+    remittances,
+    disclosures,
+    indexer,
+    settlement,
+    expiry,
+    reconciliation,
+    defaultGrantId,
+  };
+
   if (!alreadySeeded) {
     try {
-      // --- Seed #1: Settled merchant payment (exact match) ---
-      const pr1 = unwrap(
-        await payments.createPaymentRequest({
-          idempotencyKey: "seed_pr_1",
-          actor: DEMO_ACTOR,
-          requestId: "pr_inv_8841" as PaymentRequestId,
-          orgPublicKeyHex: orgKeys.publicKeyHex,
-          orderRef: "INV-2026-8841",
-          description: "Wholesale ceramic vessel batch — Kyoto Studio",
-          customerEmail: "procurement@kyoto-living.jp",
-          amountDecimal: "1450.00",
-          expiresInSec: 86400,
-        }),
-      );
-      await chain.simulateDeposit({
-        escrowId: pr1.escrowId,
-        depositor: "kyoto-living.testnet" as AccountId,
-        amountMinor: 1_450_000_000n,
-      });
-      await indexer.runOnce();
-
-      // --- Seed #2: Open merchant payment request ready for live interactive checkout ---
-      await payments.createPaymentRequest({
-        idempotencyKey: "seed_pr_2",
-        actor: DEMO_ACTOR,
-        requestId: "pr_inv_8842" as PaymentRequestId,
-        orgPublicKeyHex: orgKeys.publicKeyHex,
-        orderRef: "INV-2026-8842",
-        description: "Bespoke brass lighting fixtures (12 units)",
-        customerEmail: "ap@nordic-atelier.dk",
-        amountDecimal: "420.00",
-        expiresInSec: 86400,
-      });
-
-      // --- Seed #3: Settled cross-border remittance (USDC -> PHP via GCash) ---
-      const rm1 = unwrap(
-        await remittances.createQuotedRemittance({
-          idempotencyKey: "seed_rm_1",
-          actor: DEMO_ACTOR,
-          remittanceId: "rm_mnl_301" as RemittanceId,
-          orgPublicKeyHex: orgKeys.publicKeyHex,
-          sourceUsdcDecimal: "350.00",
-          targetCurrency: "PHP",
-          recipientType: "EWALLET",
-          recipientName: "Rosa Santos Artisans Co.",
-          recipientAccountOrWallet: "GCASH:+63-917-555-0192",
-          recipientCountry: "PH",
-          quoteLockSec: 3600,
-        }),
-      );
-      await chain.simulateDeposit({
-        escrowId: rm1.escrowId,
-        depositor: "atelier-sari.ledgerly.testnet" as AccountId,
-        amountMinor: 350_000_000n,
-        commitment: rm1.commitment,
-        kind: "Remittance",
-      });
-      await indexer.runOnce();
+      await seedLedgerlyDataset(runtimeInstance);
+      defaultGrantId = metaStore.get<GrantId>("default_grant_id") ?? defaultGrantId;
+      runtimeInstance.defaultGrantId = defaultGrantId;
     } catch (seedErr) {
       console.warn("Runtime seed warning:", seedErr);
     }
-
-    // --- Seed #4: Issue an initial scoped ViewKeyGrant for the Auditor console ---
-    defaultGrantId = "grant_q4_external_audit" as GrantId;
-    await disclosures.issueScopedViewKey({
-      actor: DEMO_ACTOR,
-      grantId: defaultGrantId,
-      auditorPublicKeyHex: auditorKeys.publicKeyHex,
-      orgPrivateKeyHex: orgKeys.privateKeyHex,
-      scope: {
-        orgId: DEMO_ORG_ID,
-        from: new Date(Date.now() - 7 * 86400 * 1000),
-        to: new Date(Date.now() + 7 * 86400 * 1000),
-        kinds: ["PAYMENT", "REMITTANCE"],
-      },
-      expiresAt: new Date(Date.now() + 30 * 86400 * 1000),
-    });
-
-    metaStore.set("default_grant_id", defaultGrantId);
-    metaStore.set("seeded_v1", true);
   } else if (chain instanceof MockChainGateway) {
     // Re-populate in-memory MockChainGateway when running in sandbox mode after restart
     const savedPayments = await paymentRepo.listAll();
@@ -333,33 +288,7 @@ async function createSeededRuntime(): Promise<LedgerlyRuntime> {
     }
   }
 
-  return {
-    networkMode,
-    rpcUrl,
-    escrowContractId,
-    usdcContractId,
-    explorerBaseUrl,
-    orgKeys,
-    auditorKeys,
-    metaStore,
-    outbox,
-    chain,
-    ledger,
-    fx,
-    offRamp,
-    screening,
-    paymentRepo,
-    remittanceRepo,
-    grantRepo,
-    payments,
-    remittances,
-    disclosures,
-    indexer,
-    settlement,
-    expiry,
-    reconciliation,
-    defaultGrantId,
-  };
+  return runtimeInstance;
 }
 
 async function computeDashboardSnapshot() {

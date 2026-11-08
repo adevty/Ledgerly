@@ -19,4 +19,6 @@ export interface PaymentRequestRepository {
   listByOrgId(orgId: OrgId): Promise<StoredPaymentRequest[]>;
   listAll(): Promise<StoredPaymentRequest[]>;
   save(request: PaymentRequest, envelope?: EncryptedEnvelope, createdAt?: Date): Promise<void>;
+  hasOrderRef?(orgId: OrgId, orderRef: string): Promise<boolean>;
+  recordOrderRef?(orgId: OrgId, orderRef: string, id: PaymentRequestId): Promise<void>;
 }

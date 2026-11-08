@@ -25,6 +25,7 @@ import {
   type ScreeningPort,
   type TravelRulePayload,
 } from "@/modules/compliance/domain/compliance";
+import { validateUsdcAmount, MAX_REMITTANCE_USDC_DECIMAL } from "@/lib/validation";
 import { sealPayload } from "@/modules/privacy/domain";
 import type { LedgerPort } from "@/modules/ledger/domain/ledger";
 import {
@@ -111,7 +112,23 @@ export class RemittanceUseCases {
         recipientAccountOrWallet: input.recipientAccountOrWallet,
       },
       execute: async () => {
-        const source = Money.parse(input.sourceUsdcDecimal, "USDC");
+        const amtValidation = validateUsdcAmount(input.sourceUsdcDecimal, {
+          maxAmountDecimal: MAX_REMITTANCE_USDC_DECIMAL,
+          fieldName: "Remittance amount",
+        });
+        if (!amtValidation.valid) {
+          return err(domainError("INVALID_AMOUNT", amtValidation.error ?? "Invalid remittance amount"));
+        }
+
+        if (!input.recipientName || input.recipientName.trim().length < 2) {
+          return err(domainError("INVALID_BENEFICIARY", "Beneficiary name is required (minimum 2 characters)"));
+        }
+
+        if (!input.recipientAccountOrWallet || input.recipientAccountOrWallet.trim().length < 3) {
+          return err(domainError("INVALID_RECIPIENT_ACCOUNT", "Beneficiary account or wallet is required"));
+        }
+
+        const source = Money.of(amtValidation.value!.amountMinor, "USDC");
         if (!source.ok) return source;
 
         const trCheck = validateTravelRule(source.value, input.travelRule);
@@ -119,7 +136,7 @@ export class RemittanceUseCases {
 
         let recipient: Recipient;
         if (input.recipientType === "NEAR_ACCOUNT") {
-          const acc = parseAccountId(input.recipientAccountOrWallet);
+          const acc = parseAccountId(input.recipientAccountOrWallet.trim());
           if (!acc.ok) return acc;
           recipient = {
             type: "NEAR_ACCOUNT",

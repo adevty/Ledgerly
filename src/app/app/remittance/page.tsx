@@ -27,6 +27,7 @@ import {
 import { HashBadge } from "../../components/HashBadge";
 import { CapabilityBadge } from "../../components/CapabilityBadge";
 import { getFxBadgeInfo } from "@/shared/real-fx-adapter";
+import { validateRemittanceInput, TRAVEL_RULE_THRESHOLD_USDC } from "@/lib/validation";
 
 interface FixedQuotePreview {
   sourceUsdc: string;
@@ -334,10 +335,10 @@ export default function RemittancePage() {
 
   const handleSendRemittance = async () => {
     const cleanAmount = remitAmount.replace(/,/g, "").trim();
-    if (!remitRecipient.trim() || !remitDest.trim()) {
-      const msg = "Recipient name and destination account or wallet are required.";
-      setInlineError({ scope: "remit_form", code: "MISSING_RECIPIENT", message: msg });
-      pushToast({ kind: "error", title: "Validation Error", message: msg });
+    if (!validation.valid) {
+      const firstError = Object.values(validation.errors)[0] ?? "Recipient name and destination account or wallet are required.";
+      setInlineError({ scope: "remit_form", code: "VALIDATION_ERROR", message: firstError });
+      pushToast({ kind: "error", title: "Validation Error", message: firstError });
       return;
     }
 
@@ -393,6 +394,18 @@ export default function RemittancePage() {
 
   // Live dynamic FX ticket calculation
   const liveGrossUsdc = Math.max(0, Number(remitAmount.replace(/,/g, "")) || 0);
+  const isTravelRuleForced = liveGrossUsdc >= TRAVEL_RULE_THRESHOLD_USDC;
+  const effectiveTravelRule = isTravelRuleForced ? true : includeTravelRule;
+
+  const validation = useMemo(() => {
+    return validateRemittanceInput({
+      amountDecimal: remitAmount,
+      beneficiaryName: remitRecipient,
+      beneficiaryAccount: remitDest,
+      includeTravelRule: effectiveTravelRule,
+    });
+  }, [remitAmount, remitRecipient, remitDest, effectiveTravelRule]);
+
   const liveFeeUsdc = liveGrossUsdc > 0 ? Math.max(0.5, liveGrossUsdc * 0.005) : 0;
   const liveNetUsdc = Math.max(0, liveGrossUsdc - liveFeeUsdc);
   const liveCorridor = activeRates[remitCurrency];
@@ -499,6 +512,11 @@ export default function RemittancePage() {
                   />
                   <span className="input-affix-tag">USDC</span>
                 </div>
+                {remitAmount.trim() && validation.errors.amount && (
+                  <span style={{ color: "var(--status-failed-fg)", fontSize: "0.72rem", display: "block", marginTop: "0.25rem" }}>
+                    {validation.errors.amount}
+                  </span>
+                )}
                 <span className="field-hint">
                   0.50% fee (min 0.50 USDC) deducted prior to FX conversion.
                 </span>
@@ -672,6 +690,11 @@ export default function RemittancePage() {
                   placeholder="e.g. Recipient Legal Name"
                   disabled={isBusy}
                 />
+                {remitRecipient.trim() && validation.errors.beneficiaryName && (
+                  <span style={{ color: "var(--status-failed-fg)", fontSize: "0.72rem", display: "block", marginTop: "0.25rem" }}>
+                    {validation.errors.beneficiaryName}
+                  </span>
+                )}
                 <span className="field-hint">
                   Screened against OFAC, EU, and UN sanctions lists.
                 </span>
@@ -697,6 +720,11 @@ export default function RemittancePage() {
                   placeholder="e.g. Account Number or E-Wallet ID"
                   disabled={isBusy}
                 />
+                {remitDest.trim() && validation.errors.beneficiaryAccount && (
+                  <span style={{ color: "var(--status-failed-fg)", fontSize: "0.72rem", display: "block", marginTop: "0.25rem" }}>
+                    {validation.errors.beneficiaryAccount}
+                  </span>
+                )}
                 <span className="field-hint">
                   Private by default: encrypted off-chain with AES-256-GCM.
                 </span>
@@ -739,13 +767,17 @@ export default function RemittancePage() {
               >
                 <input
                   type="checkbox"
-                  checked={includeTravelRule}
-                  onChange={(e) => setIncludeTravelRule(e.target.checked)}
-                  disabled={isBusy}
+                  checked={effectiveTravelRule}
+                  onChange={(e) => {
+                    if (!isTravelRuleForced) {
+                      setIncludeTravelRule(e.target.checked);
+                    }
+                  }}
+                  disabled={isBusy || isTravelRuleForced}
                   style={{ accentColor: "var(--accent-primary)", width: 14, height: 14 }}
                 />
                 <span>
-                  Attach FATF Travel Rule payload (mandatory &ge; 1,000 USDC)
+                  Attach FATF Travel Rule payload {isTravelRuleForced ? "(mandatory &ge; 1,000 USDC — locked ON)" : "(mandatory &ge; 1,000 USDC)"}
                 </span>
                 <CapabilityBadge
                   id="travel_rule"
@@ -794,7 +826,7 @@ export default function RemittancePage() {
               <button
                 type="button"
                 className="btn-primary inline-flex items-center gap-1.5 whitespace-nowrap"
-                disabled={isBusy}
+                disabled={isBusy || !validation.valid}
                 onClick={handleSendRemittance}
               >
                 {pendingKey === "send_remittance" ? (
@@ -1130,9 +1162,7 @@ export default function RemittancePage() {
               fontSize: "0.86rem",
               margin: "0.25rem 0",
               color: "var(--status-settled-fg)",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
+              whiteSpace: "normal",
             }}
           >
             ~1.2s Finality · Sponsored Gas
@@ -1293,6 +1323,20 @@ export default function RemittancePage() {
                       </td>
                       <td style={{ padding: "0.75rem 0.75rem", whiteSpace: "nowrap" }}>
                         <StatusBadgeWithTransition id={rm.id} status={rm.status} />
+                        {rm.status === "EXPIRED" && (
+                          <div
+                            style={{
+                              fontSize: "0.68rem",
+                              color: "var(--text-muted)",
+                              marginTop: "0.25rem",
+                              lineHeight: 1.25,
+                              whiteSpace: "normal",
+                              maxWidth: 180,
+                            }}
+                          >
+                            Quote expired — never funded (no on-chain escrow)
+                          </div>
+                        )}
                       </td>
                       <td style={{ padding: "0.75rem 0.75rem" }}>
                         <div
@@ -1303,7 +1347,11 @@ export default function RemittancePage() {
                             alignItems: "flex-start",
                           }}
                         >
-                          {rm.fundingTx ? (
+                          {rm.status === "EXPIRED" ? (
+                            <span className="mono-label" style={{ color: "var(--text-muted)", fontSize: "0.72rem" }}>
+                              No on-chain escrow
+                            </span>
+                          ) : rm.fundingTx ? (
                             <HashBadge
                               label="Tx"
                               value={rm.fundingTx}
@@ -1377,6 +1425,62 @@ export default function RemittancePage() {
             </table>
           </div>
         )}
+
+        {/* Remittance Lifecycle Status Legend */}
+        <div
+          style={{
+            marginTop: "1.25rem",
+            padding: "0.85rem 1rem",
+            background: "var(--surface-1)",
+            borderRadius: "var(--panel-radius)",
+            border: "1px solid var(--border-subtle)",
+          }}
+        >
+          <div
+            style={{
+              fontSize: "0.75rem",
+              fontWeight: 600,
+              color: "var(--text-secondary)",
+              marginBottom: "0.6rem",
+            }}
+          >
+            Lifecycle Status Legend
+          </div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+              gap: "0.65rem 1.25rem",
+              fontSize: "0.73rem",
+              color: "var(--text-muted)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem" }}>
+              <StatusBadge status="SETTLED" />
+              <span>Escrow released to payout pool; fiat delivered to recipient.</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem" }}>
+              <StatusBadge status="QUOTED" />
+              <span>FX rate locked; awaiting merchant escrow funding deposit.</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem" }}>
+              <StatusBadge status="EXPIRED" />
+              <span>Quote expired — never funded (no on-chain escrow).</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem" }}>
+              <StatusBadge status="REFUNDED" />
+              <span>Escrow deposit returned to merchant (e.g. quote expired or amount mismatch).</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem" }}>
+              <StatusBadge status="BLOCKED" />
+              <span>Sanctions screening or compliance review hold.</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem" }}>
+              <StatusBadge status="PAYOUT_FAILED" />
+              <span>Partner rail failure after bounded retry limit (eligible for refund).</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* On-Chain Transaction Lifecycle Modal */}
@@ -1537,15 +1641,27 @@ export default function RemittancePage() {
                   <span
                     className="mono-label"
                     style={{
-                      color: selectedRemittance.fundingTx
-                        ? "var(--accent-primary)"
-                        : "var(--text-muted)",
+                      color:
+                        selectedRemittance.status === "EXPIRED"
+                          ? "var(--status-pending-fg)"
+                          : selectedRemittance.fundingTx
+                            ? "var(--accent-primary)"
+                            : "var(--text-muted)",
                       fontWeight: 600,
                     }}
                   >
-                    {selectedRemittance.fundingTx ? "Executed On-Chain" : "Sandbox Simulation"}
+                    {selectedRemittance.status === "EXPIRED"
+                      ? "Quote Expired"
+                      : selectedRemittance.fundingTx
+                        ? "Executed On-Chain"
+                        : "Sandbox Simulation"}
                   </span>
                 </div>
+                {selectedRemittance.status === "EXPIRED" ? (
+                  <p style={{ fontSize: "0.76rem", color: "var(--text-muted)", margin: "0.25rem 0 0 0" }}>
+                    Quote expired — never funded (no on-chain escrow). The FX lock elapsed before merchant escrow deposit.
+                  </p>
+                ) : (
                 <div
                   style={{ display: "flex", flexDirection: "column", gap: "0.45rem", fontSize: "0.76rem" }}
                 >
@@ -1619,6 +1735,7 @@ export default function RemittancePage() {
                     )}
                   </div>
                 </div>
+                )}
               </div>
 
               {/* Step 3: Escrow Release & Off-Ramp Payout */}
@@ -1668,7 +1785,9 @@ export default function RemittancePage() {
                   >
                     {selectedRemittance.status === "SETTLED"
                       ? "Settled On-Chain"
-                      : selectedRemittance.status}
+                      : selectedRemittance.status === "EXPIRED"
+                        ? "Not Applicable (Unfunded)"
+                        : selectedRemittance.status}
                   </span>
                 </div>
                 <div

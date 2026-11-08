@@ -461,6 +461,14 @@ export function openLedgerlySqliteDb(dbPath?: string): DatabaseSync {
       created_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS merchant_order_refs (
+      org_id TEXT NOT NULL,
+      order_ref TEXT NOT NULL,
+      payment_request_id TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      PRIMARY KEY (org_id, order_ref)
+    );
+
     CREATE TABLE IF NOT EXISTS remittances (
       id TEXT PRIMARY KEY,
       escrow_id TEXT NOT NULL UNIQUE,
@@ -736,6 +744,21 @@ export class SqlitePaymentRequestRepository implements PaymentRequestRepository 
     );
 
     this.outbox.pushAll(request.pullEvents());
+  }
+
+  async hasOrderRef(orgId: OrgId, orderRef: string): Promise<boolean> {
+    const stmt = this.db.prepare(
+      "SELECT 1 FROM merchant_order_refs WHERE org_id = ? AND order_ref = ?",
+    );
+    const row = stmt.get(orgId, orderRef);
+    return Boolean(row);
+  }
+
+  async recordOrderRef(orgId: OrgId, orderRef: string, id: PaymentRequestId): Promise<void> {
+    const stmt = this.db.prepare(
+      "INSERT OR IGNORE INTO merchant_order_refs (org_id, order_ref, payment_request_id, created_at) VALUES (?, ?, ?, ?)",
+    );
+    stmt.run(orgId, orderRef, id, new Date().toISOString());
   }
 }
 
