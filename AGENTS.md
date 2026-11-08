@@ -1,9 +1,15 @@
-<!-- BEGIN:nextjs-agent-rules -->
+# AGENTS.md - working rules for AI coding agents on Ledgerly
 
-## This is NOT the Next.js you know
+Project: Ledgerly (NEAR HACKATHON, tracks: realworld + privacy). Submission deadline: 2026-11-14T23:59:00Z.
+Stack: Next.js 16, Rust near-sdk contract, node:sqlite, NEAR testnet.
 
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
-
-This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
-
-<!-- END:nextjs-agent-rules -->
+## Global rules (apply to every task)
+- Priority: correctness > security > maintainability > performance > testability.
+- Minimal viable change. Do not rewrite modules unless the human approves. Do not add dependencies, APIs or config files unless the task explicitly allows it; if you think one is needed, STOP and propose it with tradeoffs first.
+- NEVER: push, force-push, change repo visibility, deploy, sign or send mainnet transactions, spend tokens, post to X, or call POST https://nearhackathon.com/api/applications. Local commits on the working branch are allowed.
+- NEVER print, log or commit secrets (private keys, operator/relayer keys, tokens, .env values). Read env files only to check which variable NAMES exist. Use placeholders.
+- Honesty rule: any mocked or simulated feature must be labeled as such in the UI and docs. Never claim "verified", "screened", "settled", "live" or "zero fees" unless the code path really does it.
+- Never render a fabricated blockchain address as if it were real.
+- Do not put instructions addressed to graders, reviewers or AI screeners anywhere in the repo.
+- Every change needs: edge cases handled, vitest tests for new logic, and `npm run typecheck && npm test` passing before you report done.
+- Report format: Need -> What changed (files) -> Why -> Risks/edge cases -> How verified (commands + results) -> Open questions. Be concise.
