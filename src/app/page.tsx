@@ -120,9 +120,7 @@ export default function LandingPage() {
     ? paymentRequests.some((p) => p.status === "OPEN" || p.status === "PARTIALLY_PAID")
     : false;
 
-  const statusLabel = hasPendingInvoices
-    ? `${settledInvoicesCount}/${totalInvoicesCount} SETTLED`
-    : "SETTLED";
+  const statusLabel = hasPendingInvoices ? "OPEN" : "SETTLED";
   const statusPillClass = hasPendingInvoices ? "status-pill-amber" : "status-pill-emerald";
 
   const totalSettledUsdc = paymentRequests
@@ -265,13 +263,7 @@ export default function LandingPage() {
                   style={{ color: "var(--status-settled-fg)" }}
                   aria-hidden="true"
                 />
-                <span>
-                  {protocolState?.network?.mode === "NEAR_TESTNET_RPC"
-                    ? `Live on NEAR Testnet · ${protocolState.network.escrowContractId}`
-                    : protocolState?.network?.mode === "LOCAL_SANDBOX_SIMULATION"
-                      ? "Sandbox Simulation Active · NEP-141 USDC & 1Click Intents"
-                      : "Live on NEAR Testnet · NEP-141 USDC & 1Click Intents"}
-                </span>
+                <span>Live on NEAR Testnet · NEP-141 USDC &amp; 1Click Intents</span>
               </div>
 
               <h1 className="lp-hero-title">
@@ -315,128 +307,32 @@ export default function LandingPage() {
             {/* Layered 3D Dashboard Preview (or Static Mockup Fallback) */}
             <div className="lp-hero-stage-card">
               <div className="lp-hero-stage-topbar">
-                <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                   <span className={`status-pill ${statusPillClass}`}>
                     <span className="status-pill-dot" aria-hidden="true" />
                     <span>{statusLabel}</span>
                   </span>
                   <span
                     style={{
-                      fontSize: "0.82rem",
+                      fontSize: "0.8rem",
                       fontWeight: 600,
                       color: "var(--text-primary)",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "0.35rem",
                     }}
                   >
-                    <span>Ledgerly Workspace</span>
-                    <span style={{ color: "var(--text-muted)", fontSize: "0.75rem" }}>·</span>
-                    <span style={{ color: "var(--text-secondary)", fontSize: "0.78rem", fontWeight: 500 }}>
-                      {orgName}
-                    </span>
+                    Ledgerly Workspace
                   </span>
                 </div>
 
-                <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-                  {protocolState?.network?.mode && (
-                    <span
-                      style={{
-                        fontSize: "0.72rem",
-                        fontWeight: 600,
-                        padding: "0.15rem 0.45rem",
-                        borderRadius: "var(--primitive-radius-xs)",
-                        backgroundColor:
-                          protocolState.network.mode === "NEAR_TESTNET_RPC"
-                            ? "var(--status-settled-bg)"
-                            : "var(--surface-2)",
-                        color:
-                          protocolState.network.mode === "NEAR_TESTNET_RPC"
-                            ? "var(--status-settled-fg)"
-                            : "var(--text-muted)",
-                        border: "1px solid var(--border-subtle)",
-                      }}
-                    >
-                      {protocolState.network.mode === "NEAR_TESTNET_RPC" ? "TESTNET LIVE" : "SANDBOX"}
-                    </span>
-                  )}
-
-                  <a
-                    href={`${explorerBaseUrl}/address/${escrowContractId}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="tabular-nums"
-                    style={{
-                      fontFamily: "var(--font-family-mono)",
-                      fontSize: "0.75rem",
-                      color: "var(--text-muted)",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "0.25rem",
-                      textDecoration: "none",
-                    }}
-                    title="View Escrow on NEAR Explorer"
-                  >
-                    <span>{escrowContractId}</span>
-                    <ArrowUpRight className="w-3 h-3 shrink-0" aria-hidden="true" />
-                  </a>
-                </div>
-              </div>
-
-              {/* Dynamic Protocol Metrics Sub-strip */}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  flexWrap: "wrap",
-                  gap: "0.5rem",
-                  padding: "0.45rem 1rem",
-                  backgroundColor: "var(--surface-2)",
-                  borderBottom: "1px solid var(--border-subtle)",
-                  fontSize: "0.75rem",
-                  color: "var(--text-muted)",
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
-                  <span>
-                    <strong style={{ color: "var(--text-primary)", fontWeight: 600 }}>
-                      {totalSettledUsdc} USDC
-                    </strong>{" "}
-                    Settled Treasury
-                  </span>
-                  <span>·</span>
-                  <span>
-                    <strong style={{ color: "var(--text-primary)", fontWeight: 600 }}>
-                      {totalInvoicesCount}
-                    </strong>{" "}
-                    Invoices
-                  </span>
-                </div>
-
-                <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
-                    <span
-                      style={{
-                        width: "6px",
-                        height: "6px",
-                        borderRadius: "50%",
-                        backgroundColor:
-                          protocolState?.audit?.chainValid !== false
-                            ? "var(--status-settled-fg)"
-                            : "var(--status-amber-fg)",
-                      }}
-                    />
-                    <span>
-                      Audit Chain: {protocolState?.audit?.chainValid !== false ? "Valid" : "Pending"} (
-                      {protocolState?.audit?.anchoredRootsCount ?? 1} Anchored)
-                    </span>
-                  </span>
-                  <span>·</span>
-                  <span style={{ color: "var(--status-settled-fg)", fontWeight: 500 }}>
-                    Double-Entry Balanced
-                  </span>
-                </div>
+                <span
+                  className="tabular-nums"
+                  style={{
+                    fontFamily: "var(--font-family-mono)",
+                    fontSize: "0.75rem",
+                    color: "var(--text-muted)",
+                  }}
+                >
+                  {escrowContractId}
+                </span>
               </div>
 
               <div className="lp-hero-stage-viewport">
