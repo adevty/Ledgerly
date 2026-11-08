@@ -24,7 +24,16 @@ export function formatTruncatedHash(
   if (!value || value === "—") return "—";
   if (!truncate) return value;
   if (value.includes("…") || value.includes("...")) return value;
-  if ((value.endsWith(".testnet") || value.endsWith(".near")) && value.length <= 36) {
+  if ((value.endsWith(".testnet") || value.endsWith(".near")) && value.length <= 20) {
+    return value;
+  }
+  if (value.endsWith(".testnet") || value.endsWith(".near")) {
+    const parts = value.split(".");
+    const suffix = parts.slice(1).join(".");
+    const prefix = parts[0]!;
+    if (prefix.length > 13) {
+      return `${prefix.slice(0, 9)}…${prefix.slice(-4)}.${suffix}`;
+    }
     return value;
   }
   if (value.length <= startChars + endChars + 3) {
@@ -78,12 +87,18 @@ export function HashBadge({
           rel="noreferrer"
           onClick={(e) => e.stopPropagation()}
           className="hash-badge-link inline-flex items-center gap-1 whitespace-nowrap"
+          style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}
         >
-          <span>{linkLabel ?? displayValue}</span>
+          <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{linkLabel ?? displayValue}</span>
           <ArrowUpRight className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
         </a>
       ) : (
-        <span className="hash-badge-value">{displayValue}</span>
+        <span
+          className="hash-badge-value"
+          style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}
+        >
+          {displayValue}
+        </span>
       )}
 
       {isCopyable && (

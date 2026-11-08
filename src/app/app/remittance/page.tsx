@@ -954,66 +954,104 @@ export default function RemittancePage() {
       </div>
 
       {/* NEAR Blockchain Rail & Settlement Architecture Banner */}
-      <div
-        className="kpi-strip"
-        style={{
-          gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))",
-          marginBottom: "1.35rem",
-        }}
-      >
-        <div className="kpi-cell">
-          <span className="mono-label">NEAR Escrow Contract</span>
-          <div style={{ margin: "0.25rem 0" }}>
+      <div className="kpi-strip" style={{ marginBottom: "1.35rem" }}>
+        <div className="kpi-cell" style={{ minWidth: 0, overflow: "hidden" }}>
+          <span
+            className="mono-label"
+            style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+          >
+            NEAR Escrow Contract
+          </span>
+          <div style={{ margin: "0.25rem 0", maxWidth: "100%", overflow: "hidden" }}>
             <HashBadge value={escrowContractId} />
           </div>
           <a
             href={`${explorerBaseUrl}/address/${escrowContractId}`}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1 whitespace-nowrap mono-label"
-            style={{ color: "var(--accent-primary)", textDecoration: "none", fontWeight: 600 }}
+            className="inline-flex items-center gap-1 mono-label"
+            style={{
+              color: "var(--accent-primary)",
+              textDecoration: "none",
+              fontWeight: 600,
+              maxWidth: "100%",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
           >
-            <span>Verify Escrow on Nearblocks</span>
+            <span>View on Nearblocks</span>
             <ArrowUpRight className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
           </a>
         </div>
 
-        <div className="kpi-cell">
-          <span className="mono-label">NEP-141 Settlement Token</span>
-          <div style={{ margin: "0.25rem 0" }}>
+        <div className="kpi-cell" style={{ minWidth: 0, overflow: "hidden" }}>
+          <span
+            className="mono-label"
+            style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+          >
+            NEP-141 Settlement Token
+          </span>
+          <div style={{ margin: "0.25rem 0", maxWidth: "100%", overflow: "hidden" }}>
             <HashBadge value={usdcContractId} />
           </div>
           <a
             href={`${explorerBaseUrl}/address/${usdcContractId}`}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1 whitespace-nowrap mono-label"
-            style={{ color: "var(--accent-primary)", textDecoration: "none", fontWeight: 600 }}
+            className="inline-flex items-center gap-1 mono-label"
+            style={{
+              color: "var(--accent-primary)",
+              textDecoration: "none",
+              fontWeight: 600,
+              maxWidth: "100%",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
           >
-            <span>Verify USDC Token on Nearblocks</span>
+            <span>View USDC on Nearblocks</span>
             <ArrowUpRight className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
           </a>
         </div>
 
-        <div className="kpi-cell">
-          <span className="mono-label">Off-Ramp Settlement Pool</span>
-          <div style={{ margin: "0.25rem 0" }}>
+        <div className="kpi-cell" style={{ minWidth: 0, overflow: "hidden" }}>
+          <span
+            className="mono-label"
+            style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+          >
+            Off-Ramp Settlement Pool
+          </span>
+          <div style={{ margin: "0.25rem 0", maxWidth: "100%", overflow: "hidden" }}>
             <HashBadge value="offramp-pool.ledgerly.testnet" />
           </div>
           <a
             href={`${explorerBaseUrl}/address/offramp-pool.ledgerly.testnet`}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1 whitespace-nowrap mono-label"
-            style={{ color: "var(--accent-primary)", textDecoration: "none", fontWeight: 600 }}
+            className="inline-flex items-center gap-1 mono-label"
+            style={{
+              color: "var(--accent-primary)",
+              textDecoration: "none",
+              fontWeight: 600,
+              maxWidth: "100%",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
           >
-            <span>Verify Liquidity Account</span>
+            <span>View Pool on Nearblocks</span>
             <ArrowUpRight className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
           </a>
         </div>
 
-        <div className="kpi-cell">
-          <span className="mono-label">On-Chain Finality &amp; Gas</span>
+        <div className="kpi-cell" style={{ minWidth: 0, overflow: "hidden" }}>
+          <span
+            className="mono-label"
+            style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+          >
+            On-Chain Finality &amp; Gas
+          </span>
           <div
             className="mono-data tabular-nums"
             style={{
@@ -1021,12 +1059,23 @@ export default function RemittancePage() {
               fontSize: "0.86rem",
               margin: "0.25rem 0",
               color: "var(--status-settled-fg)",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
             }}
           >
-            NEAR Testnet (~1.2s Finality)
+            ~1.2s Finality · Sponsored Gas
           </div>
-          <span className="mono-label" style={{ color: "var(--text-muted)" }}>
-            Gas sponsored by Enterprise Treasury
+          <span
+            className="mono-label"
+            style={{
+              color: "var(--text-muted)",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Enterprise Treasury Relayer
           </span>
         </div>
       </div>

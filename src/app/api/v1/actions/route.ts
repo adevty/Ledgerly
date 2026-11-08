@@ -291,6 +291,7 @@ export async function POST(request: Request) {
         kind: "Remittance",
       });
       await rt.indexer.runOnce();
+      await rt.settlement.runOnce();
       rt.offRamp.setBehavior({ mode: "SUCCESS" });
     }
 
