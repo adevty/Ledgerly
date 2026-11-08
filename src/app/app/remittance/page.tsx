@@ -27,7 +27,7 @@ import {
 import { HashBadge } from "../../components/HashBadge";
 import { CapabilityBadge } from "../../components/CapabilityBadge";
 import { getFxBadgeInfo } from "@/shared/real-fx-adapter";
-import { validateRemittanceInput, TRAVEL_RULE_THRESHOLD_USDC } from "@/lib/validation";
+import { validateRemittanceInput, TRAVEL_RULE_THRESHOLD_USDC, isRealNearTx } from "@/lib/validation";
 
 interface FixedQuotePreview {
   sourceUsdc: string;
@@ -1351,7 +1351,7 @@ export default function RemittancePage() {
                             <span className="mono-label" style={{ color: "var(--text-muted)", fontSize: "0.72rem" }}>
                               No on-chain escrow
                             </span>
-                          ) : rm.fundingTx ? (
+                          ) : rm.fundingTx && isRealNearTx(rm.fundingTx) ? (
                             <HashBadge
                               label="Tx"
                               value={rm.fundingTx}
@@ -1721,7 +1721,7 @@ export default function RemittancePage() {
                     }}
                   >
                     <span className="mono-label">Blockchain Tx Hash:</span>
-                    {selectedRemittance.fundingTx ? (
+                    {selectedRemittance.fundingTx && isRealNearTx(selectedRemittance.fundingTx) ? (
                       <HashBadge
                         value={selectedRemittance.fundingTx}
                         startChars={10}
@@ -1730,7 +1730,7 @@ export default function RemittancePage() {
                       />
                     ) : (
                       <span className="mono-label" style={{ color: "var(--text-muted)" }}>
-                        Seeded prior to live tx tracking
+                        No on-chain transaction
                       </span>
                     )}
                   </div>
@@ -1870,7 +1870,7 @@ export default function RemittancePage() {
               }}
             >
               <div>
-                {selectedRemittance.fundingTx && (
+                {selectedRemittance.fundingTx && isRealNearTx(selectedRemittance.fundingTx) && (
                   <a
                     href={`${explorerBaseUrl}/txns/${selectedRemittance.fundingTx}`}
                     target="_blank"

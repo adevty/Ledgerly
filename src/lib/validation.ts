@@ -8,6 +8,15 @@ export const MAX_INVOICE_USDC_DECIMAL = "1000000.00";
 export const MAX_REMITTANCE_USDC_DECIMAL = "50000.00";
 export const TRAVEL_RULE_THRESHOLD_USDC = 1000;
 
+/**
+ * Validates whether a transaction hash is an authentic base58 NEAR transaction hash
+ * (32-byte hash in Base58, 40-48 characters, no underscores or simulation prefixes like 'tx_dep_').
+ */
+export function isRealNearTx(hash?: string | null): boolean {
+  if (!hash || typeof hash !== "string") return false;
+  return /^[1-9A-HJ-NP-Za-km-z]{40,48}$/.test(hash.trim());
+}
+
 export interface ValidationResult<T = void> {
   readonly valid: boolean;
   readonly value?: T;

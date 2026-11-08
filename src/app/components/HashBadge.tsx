@@ -62,6 +62,10 @@ export function HashBadge({
   const isCopyable = copyable && cleanValue !== "—";
   const displayValue = formatTruncatedHash(cleanValue, startChars, endChars, truncate);
 
+  // Guard against broken Nearblocks links to mock transaction hashes (e.g. tx_dep_2)
+  const isMockTxLink = Boolean(href?.includes("/txns/") && (cleanValue.startsWith("tx_") || cleanValue.startsWith("tx-")));
+  const effectiveHref = isMockTxLink ? undefined : href;
+
   const handleCopy = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
@@ -80,9 +84,9 @@ export function HashBadge({
     >
       {label && <span className="hash-badge-label">{label}</span>}
 
-      {href ? (
+      {effectiveHref ? (
         <a
-          href={href}
+          href={effectiveHref}
           target="_blank"
           rel="noreferrer"
           onClick={(e) => e.stopPropagation()}

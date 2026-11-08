@@ -30,6 +30,7 @@ import {
   type KeyPairHex,
 } from "@/modules/privacy/domain";
 import { exportLedgerToCsv } from "@/modules/ledger/domain";
+import { isRealNearTx } from "@/lib/validation";
 import { PaymentUseCases } from "@/modules/payments/application/use-cases";
 import { RemittanceUseCases } from "@/modules/remittance/application/use-cases";
 import { DisclosureUseCases } from "@/modules/privacy/application/use-cases";
@@ -351,7 +352,8 @@ async function computeDashboardSnapshot() {
     },
     paymentRequests: prs.map((p) => {
       const s = p.aggregate.snapshot();
-      const latestTx = s.payments[s.payments.length - 1]?.txHash ?? null;
+      const rawTx = s.payments[s.payments.length - 1]?.txHash ?? null;
+      const latestTx = isRealNearTx(rawTx) ? rawTx : null;
       return {
         id: s.id,
         escrowId: s.escrowId,
@@ -374,7 +376,7 @@ async function computeDashboardSnapshot() {
         id: s.id,
         escrowId: s.escrowId,
         status: s.status,
-        fundingTx: s.fundingTx ?? null,
+        fundingTx: isRealNearTx(s.fundingTx) ? s.fundingTx : null,
         sourceDecimal: s.quote.source.toDecimalString(),
         feeDecimal: s.quote.fee.toDecimalString(),
         targetDecimal: s.quote.target.toDecimalString(),

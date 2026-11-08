@@ -19,7 +19,7 @@ import {
 } from "../_context";
 import { HashBadge } from "../../components/HashBadge";
 import { CryptoTokenIcon } from "../../components/CryptoTokenIcon";
-import { validatePaymentRequestInput } from "@/lib/validation";
+import { isRealNearTx, validatePaymentRequestInput } from "@/lib/validation";
 
 type MerchantFilter = "ALL" | "OPEN" | "SETTLED" | "EXCEPTIONS";
 
@@ -734,7 +734,7 @@ export default function MerchantCheckoutPage() {
                             startChars={6}
                             endChars={4}
                           />
-                          {pr.latestTxHash && (
+                          {pr.latestTxHash && isRealNearTx(pr.latestTxHash) && (
                             <HashBadge
                               label="Tx"
                               value={pr.latestTxHash}

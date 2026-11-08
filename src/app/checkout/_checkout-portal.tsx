@@ -36,6 +36,7 @@ import {
 import { CryptoTokenIcon } from "../components/CryptoTokenIcon";
 import { HashBadge } from "../components/HashBadge";
 import { CapabilityBadge } from "../components/CapabilityBadge";
+import { isRealNearTx } from "@/lib/validation";
 
 export interface CheckoutItem {
   id: string;
@@ -884,7 +885,7 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
             </h1>
           </div>
 
-          {lastTxHash && (
+          {lastTxHash && isRealNearTx(lastTxHash) && (
             <a
               href={`${explorerBaseUrl}/txns/${lastTxHash}`}
               target="_blank"
@@ -2267,7 +2268,7 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                             Double-entry journal posted and escrow closed on {escrowContractId}.
                           </div>
                         </div>
-                        {lastTxHash && (
+                        {lastTxHash && isRealNearTx(lastTxHash) && (
                           <a
                             href={`${explorerBaseUrl}/txns/${lastTxHash}`}
                             target="_blank"
@@ -2547,7 +2548,7 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                       alignItems: "center",
                     }}
                   >
-                    {lastTxHash ? (
+                    {lastTxHash && isRealNearTx(lastTxHash) ? (
                       <HashBadge
                         value={lastTxHash}
                         startChars={10}
@@ -2556,7 +2557,7 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                       />
                     ) : (
                       <span className="mono-label" style={{ color: "var(--text-muted)" }}>
-                        Pending buyer deposit
+                        Pending on-chain payment
                       </span>
                     )}
                   </div>
