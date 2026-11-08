@@ -175,25 +175,58 @@ export async function POST(request: Request) {
   }
 
   if (action === "FAUCET_USDC") {
-    const account = String(body.accountId ?? "").trim();
-    if (!/^[a-z0-9._-]+\.(testnet)$/.test(account)) {
+    const rawAccount = String(body.accountId ?? "").trim().toLowerCase();
+    const isNamedTestnet = /^[a-z0-9._-]+\.testnet$/.test(rawAccount);
+    const isImplicitTestnet = /^[0-9a-f]{64}$/.test(rawAccount);
+
+    if (!isNamedTestnet && !isImplicitTestnet) {
       return NextResponse.json(
-        { ok: false, error: { code: "INVALID_ACCOUNT", message: "A NEAR testnet account is required" } },
+        {
+          ok: false,
+          error: {
+            code: "INVALID_ACCOUNT",
+            message: "A valid NEAR testnet account (named .testnet or 64-char implicit) is required",
+          },
+        },
         { status: 400 },
       );
     }
-    if (!(rt.chain instanceof NearRpcChainGateway)) {
+
+    // In sandbox simulation mode (or when chain does not have real RPC signer), simulate faucet minting
+    if (rt.networkMode !== "NEAR_TESTNET_RPC" || !("sendFunctionCall" in rt.chain)) {
+      const txHash = `tx_faucet_sim_${Date.now()}` as TxHash;
+      return NextResponse.json({
+        ok: true,
+        txHash,
+        explorerUrl: `${rt.explorerBaseUrl}/txns/${txHash}`,
+        simulated: true,
+      });
+    }
+
+    try {
+      // Fixed 100 USDC per call; the token contract auto-registers storage for the buyer.
+      const { txHash } = await (rt.chain as NearRpcChainGateway).sendFunctionCall(
+        rt.chain.usdcContractId,
+        "faucet",
+        {
+          account_id: rawAccount,
+          amount: "100000000",
+        },
+        50_000_000_000_000n,
+      );
+      return NextResponse.json({ ok: true, txHash, explorerUrl: `${rt.explorerBaseUrl}/txns/${txHash}` });
+    } catch (err) {
       return NextResponse.json(
-        { ok: false, error: { code: "NOT_LIVE", message: "Faucet needs live NEAR testnet mode" } },
-        { status: 400 },
+        {
+          ok: false,
+          error: {
+            code: "FAUCET_TRANSACTION_FAILED",
+            message: err instanceof Error ? err.message : String(err),
+          },
+        },
+        { status: 500 },
       );
     }
-    // Fixed 100 USDC per call; the token contract auto-registers storage for the buyer.
-    const { txHash } = await rt.chain.sendFunctionCall(rt.chain.usdcContractId, "faucet", {
-      account_id: account,
-      amount: "100000000",
-    });
-    return NextResponse.json({ ok: true, txHash, explorerUrl: `${rt.explorerBaseUrl}/txns/${txHash}` });
   }
 
   if (action === "ONE_CLICK_QUOTE") {

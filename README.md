@@ -226,7 +226,7 @@ Per our detailed [Threat Model](docs/THREAT_MODEL.md):
 Run the full automated test suites:
 
 ```bash
-# TypeScript Domain & Integration Test Suite (121 tests, 18 test files)
+# TypeScript Domain & Integration Test Suite (123 tests, 18 test files)
 npm test
 
 # Rust Smart Contract Test Suite (6 unit tests)
