@@ -58,7 +58,7 @@ export class ChainIndexerWorker {
       }
     }
 
-    if (latestBlockHeight > this.cursorBlockHeight) {
+    if (processedCount > 0 && latestBlockHeight > this.cursorBlockHeight) {
       this.cursorBlockHeight = latestBlockHeight;
     }
 

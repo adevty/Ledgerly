@@ -841,7 +841,7 @@ export class NearRpcChainGateway implements ChainGateway {
     readonly latestBlockHeight: bigint;
   }> {
     const events = this.recordedEvents.filter(
-      (e) => e.blockHeight > fromBlockHeightExclusive,
+      (e) => e.blockHeight >= fromBlockHeightExclusive,
     );
     return {
       events,

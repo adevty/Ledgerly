@@ -504,6 +504,23 @@ export async function POST(request: Request) {
               escrowId: d.escrowId,
               amountMinor: d.onchainHeldMinor,
             });
+          } else if (d.status === "OPEN" || d.status === "PARTIALLY_PAID") {
+            // Blockchain holds funds that were not yet processed into DB -> reconcile deposit
+            const onchain = await rt.chain.getEscrow(d.escrowId);
+            if (d.kind === "PAYMENT_REQUEST") {
+              await rt.payments.handleOnchainDeposit({
+                escrowId: d.escrowId,
+                txHash: `tx_recon_${d.escrowId.slice(0, 8)}` as TxHash,
+                payer: onchain?.depositor ?? ("buyer.testnet" as AccountId),
+                amountMinor: d.onchainHeldMinor,
+              });
+            } else {
+              await rt.remittances.handleFundingAndSettle({
+                escrowId: d.escrowId,
+                txHash: `tx_recon_${d.escrowId.slice(0, 8)}` as TxHash,
+                amountMinor: d.onchainHeldMinor,
+              });
+            }
           }
         }
       } catch (err) {
