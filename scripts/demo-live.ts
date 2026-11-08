@@ -346,48 +346,70 @@ async function main(): Promise<void> {
 
   // Step 3: Run Indexer Worker
   console.log("3. Running indexer worker to detect on-chain deposit event...");
-  const indexerRes = await rt.indexer.runOnce();
-  console.log(`   ✓ Indexer processed ${indexerRes.processedCount} events (latestBlock: ${indexerRes.latestBlockHeight}) ... PASS`);
-
-  // Step 4: Run Settlement Worker
-  console.log("4. Running settlement worker to execute release & auto-refund...");
-  const settlementRes = await rt.settlement.runOnce();
-  console.log(
-    `   ✓ Settlement completed: settled=${settlementRes.settledCount}, refunded=${settlementRes.refundedCount} ... PASS`,
-  );
-
-  const updatedInvoice = await rt.paymentRepo.findById(reqId);
-  if (updatedInvoice?.status !== "SETTLED") {
-    throw new Error(`Expected invoice status SETTLED, got ${updatedInvoice?.status}`);
+  let reloaded = await rt.paymentRepo.findById(reqId);
+  for (let attempt = 0; attempt < 12; attempt++) {
+    const indexerRes = await rt.indexer.runOnce();
+    if (indexerRes.processedCount > 0) {
+      console.log(`   ✓ Indexer processed ${indexerRes.processedCount} events (latestBlock: ${indexerRes.latestBlockHeight}) ... PASS`);
+    }
+    await rt.settlement.runOnce();
+    reloaded = await rt.paymentRepo.findById(reqId);
+    if (reloaded && reloaded.aggregate.snapshot().status === "SETTLED") {
+      break;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1500));
   }
-  if (updatedInvoice.settlement?.releasedMinor !== 680_000_000n) {
-    throw new Error(`Expected released 680.00 USDC, got ${updatedInvoice.settlement?.releasedMinor}`);
+
+  if (!reloaded) {
+    throw new Error(`Invoice record ${reqId} not found in database`);
   }
-  if (updatedInvoice.settlement?.refundedMinor !== 20_000_000n) {
-    throw new Error(`Expected refund 20.00 USDC, got ${updatedInvoice.settlement?.refundedMinor}`);
+  const snap = reloaded.aggregate.snapshot();
+
+  // Step 4: Run Settlement Worker & Assert Status
+  console.log("4. Asserting settlement release & auto-refund status...");
+  if (snap.status !== "SETTLED") {
+    throw new Error(`Expected invoice status SETTLED, got ${snap.status}`);
+  }
+  if (snap.released.amountMinor !== 680_000_000n) {
+    throw new Error(`Expected released 680.00 USDC, got ${snap.released.amountMinor}`);
+  }
+  if (snap.refunded.amountMinor !== 20_000_000n) {
+    throw new Error(`Expected refund 20.00 USDC, got ${snap.refunded.amountMinor}`);
   }
   console.log("   ✓ Verified released=680.00 USDC, refund=20.00 USDC, status=SETTLED ... PASS");
 
   // Step 5: Anchor audit log Merkle root on escrow contract
   console.log("5. Anchoring audit log root on escrow contract...");
-  const auditEntries = await rt.disclosures.getAuditLog();
-  const latestAuditRoot = auditEntries[auditEntries.length - 1]?.hashHex ?? "9a28c44f6b7428b931a51854daeef47c33f882999ca60813083d226bb11d8913";
-  const anchorRes = await rt.chain.anchorAuditRoot(latestAuditRoot);
+  await rt.disclosures.recordAuditAction(DEMO_ACTOR.userId, "EXPORT_RECONCILIATION", "live_demo_run");
+  const auditLog = rt.metaStore.loadAuditLog();
+  const latestEntry = auditLog[auditLog.length - 1];
+  if (!latestEntry) throw new Error("Audit log is empty");
+
+  await rt.disclosures.recordAuditAction(DEMO_ACTOR.userId, "ANCHOR_AUDIT_ROOT", latestEntry.hash);
+  const logWithAnchor = rt.metaStore.loadAuditLog();
+  const rootHex = logWithAnchor[logWithAnchor.length - 1]!.hash;
+  const anchorRes = await rt.chain.anchorAuditRoot(rootHex);
   console.log(`   ✓ Root anchored on testnet! TxHash: ${anchorRes.txHash} ... PASS`);
 
   // Step 6: Issue scoped auditor view key and verify commitment
   console.log("6. Issuing scoped auditor view key & verifying commitment recomputation...");
-  const grantRes = await rt.disclosures.issueViewKeyGrant({
+  const grantId = `grant_live_${runId}` as GrantId;
+  await rt.disclosures.issueScopedViewKey({
     actor: DEMO_ACTOR,
-    grantId: `grant_live_${runId}` as GrantId,
+    grantId,
     auditorPublicKeyHex: rt.auditorKeys.publicKeyHex,
-    scope: { kind: "PAYMENT_REQUEST", recordIds: [reqId] },
-    expiresInSec: 3600,
+    orgPrivateKeyHex: rt.orgKeys.privateKeyHex,
+    scope: {
+      orgId: DEMO_ORG_ID,
+      from: new Date(Date.now() - 3600_000),
+      to: new Date(Date.now() + 3600_000),
+      kinds: ["PAYMENT"],
+    },
+    expiresAt: new Date(Date.now() + 86400_000),
   });
-  if (!grantRes.ok) throw new Error(`Step 6 Failed: ${grantRes.error.message}`);
 
   const auditedRecordsRes = await rt.disclosures.verifyScopedRecordsAsAuditor({
-    grantId: grantRes.value.grantId,
+    grantId,
     auditorPrivateKeyHex: rt.auditorKeys.privateKeyHex,
   });
   if (!auditedRecordsRes.ok) throw new Error(`Auditor decrypt failed: ${auditedRecordsRes.error.message}`);
@@ -399,8 +421,8 @@ async function main(): Promise<void> {
 
   const isCommitmentValid = verifyCommitmentRecomputation(
     target.decryptedPayload as unknown as Record<string, unknown>,
-    target.salt,
-    target.commitment,
+    reloaded.envelope.saltHex,
+    reloaded.envelope.commitment,
   );
   if (!isCommitmentValid) {
     throw new Error("SHA-256 commitment recomputation mismatch!");
@@ -409,15 +431,15 @@ async function main(): Promise<void> {
 
   // Step 7: Export double-entry CSV and verify sum(debits) == sum(credits)
   console.log("7. Exporting double-entry reconciliation CSV...");
-  const ledgerExport = await rt.disclosures.exportReconciliationCsv({ actor: DEMO_ACTOR });
-  if (!ledgerExport.ok) throw new Error(`Step 7 Failed: ${ledgerExport.error.message}`);
+  const allEntries = await rt.ledger.listEntries();
+  const csvData = exportLedgerToCsv(allEntries);
 
   const outDir = resolve(process.cwd(), "out");
   mkdirSync(outDir, { recursive: true });
   const csvPath = resolve(outDir, "reconciliation-live.csv");
-  writeFileSync(csvPath, ledgerExport.value.csv, "utf8");
+  writeFileSync(csvPath, csvData, "utf8");
 
-  const ledgerCheck = assertBalancedDoubleEntry(ledgerExport.value.csv);
+  const ledgerCheck = assertBalancedDoubleEntry(csvData);
   if (!ledgerCheck.valid) {
     throw new Error(`Double-entry balance check failed: ${ledgerCheck.error}`);
   }
