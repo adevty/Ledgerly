@@ -8,6 +8,7 @@ import {
   ArrowUpRight,
   Check,
   CheckCircle2,
+  ChevronDown,
   Code2,
   Copy,
   ReceiptText,
@@ -120,6 +121,7 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
   const [oneClickLoading, setOneClickLoading] = useState(false);
   const [oneClickError, setOneClickError] = useState<string | null>(null);
   const [liveDisclaimerConfirmed, setLiveDisclaimerConfirmed] = useState(false);
+  const [invoiceFilter, setInvoiceFilter] = useState<"ALL" | "OPEN" | "SETTLED">("ALL");
   const initializedInvoiceIdRef = useRef<string>("");
   const quoteAbortRef = useRef<AbortController | null>(null);
   const quoteSeqRef = useRef(0);
@@ -821,43 +823,331 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
           gap: "1.25rem",
         }}
       >
-        {/* Invoice Selector Bar */}
-        {requests.length > 0 && (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: "0.75rem",
-              flexWrap: "wrap",
-            }}
-          >
-            <div
-              className="filter-pill-group overflow-x-auto"
-              role="tablist"
-              aria-label="Select Invoice"
-              style={{ maxWidth: "100%" }}
+        {/* Modern Fintech Invoice Switcher Bar */}
+        {requests.length > 0 && (() => {
+          const openInvoices = requests.filter(
+            (r) => r.status === "OPEN" || r.status === "PARTIALLY_PAID",
+          );
+          const settledInvoices = requests.filter((r) => r.status === "SETTLED");
+          const filteredRequests =
+            invoiceFilter === "OPEN"
+              ? openInvoices
+              : invoiceFilter === "SETTLED"
+                ? settledInvoices
+                : requests;
+
+          return (
+            <section
+              aria-label="Invoice Selection"
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "0.75rem",
+                padding: "0.85rem 1.1rem",
+                borderRadius: "var(--primitive-radius-lg)",
+                backgroundColor: "var(--surface-card)",
+                border: "1px solid var(--border-subtle)",
+                boxShadow: "0 1px 3px rgba(0, 0, 0, 0.05)",
+              }}
             >
-              {requests.map((r) => {
-                const active = item?.id === r.id;
-                return (
-                  <button
-                    key={r.id}
-                    type="button"
-                    role="tab"
-                    aria-selected={active}
-                    onClick={() => handleSelectInvoice(r)}
-                    className={`filter-pill tabular-nums whitespace-nowrap ${
-                      active ? "filter-pill-active" : ""
-                    }`}
+              {/* Controls Header Row */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "0.75rem",
+                  flexWrap: "wrap",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.45rem" }}>
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        width: 24,
+                        height: 24,
+                        borderRadius: "var(--primitive-radius-xs)",
+                        backgroundColor: "var(--surface-canvas)",
+                        color: "var(--text-secondary)",
+                        border: "1px solid var(--border-subtle)",
+                      }}
+                    >
+                      <ReceiptText className="w-3.5 h-3.5" aria-hidden="true" />
+                    </span>
+                    <span
+                      className="mono-label"
+                      style={{
+                        fontSize: "0.72rem",
+                        fontWeight: 650,
+                        letterSpacing: "0.06em",
+                        textTransform: "uppercase",
+                        color: "var(--text-secondary)",
+                      }}
+                    >
+                      Invoice Selector
+                    </span>
+                  </div>
+
+                  {/* Filter Pills */}
+                  <div
+                    className="filter-pill-group"
+                    role="tablist"
+                    aria-label="Filter Invoices"
+                    style={{ marginLeft: "0.2rem" }}
                   >
-                    {r.id} · {Number(r.amountDecimal).toFixed(0)} USDC ({r.status})
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={invoiceFilter === "ALL"}
+                      onClick={() => setInvoiceFilter("ALL")}
+                      className={`filter-pill tabular-nums ${
+                        invoiceFilter === "ALL" ? "filter-pill-active" : ""
+                      }`}
+                      style={{ fontSize: "0.72rem", padding: "0.22rem 0.55rem" }}
+                    >
+                      All ({requests.length})
+                    </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={invoiceFilter === "OPEN"}
+                      onClick={() => setInvoiceFilter("OPEN")}
+                      className={`filter-pill tabular-nums ${
+                        invoiceFilter === "OPEN" ? "filter-pill-active" : ""
+                      }`}
+                      style={{
+                        fontSize: "0.72rem",
+                        padding: "0.22rem 0.55rem",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "0.3rem",
+                      }}
+                    >
+                      {openInvoices.length > 0 && (
+                        <span
+                          className="status-pill-dot status-pill-dot-pulse"
+                          style={{
+                            backgroundColor: "var(--status-pending-fg)",
+                            width: 5,
+                            height: 5,
+                          }}
+                        />
+                      )}
+                      Open ({openInvoices.length})
+                    </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={invoiceFilter === "SETTLED"}
+                      onClick={() => setInvoiceFilter("SETTLED")}
+                      className={`filter-pill tabular-nums ${
+                        invoiceFilter === "SETTLED" ? "filter-pill-active" : ""
+                      }`}
+                      style={{ fontSize: "0.72rem", padding: "0.22rem 0.55rem" }}
+                    >
+                      Settled ({settledInvoices.length})
+                    </button>
+                  </div>
+                </div>
+
+                {/* Right Controls: Quick Switch to Open + Dropdown Selector */}
+                <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap" }}>
+                  {item?.status === "SETTLED" && openInvoices.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => handleSelectInvoice(openInvoices[0]!)}
+                      className="btn-secondary tabular-nums inline-flex items-center gap-1.5"
+                      style={{
+                        padding: "0.3rem 0.65rem",
+                        fontSize: "0.72rem",
+                        color: "var(--status-pending-fg)",
+                        borderColor: "var(--status-pending-border)",
+                        backgroundColor: "var(--status-pending-bg)",
+                        fontWeight: 600,
+                      }}
+                    >
+                      <span
+                        className="status-pill-dot status-pill-dot-pulse"
+                        style={{
+                          backgroundColor: "var(--status-pending-fg)",
+                          width: 5,
+                          height: 5,
+                        }}
+                      />
+                      <span>Switch to Open ({openInvoices[0]!.id})</span>
+                    </button>
+                  )}
+
+                  {/* Native Dropdown Selector */}
+                  <div style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
+                    <select
+                      value={item?.id ?? ""}
+                      onChange={(e) => {
+                        const found = requests.find((r) => r.id === e.target.value);
+                        if (found) handleSelectInvoice(found);
+                      }}
+                      aria-label="Select invoice from dropdown"
+                      className="tabular-nums"
+                      style={{
+                        appearance: "none",
+                        WebkitAppearance: "none",
+                        padding: "0.32rem 1.85rem 0.32rem 0.7rem",
+                        fontSize: "0.75rem",
+                        fontFamily: "var(--font-family-mono)",
+                        borderRadius: "var(--primitive-radius-sm)",
+                        border: "1px solid var(--border-subtle)",
+                        backgroundColor: "var(--surface-canvas)",
+                        color: "var(--text-primary)",
+                        cursor: "pointer",
+                        outline: "none",
+                        maxWidth: "260px",
+                      }}
+                    >
+                      {openInvoices.length > 0 && (
+                        <optgroup label="Needs Action (Open)">
+                          {openInvoices.map((r) => (
+                            <option key={r.id} value={r.id}>
+                              🟡 {r.id} · {Number(r.amountDecimal).toFixed(0)} USDC ({r.status})
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+                      <optgroup label="Settled Invoices">
+                        {settledInvoices.map((r) => (
+                          <option key={r.id} value={r.id}>
+                            🟢 {r.id} · {Number(r.amountDecimal).toFixed(0)} USDC ({r.status})
+                          </option>
+                        ))}
+                      </optgroup>
+                    </select>
+                    <ChevronDown
+                      className="w-3.5 h-3.5 pointer-events-none"
+                      style={{
+                        position: "absolute",
+                        right: "0.55rem",
+                        color: "var(--text-tertiary)",
+                      }}
+                      aria-hidden="true"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Horizontal Chip Carousel */}
+              <div
+                className="overflow-x-auto"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  padding: "0.15rem 0.1rem 0.35rem",
+                  maxWidth: "100%",
+                  scrollbarWidth: "thin",
+                }}
+                role="tablist"
+                aria-label="Select Invoice Tab"
+              >
+                {filteredRequests.map((r) => {
+                  const active = item?.id === r.id;
+                  const isOpen = r.status === "OPEN" || r.status === "PARTIALLY_PAID";
+                  return (
+                    <button
+                      key={r.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={active}
+                      onClick={() => handleSelectInvoice(r)}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "0.45rem",
+                        padding: "0.4rem 0.75rem",
+                        borderRadius: "var(--primitive-radius-sm)",
+                        border: active
+                          ? "1px solid var(--accent-primary)"
+                          : "1px solid var(--border-subtle)",
+                        backgroundColor: active
+                          ? "var(--accent-subtle)"
+                          : "var(--surface-canvas)",
+                        color: active ? "var(--text-primary)" : "var(--text-secondary)",
+                        cursor: "pointer",
+                        fontSize: "0.76rem",
+                        whiteSpace: "nowrap",
+                        transition: "all 0.15s ease",
+                        boxShadow: active ? "0 0 0 1px var(--accent-primary)" : "none",
+                        flexShrink: 0,
+                      }}
+                      className="tabular-nums"
+                    >
+                      {/* Status Dot */}
+                      <span
+                        className={`status-pill-dot ${isOpen ? "status-pill-dot-pulse" : ""}`}
+                        style={{
+                          backgroundColor: isOpen
+                            ? "var(--status-pending-fg)"
+                            : "var(--status-settled-fg)",
+                          width: 6,
+                          height: 6,
+                        }}
+                        aria-hidden="true"
+                      />
+
+                      {/* ID */}
+                      <span
+                        style={{
+                          fontFamily: "var(--font-family-mono)",
+                          fontWeight: active ? 650 : 500,
+                          color: active ? "var(--text-primary)" : "var(--text-secondary)",
+                        }}
+                      >
+                        {r.id}
+                      </span>
+
+                      <span style={{ color: "var(--border-strong)", opacity: 0.6 }}>·</span>
+
+                      {/* Amount */}
+                      <span
+                        style={{
+                          fontWeight: 700,
+                          color: active ? "var(--text-primary)" : "var(--text-secondary)",
+                        }}
+                      >
+                        {Number(r.amountDecimal).toFixed(0)} USDC
+                      </span>
+
+                      {/* Status Badge */}
+                      <span
+                        style={{
+                          fontSize: "0.64rem",
+                          fontWeight: 700,
+                          letterSpacing: "0.03em",
+                          padding: "0.1rem 0.38rem",
+                          borderRadius: "var(--primitive-radius-xs)",
+                          backgroundColor: isOpen
+                            ? "var(--status-pending-bg)"
+                            : "var(--status-settled-bg)",
+                          color: isOpen
+                            ? "var(--status-pending-fg)"
+                            : "var(--status-settled-fg)",
+                          border: `1px solid ${
+                            isOpen
+                              ? "var(--status-pending-border)"
+                              : "var(--status-settled-border)"
+                          }`,
+                        }}
+                      >
+                        {r.status}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          );
+        })()}
         {/* Title & Subtitle Row */}
         <div
           style={{
