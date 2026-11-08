@@ -23,7 +23,13 @@ import {
 import { HashBadge } from "../../components/HashBadge";
 import { PayloadPreviewCard } from "../../components/PayloadPreviewCard";
 
-type AuditRecordFilter = "ALL" | "PAYMENT" | "REMITTANCE" | "UNVERIFIED";
+type AuditRecordFilter =
+  | "ALL"
+  | "PAYMENT"
+  | "REMITTANCE"
+  | "VERIFIED"
+  | "MISMATCH"
+  | "NOT_REGISTERED";
 type AuditSortOrder = "NEWEST" | "OLDEST" | "RECORD_ID" | "UNVERIFIED";
 
 function formatMinorUsdc(minorStr: string | number): string {
@@ -43,6 +49,42 @@ export default function AuditorVerificationPage() {
 
   const allRecords = state?.audit.records ?? [];
 
+  const getRecordStatus = (
+    r: (typeof allRecords)[number],
+  ): "verified" | "mismatch" | "not-registered" => {
+    if (r.status) return r.status;
+    if (r.verifiedOnchain) return "verified";
+    if (r.onchainCommitment) return "mismatch";
+    return "not-registered";
+  };
+
+  const discrepancies = state?.reconciliation.discrepancies ?? [];
+  const recordMismatches = allRecords.filter((r) => getRecordStatus(r) === "mismatch");
+  const recordNotRegistered = allRecords.filter((r) => getRecordStatus(r) === "not-registered");
+  const totalMismatches = discrepancies.length + recordMismatches.length;
+
+  const chainInspection = state?.audit.chainVerification;
+  const chainBadge = useMemo(() => {
+    if (!state?.audit) {
+      return { status: "UNAVAILABLE", label: "Unavailable" };
+    }
+    if (chainInspection) {
+      if (chainInspection.valid) {
+        return { status: "VERIFIED", label: "Verified" };
+      }
+      return {
+        status: "FAILED",
+        label:
+          chainInspection.brokenAtSeq != null
+            ? `Broken at #${chainInspection.brokenAtSeq}`
+            : "Broken",
+      };
+    }
+    return state.audit.chainValid
+      ? { status: "VERIFIED", label: "Verified" }
+      : { status: "FAILED", label: "Broken" };
+  }, [state?.audit, chainInspection]);
+
   const filteredRecords = useMemo(() => {
     let list = allRecords;
 
@@ -51,8 +93,12 @@ export default function AuditorVerificationPage() {
       list = list.filter((r) => r.kind === "PAYMENT");
     } else if (recordFilter === "REMITTANCE") {
       list = list.filter((r) => r.kind === "REMITTANCE");
-    } else if (recordFilter === "UNVERIFIED") {
-      list = list.filter((r) => !r.verifiedOnchain);
+    } else if (recordFilter === "VERIFIED") {
+      list = list.filter((r) => getRecordStatus(r) === "verified");
+    } else if (recordFilter === "MISMATCH") {
+      list = list.filter((r) => getRecordStatus(r) === "mismatch");
+    } else if (recordFilter === "NOT_REGISTERED") {
+      list = list.filter((r) => getRecordStatus(r) === "not-registered");
     }
 
     // 2. Filter by search query
@@ -82,8 +128,10 @@ export default function AuditorVerificationPage() {
         return a.recordId.localeCompare(b.recordId);
       }
       if (sortOrder === "UNVERIFIED") {
-        if (!a.verifiedOnchain && b.verifiedOnchain) return -1;
-        if (a.verifiedOnchain && !b.verifiedOnchain) return 1;
+        const aVerified = getRecordStatus(a) === "verified";
+        const bVerified = getRecordStatus(b) === "verified";
+        if (!aVerified && bVerified) return -1;
+        if (aVerified && !bVerified) return 1;
         return timeB - timeA;
       }
       return 0;
@@ -154,8 +202,8 @@ export default function AuditorVerificationPage() {
               lineHeight: 1.55,
             }}
           >
-            Scoped, time-bound X25519 view keys let external auditors decrypt authorized records
-            locally and verify every canonical payload hash against the immutable commitment stored
+            Scoped, time-bound X25519 view keys let external auditors access authorized records.
+            Decrypted server-side within the grant scope; payload hash verified against the on-chain commitment stored
             in <code className="mono-data">ledgerly-escrow</code>.
           </p>
         </div>
@@ -270,8 +318,8 @@ export default function AuditorVerificationPage() {
               <span className="mono-label">Tamper-Evident Audit Hash Chain</span>
             </span>
             <StatusBadge
-              status={state?.audit.chainValid ? "VERIFIED" : "PENDING"}
-              label={state?.audit.chainValid ? "Hash Chain Intact" : "Verifying"}
+              status={chainBadge.status}
+              label={chainBadge.label}
             />
           </div>
           <div
@@ -326,7 +374,7 @@ export default function AuditorVerificationPage() {
         >
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              {(state?.reconciliation.discrepancies.length ?? 0) === 0 ? (
+              {totalMismatches === 0 ? (
                 <CheckCircle2
                   className="w-4 h-4 shrink-0"
                   style={{ color: "var(--status-settled-fg)" }}
@@ -335,7 +383,7 @@ export default function AuditorVerificationPage() {
               ) : (
                 <AlertTriangle
                   className="w-4 h-4 shrink-0"
-                  style={{ color: "var(--status-pending-fg)" }}
+                  style={{ color: "var(--status-failed-fg, #ef4444)" }}
                   aria-hidden="true"
                 />
               )}
@@ -346,23 +394,22 @@ export default function AuditorVerificationPage() {
             </div>
             <div className="mono-label" style={{ marginTop: "0.22rem" }}>
               Source of Truth: NEAR Escrow Contract · Zero Discrepancies:{" "}
-              {(state?.reconciliation.discrepancies.length ?? 0) === 0
-                ? "Confirmed"
-                : "Review Required"}
+              {totalMismatches === 0 ? "Confirmed (0 Mismatches)" : `${totalMismatches} Discrepancy(ies)`}
+              {recordNotRegistered.length > 0 && (
+                <span style={{ marginLeft: "0.5rem", color: "var(--text-muted)" }}>
+                  · {recordNotRegistered.length} not registered (unfunded / expired quotes, expected)
+                </span>
+              )}
             </div>
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap" }}>
             <StatusBadge
-              status={
-                (state?.reconciliation.discrepancies.length ?? 0) === 0
-                  ? "SETTLED"
-                  : "PAYOUT_FAILED"
-              }
+              status={totalMismatches === 0 ? "SETTLED" : "PAYOUT_FAILED"}
               label={
-                (state?.reconciliation.discrepancies.length ?? 0) === 0
+                totalMismatches === 0
                   ? "Reconciled"
-                  : `${state?.reconciliation.discrepancies.length ?? 0} Discrepancies`
+                  : `${totalMismatches} Discrepancies`
               }
             />
             {state?.reconciliation.discrepancies &&
@@ -473,7 +520,7 @@ export default function AuditorVerificationPage() {
               Decrypted Records in Scope ({filteredRecords.length})
             </h2>
             <p style={{ fontSize: "0.78rem", color: "var(--text-muted)", marginTop: "0.1rem" }}>
-              Verified locally via canonical JSON commitment{" "}
+              Decrypted server-side within the grant scope; payload hash verified against the on-chain commitment{" "}
               <code className="mono-data" style={{ fontSize: "0.72rem" }}>
                 sha256(canonicalJSON(payload) || salt)
               </code>
@@ -494,8 +541,16 @@ export default function AuditorVerificationPage() {
                   label: `Remittances (${allRecords.filter((r) => r.kind === "REMITTANCE").length})`,
                 },
                 {
-                  id: "UNVERIFIED",
-                  label: `Unverified (${allRecords.filter((r) => !r.verifiedOnchain).length})`,
+                  id: "VERIFIED",
+                  label: `Verified (${allRecords.filter((r) => getRecordStatus(r) === "verified").length})`,
+                },
+                {
+                  id: "MISMATCH",
+                  label: `Mismatch (${recordMismatches.length})`,
+                },
+                {
+                  id: "NOT_REGISTERED",
+                  label: `Not Registered (${recordNotRegistered.length})`,
                 },
               ] as const
             ).map((tab) => (
@@ -658,18 +713,22 @@ export default function AuditorVerificationPage() {
                 ? "No decrypted auditor records in scope"
                 : searchQuery
                   ? `No records matching "${searchQuery}"`
-                  : recordFilter === "UNVERIFIED"
-                    ? "Zero unverified records"
-                    : `No ${recordFilter.toLowerCase()} records in current view`
+                  : recordFilter === "MISMATCH"
+                    ? "Zero mismatched records"
+                    : recordFilter === "NOT_REGISTERED"
+                      ? "Zero unregistered records"
+                      : `No ${recordFilter.toLowerCase()} records in current view`
             }
             description={
               allRecords.length === 0
                 ? "Issue or rotate a scoped X25519 view key grant to decrypt authorized payment and remittance records for external verification."
                 : searchQuery
-                   ? "Try searching with another keyword or clear the search field to view all scope records."
-                  : recordFilter === "UNVERIFIED"
+                  ? "Try searching with another keyword or clear the search field to view all scope records."
+                  : recordFilter === "MISMATCH"
                     ? "Every decrypted record in this grant matches its immutable SHA-256 commitment stored on the NEAR escrow contract."
-                    : "Switch back to All to inspect all decrypted records in the active auditor grant."
+                    : recordFilter === "NOT_REGISTERED"
+                      ? "All records in scope have active on-chain escrow registrations."
+                      : "Switch back to All to inspect all decrypted records in the active auditor grant."
             }
             primaryAction={
               allRecords.length === 0
@@ -782,10 +841,31 @@ export default function AuditorVerificationPage() {
                       </div>
                     </td>
                     <td className="col-num">
-                      <StatusBadge
-                        status={rec.verifiedOnchain ? "VERIFIED" : "PENDING"}
-                        label={rec.verifiedOnchain ? "Verified" : "Pending"}
-                      />
+                      {(() => {
+                        const recStatus = getRecordStatus(rec);
+                        if (recStatus === "verified") {
+                          return <StatusBadge status="VERIFIED" label="Verified" />;
+                        }
+                        if (recStatus === "mismatch") {
+                          return (
+                            <span title={rec.statusNote ?? "On-chain commitment differs"}>
+                              <StatusBadge status="MISMATCH" label="Mismatch" />
+                            </span>
+                          );
+                        }
+                        return (
+                          <span
+                            title={
+                              rec.statusNote ?? "Expired quote never funded on-chain"
+                            }
+                          >
+                            <StatusBadge
+                              status="NOT_REGISTERED"
+                              label="Not Registered"
+                            />
+                          </span>
+                        );
+                      })()}
                     </td>
                   </tr>
                 ))}

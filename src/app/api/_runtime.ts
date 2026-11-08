@@ -22,7 +22,13 @@ import {
   type RemittanceId,
   type UserId,
 } from "@/shared";
-import { generateX25519KeyPair, verifyAuditChain, type KeyPairHex } from "@/modules/privacy/domain";
+import {
+  generateX25519KeyPair,
+  inspectAuditChain,
+  verifyAuditChain,
+  type AuditChainVerificationResult,
+  type KeyPairHex,
+} from "@/modules/privacy/domain";
 import { exportLedgerToCsv } from "@/modules/ledger/domain";
 import { PaymentUseCases } from "@/modules/payments/application/use-cases";
 import { RemittanceUseCases } from "@/modules/remittance/application/use-cases";
@@ -369,10 +375,11 @@ async function computeDashboardSnapshot() {
     auditorPrivateKeyHex: rt.auditorKeys.privateKeyHex,
   });
 
-  const auditLog = rt.disclosures.getAuditLog();
+  const auditLog = rt.metaStore.loadAuditLog();
   const anchoredRoots = rt.chain.getAnchoredRoots();
   const latestRootFromChainOrLog =
     anchoredRoots[anchoredRoots.length - 1] ?? auditLog[auditLog.length - 1]?.hash ?? null;
+  const chainInspection = inspectAuditChain(auditLog);
 
   return {
     network: {
@@ -430,7 +437,8 @@ async function computeDashboardSnapshot() {
     audit: {
       grantId: rt.defaultGrantId,
       auditorKeyShort: `${rt.auditorKeys.publicKeyHex.slice(0, 18)}…${rt.auditorKeys.publicKeyHex.slice(-8)}`,
-      chainValid: verifyAuditChain(auditLog),
+      chainValid: chainInspection.valid,
+      chainVerification: chainInspection,
       anchoredRootsCount: Math.max(anchoredRoots.length, auditLog.length),
       latestAnchoredRoot: latestRootFromChainOrLog,
       records: auditVerifications.ok ? auditVerifications.value : [],

@@ -1,6 +1,7 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { chmodSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { describe, expect, it } from "vitest";
 import {
   FixedClock,
@@ -24,13 +25,16 @@ import { RemittanceUseCases } from "@/modules/remittance/application/use-cases";
 import { DisclosureUseCases } from "@/modules/privacy/application/use-cases";
 import type { Actor } from "@/modules/identity/domain";
 import {
+  MigrationConflictError,
   openLedgerlySqliteDb,
+  runMigrations,
   SqliteIdempotencyStore,
   SqliteLedgerAdapter,
   SqlitePaymentRequestRepository,
   SqliteRemittanceRepository,
   SqliteRuntimeMetaStore,
   SqliteViewKeyGrantRepository,
+  withTransaction,
 } from "../src/shared/sqlite-persistence";
 
 const T0 = new Date("2026-11-05T12:00:00Z");
@@ -286,6 +290,224 @@ describe("SQLite Persistence Layer (node:sqlite)", () => {
 
       db2.close();
     } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("applies required pragmas (WAL, busy_timeout=5000, foreign_keys=ON, synchronous=NORMAL)", () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "ledgerly-sqlite-pragmas-"));
+    const dbPath = join(tempDir, "ledgerly-pragmas.sqlite");
+
+    try {
+      const db = openLedgerlySqliteDb(dbPath);
+      const jMode = db.prepare("PRAGMA journal_mode;").get() as { journal_mode: string };
+      expect(jMode.journal_mode.toLowerCase()).toBe("wal");
+
+      const busyTimeout = db.prepare("PRAGMA busy_timeout;").get() as { timeout: number };
+      expect(busyTimeout.timeout).toBe(5000);
+
+      const fKeys = db.prepare("PRAGMA foreign_keys;").get() as { foreign_keys: number };
+      expect(fKeys.foreign_keys).toBe(1);
+
+      const syncMode = db.prepare("PRAGMA synchronous;").get() as { synchronous: number };
+      expect(syncMode.synchronous).toBe(1); // 1 = NORMAL
+
+      const userVer = db.prepare("PRAGMA user_version;").get() as { user_version: number };
+      expect(userVer.user_version).toBe(1);
+
+      db.close();
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("runs migrations on empty DB and establishes v1 with UNIQUE(seq) index", () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "ledgerly-sqlite-mig-empty-"));
+    const dbPath = join(tempDir, "empty.sqlite");
+
+    try {
+      const db = openLedgerlySqliteDb(dbPath);
+      const v = db.prepare("PRAGMA user_version").get() as { user_version: number };
+      expect(v.user_version).toBe(1);
+
+      // Verify unique index on audit_log_entries(seq)
+      const indexList = db
+        .prepare("PRAGMA index_list(audit_log_entries);")
+        .all() as Array<{ name: string; unique: number }>;
+      const uniqueSeq = indexList.find(
+        (i) => i.name === "idx_audit_log_entries_seq" && i.unique === 1,
+      );
+      expect(uniqueSeq).toBeDefined();
+
+      db.close();
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("migrates a v0 database to v1 successfully", () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "ledgerly-sqlite-mig-v0-"));
+    const dbPath = join(tempDir, "v0.sqlite");
+
+    try {
+      // Simulate existing v0 database before migration
+      const rawDb = new DatabaseSync(dbPath);
+      rawDb.exec(`
+        CREATE TABLE audit_log_entries (
+          seq INTEGER,
+          entry_json TEXT NOT NULL
+        );
+        INSERT INTO audit_log_entries (seq, entry_json) VALUES
+          (1, '{"id":"audit_1","actor":"test","action":"ACTION","targetId":"t1","atIso":"2026-11-05T00:00:00Z","hash":"h1","prevHash":"0"}'),
+          (2, '{"id":"audit_2","actor":"test","action":"ACTION","targetId":"t2","atIso":"2026-11-05T00:01:00Z","hash":"h2","prevHash":"h1"}');
+      `);
+      const vBefore = rawDb.prepare("PRAGMA user_version;").get() as { user_version: number };
+      expect(vBefore.user_version).toBe(0);
+      rawDb.close();
+
+      // Opening through openLedgerlySqliteDb applies migration 1
+      const migratedDb = openLedgerlySqliteDb(dbPath);
+      const vAfter = migratedDb.prepare("PRAGMA user_version;").get() as { user_version: number };
+      expect(vAfter.user_version).toBe(1);
+
+      // Verify index was created
+      const indexList = migratedDb
+        .prepare("PRAGMA index_list(audit_log_entries);")
+        .all() as Array<{ name: string; unique: number }>;
+      expect(indexList.some((i) => i.name === "idx_audit_log_entries_seq" && i.unique === 1)).toBe(
+        true,
+      );
+
+      // Verify rows are preserved
+      const count = migratedDb.prepare("SELECT count(*) as c FROM audit_log_entries;").get() as {
+        c: number;
+      };
+      expect(count.c).toBe(2);
+
+      migratedDb.close();
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("detects conflict and refuses to destroy data on duplicate seq in v0 DB", () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "ledgerly-sqlite-mig-dupe-"));
+    const dbPath = join(tempDir, "dupe.sqlite");
+
+    try {
+      // Create v0 DB with duplicate seq
+      const rawDb = new DatabaseSync(dbPath);
+      rawDb.exec(`
+        CREATE TABLE audit_log_entries (
+          seq INTEGER,
+          entry_json TEXT NOT NULL
+        );
+        INSERT INTO audit_log_entries (seq, entry_json) VALUES
+          (881, '{"id":"audit_881_a","actor":"a1","action":"A","targetId":"t1","atIso":"2026-11-05T00:00:00Z","hash":"h1","prevHash":"0"}'),
+          (881, '{"id":"audit_881_b","actor":"a2","action":"B","targetId":"t2","atIso":"2026-11-05T00:01:00Z","hash":"h2","prevHash":"0"}');
+      `);
+      rawDb.close();
+
+      // Migrating should throw MigrationConflictError
+      expect(() => openLedgerlySqliteDb(dbPath)).toThrow(MigrationConflictError);
+
+      // Verify original data is intact (never deleted or rewritten)
+      const inspectDb = new DatabaseSync(dbPath);
+      const rows = inspectDb.prepare("SELECT seq FROM audit_log_entries").all() as Array<{
+        seq: number;
+      }>;
+      expect(rows).toHaveLength(2);
+      expect(rows[0]?.seq).toBe(881);
+      expect(rows[1]?.seq).toBe(881);
+      inspectDb.close();
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("withTransaction commits atomicity and rolls back on failure leaving no partial writes", () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "ledgerly-sqlite-tx-"));
+    const dbPath = join(tempDir, "tx.sqlite");
+
+    try {
+      const db = openLedgerlySqliteDb(dbPath);
+      db.exec("CREATE TABLE test_tx (id INTEGER PRIMARY KEY, val TEXT);");
+
+      // Successful transaction
+      withTransaction(db, () => {
+        db.prepare("INSERT INTO test_tx (id, val) VALUES (1, 'val1');").run();
+        db.prepare("INSERT INTO test_tx (id, val) VALUES (2, 'val2');").run();
+      });
+
+      const count1 = db.prepare("SELECT count(*) as c FROM test_tx;").get() as { c: number };
+      expect(count1.c).toBe(2);
+
+      // Failed transaction should roll back completely
+      expect(() =>
+        withTransaction(db, () => {
+          db.prepare("INSERT INTO test_tx (id, val) VALUES (3, 'val3');").run();
+          throw new Error("Simulated failure mid-transaction");
+        }),
+      ).toThrow("Simulated failure mid-transaction");
+
+      // Row 3 must NOT exist
+      const count2 = db.prepare("SELECT count(*) as c FROM test_tx;").get() as { c: number };
+      expect(count2.c).toBe(2);
+      const row3 = db.prepare("SELECT * FROM test_tx WHERE id = 3;").get();
+      expect(row3).toBeUndefined();
+
+      db.close();
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("handles concurrent audit log appends via Promise.all staying contiguous", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "ledgerly-sqlite-concur-"));
+    const dbPath = join(tempDir, "concur.sqlite");
+
+    try {
+      const db = openLedgerlySqliteDb(dbPath);
+      const meta = new SqliteRuntimeMetaStore(db);
+
+      // 20 concurrent appends
+      const tasks = Array.from({ length: 20 }, (_, i) => ({
+        id: `audit_concurrent_${i}`,
+        actor: `actor_${i}`,
+        action: "RECORD_ACTION",
+        targetId: `target_${i}`,
+        atIso: new Date(Date.now() + i * 100).toISOString(),
+      }));
+
+      // Run via Promise.all
+      const results = await Promise.all(tasks.map((t) => Promise.resolve(meta.appendAuditEntry(t))));
+      expect(results).toHaveLength(20);
+
+      const logs = meta.loadAuditLog();
+      expect(logs).toHaveLength(20);
+
+      // Verify sequence is strictly contiguous 1..20
+      const seqs = logs.map((l) => l.seq);
+      expect(seqs).toEqual(Array.from({ length: 20 }, (_, i) => i + 1));
+
+      // Verify tamper-evident audit hash chain is intact
+      expect(verifyAuditChain(logs)).toBe(true);
+
+      db.close();
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("fails with a clear error if database directory is not writable", () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "ledgerly-sqlite-ro-"));
+    chmodSync(tempDir, 0o444); // read-only directory
+    const dbPath = join(tempDir, "readonly.sqlite");
+
+    try {
+      expect(() => openLedgerlySqliteDb(dbPath)).toThrow(/read-only or not writable/);
+    } finally {
+      chmodSync(tempDir, 0o777);
       rmSync(tempDir, { recursive: true, force: true });
     }
   });

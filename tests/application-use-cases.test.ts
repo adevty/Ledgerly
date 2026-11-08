@@ -312,6 +312,16 @@ describe("Module 4 — End-to-End Application Use Cases & Mock Adapters", () => 
     expect(verified.length).toBe(2);
     expect(verified.every((r) => r.verifiedOnchain)).toBe(true);
 
+    // Read-only verification does not append an audit entry
+    expect(c.chain.getAnchoredRoots().length).toBe(1);
+
+    // Explicit audit action appends and anchors on-chain
+    await c.disclosures.recordAuditAction(
+      "auditor_external",
+      "AUDIT_RECORDS_VERIFIED",
+      "grant_nov_2026",
+    );
+
     // Audit log hash chain is intact and anchored on-chain
     expect(verifyAuditChain(c.disclosures.getAuditLog())).toBe(true);
     expect(c.chain.getAnchoredRoots().length).toBe(2);

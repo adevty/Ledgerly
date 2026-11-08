@@ -1,4 +1,4 @@
-import { mkdirSync } from "node:fs";
+import { accessSync, constants, existsSync, mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import {
@@ -37,7 +37,9 @@ import {
   type StoredRemittance,
 } from "@/modules/remittance/domain";
 import {
+  GENESIS_AUDIT_HASH,
   ViewKeyGrant,
+  computeAuditEntryHash,
   type AuditLogEntry,
   type DisclosureRecordKind,
   type EncryptedEnvelope,
@@ -279,22 +281,171 @@ function deserializeGrantSnapshot(raw: SerializedViewKeyGrantSnapshot): ViewKeyG
   };
 }
 
+export class MigrationConflictError extends Error {
+  constructor(message: string, public readonly details?: unknown) {
+    super(message);
+    this.name = "MigrationConflictError";
+  }
+}
+
+/**
+ * Execute an atomic transaction using BEGIN IMMEDIATE to avoid race conditions.
+ * Automatically rolls back on any thrown exception.
+ */
+export function withTransaction<T>(db: DatabaseSync, fn: () => T): T {
+  db.exec("BEGIN IMMEDIATE;");
+  try {
+    const result = fn();
+    db.exec("COMMIT;");
+    return result;
+  } catch (err) {
+    try {
+      db.exec("ROLLBACK;");
+    } catch {
+      // ignore rollback failure if transaction was already aborted
+    }
+    throw err;
+  }
+}
+
+export interface SchemaMigration {
+  readonly version: number;
+  readonly name: string;
+  readonly up: (db: DatabaseSync) => void;
+}
+
+export const SCHEMA_MIGRATIONS: readonly SchemaMigration[] = [
+  {
+    version: 1,
+    name: "enforce_unique_audit_log_seq",
+    up: (db: DatabaseSync) => {
+      const tableCheck = db
+        .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='audit_log_entries'")
+        .get();
+
+      if (!tableCheck) {
+        db.exec(`
+          CREATE TABLE audit_log_entries (
+            seq INTEGER PRIMARY KEY,
+            entry_json TEXT NOT NULL
+          );
+          CREATE UNIQUE INDEX IF NOT EXISTS idx_audit_log_entries_seq ON audit_log_entries(seq);
+        `);
+        return;
+      }
+
+      // Check if any existing rows violate uniqueness of seq
+      const dupes = db
+        .prepare("SELECT seq, COUNT(*) as c FROM audit_log_entries GROUP BY seq HAVING c > 1")
+        .all() as Array<{ seq: number; c: number }>;
+
+      if (dupes.length > 0) {
+        throw new MigrationConflictError(
+          `Migration 1 conflict: audit_log_entries contains duplicate sequence numbers: ${JSON.stringify(dupes)}`,
+          { duplicates: dupes },
+        );
+      }
+
+      // Check if entry_json contains duplicate audit IDs/forked chain
+      const rows = db.prepare("SELECT seq, entry_json FROM audit_log_entries").all() as Array<{
+        seq: number;
+        entry_json: string;
+      }>;
+      const seenIds = new Set<string>();
+      const duplicateIds: string[] = [];
+      for (const r of rows) {
+        try {
+          const parsed = JSON.parse(r.entry_json) as { id?: string };
+          if (parsed?.id) {
+            if (seenIds.has(parsed.id)) {
+              duplicateIds.push(parsed.id);
+            }
+            seenIds.add(parsed.id);
+          }
+        } catch {
+          // ignore parse errors
+        }
+      }
+
+      if (duplicateIds.length > 0) {
+        throw new MigrationConflictError(
+          `Migration 1 conflict: audit_log_entries contains duplicate audit IDs (forked chain): ${duplicateIds.slice(0, 5).join(", ")} (total: ${duplicateIds.length})`,
+          { duplicateIds },
+        );
+      }
+
+      db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_audit_log_entries_seq ON audit_log_entries(seq);");
+    },
+  },
+];
+
+export function runMigrations(db: DatabaseSync): number {
+  const versionRow = db.prepare("PRAGMA user_version").get() as { user_version: number } | undefined;
+  let currentVersion = versionRow?.user_version ?? 0;
+
+  for (const migration of SCHEMA_MIGRATIONS) {
+    if (migration.version > currentVersion) {
+      withTransaction(db, () => {
+        migration.up(db);
+        db.exec(`PRAGMA user_version = ${migration.version};`);
+      });
+      currentVersion = migration.version;
+    }
+  }
+
+  return currentVersion;
+}
+
 /**
  * Open or initialize the SQLite database using Node's built-in `node:sqlite`.
  */
 export function openLedgerlySqliteDb(dbPath?: string): DatabaseSync {
   const target =
-    dbPath ?? process.env.LEDGERLY_SQLITE_PATH ?? resolve(process.cwd(), ".data/ledgerly.sqlite");
+    dbPath ??
+    process.env.LEDGERLY_DB_PATH ??
+    process.env.LEDGERLY_SQLITE_PATH ??
+    resolve(process.cwd(), ".data/ledgerly.sqlite");
 
   if (target !== ":memory:") {
-    mkdirSync(dirname(target), { recursive: true });
+    const dir = dirname(target);
+    try {
+      mkdirSync(dir, { recursive: true });
+    } catch (err) {
+      throw new Error(
+        `Failed to create database directory '${dir}': ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+
+    try {
+      if (existsSync(/*turbopackIgnore: true*/ target)) {
+        accessSync(/*turbopackIgnore: true*/ target, constants.R_OK | constants.W_OK);
+      } else {
+        accessSync(/*turbopackIgnore: true*/ dir, constants.R_OK | constants.W_OK);
+      }
+    } catch {
+      throw new Error(`Database path '${target}' is read-only or not writable.`);
+    }
   }
 
-  const db = new DatabaseSync(target);
+  let db: DatabaseSync;
+  try {
+    db = new DatabaseSync(target);
+  } catch (err) {
+    throw new Error(
+      `Database path '${target}' cannot be opened: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+
+  // PRAGMAs applied on EVERY connection
   db.exec(`
     PRAGMA journal_mode = WAL;
+    PRAGMA busy_timeout = 5000;
+    PRAGMA foreign_keys = ON;
     PRAGMA synchronous = NORMAL;
+  `);
 
+  // Base tables (v0 schema)
+  db.exec(`
     CREATE TABLE IF NOT EXISTS runtime_meta (
       key TEXT PRIMARY KEY,
       value_json TEXT NOT NULL
@@ -346,12 +497,10 @@ export function openLedgerlySqliteDb(dbPath?: string): DatabaseSync {
       request_hash TEXT NOT NULL,
       response_json TEXT NOT NULL
     );
-
-    CREATE TABLE IF NOT EXISTS audit_log_entries (
-      seq INTEGER PRIMARY KEY AUTOINCREMENT,
-      entry_json TEXT NOT NULL
-    );
   `);
+
+  // Run versioned migrations
+  runMigrations(db);
 
   return db;
 }
@@ -391,9 +540,52 @@ export class SqliteRuntimeMetaStore {
     return rows.map((r) => JSON.parse(r.entry_json) as AuditLogEntry);
   }
 
-  appendAuditEntry(entry: AuditLogEntry): void {
-    const stmt = this.db.prepare("INSERT INTO audit_log_entries (entry_json) VALUES (?)");
-    stmt.run(JSON.stringify(entry));
+  appendAuditEntry(input: {
+    id?: string;
+    seq?: number;
+    actor: string;
+    action: string;
+    targetId: string;
+    atIso?: string;
+    at?: Date;
+    prevHash?: string;
+    hash?: string;
+  }): AuditLogEntry {
+    return withTransaction(this.db, () => {
+      const stmtLast = this.db.prepare(
+        "SELECT seq, entry_json FROM audit_log_entries ORDER BY seq DESC LIMIT 1",
+      );
+      const lastRow = stmtLast.get() as { seq: number; entry_json: string } | undefined;
+      const nextSeq = lastRow ? lastRow.seq + 1 : 1;
+      const lastEntry = lastRow ? (JSON.parse(lastRow.entry_json) as AuditLogEntry) : null;
+      const prevHash = lastEntry ? lastEntry.hash : GENESIS_AUDIT_HASH;
+      const atIso = input.atIso ?? (input.at ? input.at.toISOString() : new Date().toISOString());
+
+      const hash = computeAuditEntryHash({
+        prevHash,
+        actor: input.actor,
+        action: input.action,
+        targetId: input.targetId,
+        atIso,
+      });
+
+      const entry: AuditLogEntry = {
+        id: `audit_${nextSeq}`,
+        seq: nextSeq,
+        actor: input.actor,
+        action: input.action,
+        targetId: input.targetId,
+        atIso,
+        prevHash,
+        hash,
+      };
+
+      const stmt = this.db.prepare(
+        "INSERT INTO audit_log_entries (seq, entry_json) VALUES (?, ?)",
+      );
+      stmt.run(nextSeq, JSON.stringify(entry));
+      return entry;
+    });
   }
 }
 
@@ -722,44 +914,46 @@ export class SqliteLedgerAdapter implements LedgerPort {
     const check = validateBalancedLegs(input.legs);
     if (!check.ok) return check;
 
-    const countRow = this.db
-      .prepare("SELECT COALESCE(MAX(seq), 0) AS max_seq FROM ledger_entries")
-      .get() as { max_seq: number };
-    let nextSeq = (countRow?.max_seq ?? 0) + 1;
+    return withTransaction(this.db, () => {
+      const countRow = this.db
+        .prepare("SELECT COALESCE(MAX(seq), 0) AS max_seq FROM ledger_entries")
+        .get() as { max_seq: number };
+      let nextSeq = (countRow?.max_seq ?? 0) + 1;
 
-    const insertStmt = this.db.prepare(`
-      INSERT INTO ledger_entries (id, journal_id, account, debit_minor, credit_minor, currency, ref_type, ref_id, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
+      const insertStmt = this.db.prepare(`
+        INSERT INTO ledger_entries (id, journal_id, account, debit_minor, credit_minor, currency, ref_type, ref_id, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
 
-    const created: LedgerEntryRecord[] = [];
-    for (const leg of input.legs) {
-      const id = `le_${nextSeq++}`;
-      const createdAtIso = input.now.toISOString();
-      insertStmt.run(
-        id,
-        input.journalId,
-        leg.account,
-        leg.debitMinor.toString(),
-        leg.creditMinor.toString(),
-        input.currency,
-        input.refType,
-        input.refId,
-        createdAtIso,
-      );
-      created.push({
-        id,
-        journalId: input.journalId,
-        account: leg.account,
-        debitMinor: leg.debitMinor,
-        creditMinor: leg.creditMinor,
-        currency: input.currency,
-        refType: input.refType,
-        refId: input.refId,
-        createdAt: input.now,
-      });
-    }
-    return ok(created);
+      const created: LedgerEntryRecord[] = [];
+      for (const leg of input.legs) {
+        const id = `le_${nextSeq++}`;
+        const createdAtIso = input.now.toISOString();
+        insertStmt.run(
+          id,
+          input.journalId,
+          leg.account,
+          leg.debitMinor.toString(),
+          leg.creditMinor.toString(),
+          input.currency,
+          input.refType,
+          input.refId,
+          createdAtIso,
+        );
+        created.push({
+          id,
+          journalId: input.journalId,
+          account: leg.account,
+          debitMinor: leg.debitMinor,
+          creditMinor: leg.creditMinor,
+          currency: input.currency,
+          refType: input.refType,
+          refId: input.refId,
+          createdAt: input.now,
+        });
+      }
+      return ok(created);
+    });
   }
 
   async listEntries(filter?: {

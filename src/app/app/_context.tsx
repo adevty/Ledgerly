@@ -46,6 +46,8 @@ export interface AuditedRecord {
   commitment: string;
   onchainCommitment: string | null;
   verifiedOnchain: boolean;
+  status?: "verified" | "mismatch" | "not-registered";
+  statusNote?: string;
 }
 
 export interface DashboardState {
@@ -68,11 +70,19 @@ export interface DashboardState {
     grantId: string;
     auditorKeyShort: string;
     chainValid: boolean;
+    chainVerification?: {
+      valid: boolean;
+      brokenAtSeq: number | null;
+      brokenAtIndex: number | null;
+      reason: string | null;
+      length: number;
+    };
     anchoredRootsCount: number;
     latestAnchoredRoot: string | null;
     records: AuditedRecord[];
     auditLog?: Array<{
       id: string;
+      seq?: number;
       actor: string;
       action: string;
       targetId: string;
@@ -386,7 +396,7 @@ export function useLedgerlyDashboard(): DashboardContextValue {
 }
 
 export function statusTone(status: string): string {
-  const normalized = status.toUpperCase();
+  const normalized = status.toUpperCase().replace(/-/g, "_");
   if (
     normalized === "SETTLED" ||
     normalized === "PAID" ||
@@ -399,7 +409,8 @@ export function statusTone(status: string): string {
     normalized === "FAILED" ||
     normalized === "BLOCKED" ||
     normalized === "CANCELLED" ||
-    normalized === "EXPIRED"
+    normalized === "EXPIRED" ||
+    normalized === "MISMATCH"
   ) {
     return "status-pill status-pill-red";
   }
@@ -407,11 +418,12 @@ export function statusTone(status: string): string {
     normalized === "OVERPAID" ||
     normalized === "PARTIALLY_PAID" ||
     normalized === "PAYOUT_FAILED" ||
-    normalized === "REFUNDING"
+    normalized === "REFUNDING" ||
+    normalized === "NOT_REGISTERED"
   ) {
     return "status-pill status-pill-amber";
   }
-  // OPEN, QUOTED, FUNDED, PENDING, PAYOUT_PENDING
+  // OPEN, QUOTED, FUNDED, PENDING, PAYOUT_PENDING, UNAVAILABLE
   return "status-pill status-pill-blue";
 }
 

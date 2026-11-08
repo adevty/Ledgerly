@@ -8,9 +8,8 @@ contracts/**/target/
 *.wasm
 *.tsbuildinfo
 /.data/
-*.sqlite
-*.sqlite-shm
-*.sqlite-wal
+/backups/
+*.sqlite*
 *.db
 
 # Local agent & editor skills

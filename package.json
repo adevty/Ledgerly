@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "db:backup": "node scripts/db-backup.mjs",
     "contract:test": "cargo test --manifest-path contracts/ledgerly-escrow/Cargo.toml --lib",
     "contract:check": "cargo check --manifest-path contracts/ledgerly-escrow/Cargo.toml --target wasm32-unknown-unknown",
     "contract:build": "RUSTFLAGS='-C target-feature=-reference-types,-multivalue -C link-arg=-s' cargo build --manifest-path contracts/ledgerly-escrow/Cargo.toml --target wasm32-unknown-unknown --release",
