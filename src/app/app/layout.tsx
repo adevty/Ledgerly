@@ -1,59 +1,88 @@
 "use client";
 
-import React from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import {
+  ArrowLeft,
+  ArrowLeftRight,
+  ArrowUpRight,
+  CheckCircle2,
+  CreditCard,
+  FileCheck2,
+  LayoutGrid,
+  Moon,
+  ShoppingBag,
+  Sun,
+  X,
+} from "lucide-react";
 import { LedgerlyDashboardProvider, StatusBadge, useLedgerlyDashboard } from "./_context";
+import { HashBadge } from "../components/HashBadge";
 
-function NavIcon({ kind }: { kind: "overview" | "merchant" | "remittance" | "auditor" }) {
-  if (kind === "overview") {
-    return (
-      <svg className="app-nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
-        <rect x="2" y="2" width="5" height="5" rx="1" />
-        <rect x="9" y="2" width="5" height="5" rx="1" />
-        <rect x="2" y="9" width="5" height="5" rx="1" />
-        <rect x="9" y="9" width="5" height="5" rx="1" />
-      </svg>
-    );
-  }
-  if (kind === "merchant") {
-    return (
-      <svg className="app-nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
-        <rect x="2" y="3" width="12" height="10" rx="1.5" />
-        <path d="M2 6.5h12" />
-        <path d="M4.8 10h3.2" />
-      </svg>
-    );
-  }
-  if (kind === "remittance") {
-    return (
-      <svg className="app-nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
-        <path d="M2.5 5.5h10.5M10 2.8l3 2.7-3 2.7" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M13.5 10.5H3M6 7.8l-3 2.7 3 2.7" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    );
-  }
+function LedgerlyBrandMark() {
   return (
-    <svg className="app-nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect width="24" height="24" rx="6" fill="var(--accent-primary)" />
       <path
-        d="M8 1.8l5 2v4c0 3.3-2.2 5.4-5 6.4-2.8-1-5-3.1-5-6.4v-4l5-2z"
+        d="M8 7.5V16.5H16"
+        stroke="var(--text-on-accent)"
+        strokeWidth="2.4"
+        strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <path d="M5.8 8.1l1.5 1.5 3-3.1" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
+}
+
+function NavIcon({
+  kind,
+}: {
+  kind: "overview" | "merchant" | "remittance" | "auditor" | "checkout";
+}) {
+  if (kind === "overview") {
+    return <LayoutGrid className="app-nav-icon" aria-hidden="true" />;
+  }
+  if (kind === "merchant") {
+    return <CreditCard className="app-nav-icon" aria-hidden="true" />;
+  }
+  if (kind === "remittance") {
+    return <ArrowLeftRight className="app-nav-icon" aria-hidden="true" />;
+  }
+  if (kind === "checkout") {
+    return <ShoppingBag className="app-nav-icon" aria-hidden="true" />;
+  }
+  return <FileCheck2 className="app-nav-icon" aria-hidden="true" />;
 }
 
 function DashboardShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { state, busy, toasts, dismissToast } = useLedgerlyDashboard();
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
 
-  const navItems: Array<{
+  useEffect(() => {
+    if (document.documentElement.getAttribute("data-theme") === "light") {
+      setTheme("light");
+    }
+  }, []);
+
+  const toggleTheme = useCallback(() => {
+    setTheme((prev) => {
+      const next = prev === "dark" ? "light" : "dark";
+      if (next === "light") {
+        document.documentElement.setAttribute("data-theme", "light");
+      } else {
+        document.documentElement.removeAttribute("data-theme");
+      }
+      return next;
+    });
+  }, []);
+
+  const operationsNav: Array<{
     href: string;
     label: string;
-    icon: "overview" | "merchant" | "remittance" | "auditor";
+    icon: "overview" | "merchant" | "remittance";
     exact: boolean;
-    badge: string | null;
+    badge: React.ReactNode | null;
   }> = [
     {
       href: "/app",
@@ -76,6 +105,15 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
       exact: false,
       badge: state ? String(state.remittances.length) : null,
     },
+  ];
+
+  const complianceNav: Array<{
+    href: string;
+    label: string;
+    icon: "auditor" | "checkout";
+    exact: boolean;
+    badge: React.ReactNode | null;
+  }> = [
     {
       href: "/app/auditor",
       label: "Auditor",
@@ -86,9 +124,9 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
     {
       href: "/checkout",
       label: "Buyer Checkout",
-      icon: "merchant",
+      icon: "checkout",
       exact: false,
-      badge: "↗",
+      badge: <ArrowUpRight className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />,
     },
   ];
 
@@ -97,27 +135,33 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
     return pathname === href || pathname.startsWith(`${href}/`);
   };
 
+  const currentSectionLabel = pathname.startsWith("/app/merchant")
+    ? "Merchant Checkout"
+    : pathname.startsWith("/app/remittance")
+      ? "Global Remittances"
+      : pathname.startsWith("/app/auditor")
+        ? "Auditor Access"
+        : "Overview";
+
+  const orgInitials = state?.organization.name
+    ? state.organization.name
+        .split(" ")
+        .slice(0, 2)
+        .map((w) => w[0]?.toUpperCase() ?? "")
+        .join("")
+    : "LD";
+
   return (
-    <div style={{ minHeight: "100vh", position: "relative" }}>
-      {/* Calm, particle-free fintech ambient backdrop with subtle horizontal ledger lines */}
+    <div style={{ minHeight: "100dvh", position: "relative" }}>
       <div className="app-ambient-backdrop" aria-hidden="true" />
 
-      {/* Top Sticky Header */}
-      <header
-        style={{
-          position: "sticky",
-          top: 0,
-          zIndex: 20,
-          background: "rgba(247, 244, 238, 0.88)",
-          backdropFilter: "blur(12px)",
-          WebkitBackdropFilter: "blur(12px)",
-        }}
-      >
+      {/* Solid Top Sticky Header */}
+      <header className="app-topbar sticky top-0 z-50">
         <div
           style={{
-            maxWidth: 1320,
+            maxWidth: 1360,
             margin: "0 auto",
-            padding: "0.95rem 1.75rem",
+            padding: "0.82rem 1.75rem",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
@@ -125,20 +169,35 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
             flexWrap: "wrap",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: "0.85rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.7rem", flexWrap: "wrap" }}>
             <Link
               href="/"
               style={{
-                fontWeight: 600,
-                fontSize: "1.05rem",
-                letterSpacing: "-0.02em",
-                color: "var(--ink-charcoal)",
+                fontWeight: 700,
+                fontSize: "1.02rem",
+                letterSpacing: "-0.025em",
+                color: "var(--text-primary)",
                 textDecoration: "none",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.5rem",
               }}
             >
-              Ledgerly
+              <LedgerlyBrandMark />
+              <span>Ledgerly</span>
             </Link>
-            <span style={{ color: "var(--line-medium)" }}>·</span>
+            <span style={{ color: "var(--border-default)" }} aria-hidden="true">
+              /
+            </span>
+            <span
+              style={{
+                color: "var(--text-secondary)",
+                fontSize: "0.86rem",
+                fontWeight: 600,
+              }}
+            >
+              {currentSectionLabel}
+            </span>
             <StatusBadge
               status="ACTIVE"
               label={
@@ -148,51 +207,104 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
               }
             />
             {state?.network?.escrowContractId && (
-              <a
+              <HashBadge
+                value={state.network.escrowContractId}
                 href={`${state.network.explorerBaseUrl}/address/${state.network.escrowContractId}`}
-                target="_blank"
-                rel="noreferrer"
-                className="mono-label"
-                style={{
-                  textDecoration: "none",
-                  color: "var(--ink-muted)",
-                  borderBottom: "1px dotted var(--line-medium)",
-                }}
-              >
-                {state.network.escrowContractId} ↗
-              </a>
+              />
             )}
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "1.25rem", flexWrap: "wrap" }}>
-            <div style={{ textAlign: "right" }}>
-              {state ? (
+          <div style={{ display: "flex", alignItems: "center", gap: "0.65rem", flexWrap: "wrap" }}>
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="btn-quiet"
+              style={{ padding: "0.42rem 0.65rem", fontSize: "0.79rem" }}
+            >
+              {theme === "dark" ? (
                 <>
-                  <div style={{ fontSize: "0.85rem", fontWeight: 500, color: "var(--ink-charcoal)" }}>
-                    {state.organization.name}
-                  </div>
-                  <div className="mono-label" style={{ fontSize: "0.66rem" }}>
-                    {state.organization.nearAccount}
-                  </div>
+                  <Sun className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                  <span>Light</span>
                 </>
               ) : (
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 5 }}>
-                  <div className="skeleton-block" style={{ width: 132, height: 13 }} />
-                  <div className="skeleton-block" style={{ width: 168, height: 10 }} />
-                </div>
+                <>
+                  <Moon className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                  <span>Dark</span>
+                </>
               )}
-            </div>
+            </button>
+
+            {state ? (
+              <div
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.6rem",
+                  padding: "0.3rem 0.65rem 0.3rem 0.38rem",
+                  borderRadius: 10,
+                  background: "var(--surface-1)",
+                  border: "1px solid var(--border-default)",
+                }}
+              >
+                <span
+                  aria-hidden="true"
+                  style={{
+                    width: 26,
+                    height: 26,
+                    borderRadius: 6,
+                    background: "var(--surface-3)",
+                    color: "var(--text-primary)",
+                    fontSize: "0.68rem",
+                    fontWeight: 700,
+                    fontFamily: "var(--font-mono)",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  {orgInitials}
+                </span>
+                <div style={{ textAlign: "left" }}>
+                  <div
+                    style={{
+                      fontSize: "0.79rem",
+                      fontWeight: 600,
+                      color: "var(--text-primary)",
+                      lineHeight: 1.2,
+                    }}
+                  >
+                    {state.organization.name}
+                  </div>
+                  <div
+                    className="tabular-nums"
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      fontSize: "0.68rem",
+                      color: "var(--text-muted)",
+                    }}
+                  >
+                    {state.organization.nearAccount}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 5 }}>
+                <div className="skeleton-placeholder" style={{ width: 132, height: 13 }} />
+                <div className="skeleton-placeholder" style={{ width: 168, height: 10 }} />
+              </div>
+            )}
+
             <Link
               href="/"
-              className="btn-secondary"
-              style={{ padding: "0.45rem 0.9rem", fontSize: "0.82rem" }}
+              className="btn-secondary inline-flex items-center gap-1.5 whitespace-nowrap"
+              style={{ padding: "0.46rem 0.85rem", fontSize: "0.79rem" }}
             >
-              ← Landing Page
+              <ArrowLeft className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+              <span>Landing</span>
             </Link>
           </div>
         </div>
 
-        {/* Thin horizontal rail line movement along header bottom */}
         <div className="header-rail-track" aria-hidden="true">
           <div className={`header-rail-line ${busy ? "header-rail-line-busy" : ""}`} />
         </div>
@@ -201,13 +313,16 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
       {/* Main 2-Column Dashboard Shell */}
       <div className="app-shell">
         {/* Sidebar Navigation */}
-        <aside className="app-sidebar" aria-label="Workspace Navigation">
+        <aside className="app-sidebar sticky top-20 self-start" aria-label="Workspace Navigation">
           <div>
-            <div className="mono-label" style={{ padding: "0 0.5rem", marginBottom: "0.55rem" }}>
-              Workspace
+            <div
+              className="mono-label"
+              style={{ padding: "0 0.55rem", marginBottom: "0.5rem" }}
+            >
+              Operations
             </div>
             <nav className="app-nav-list">
-              {navItems.map((item) => {
+              {operationsNav.map((item) => {
                 const active = isActive(item.href, item.exact);
                 return (
                   <Link
@@ -218,9 +333,11 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
                   >
                     <span className="app-nav-link-label-group">
                       <NavIcon kind={item.icon} />
-                      <span>{item.label}</span>
+                      <span className="truncate">{item.label}</span>
                     </span>
-                    {item.badge !== null && <span className="app-nav-badge">{item.badge}</span>}
+                    {item.badge !== null && (
+                      <span className="app-nav-badge tabular-nums">{item.badge}</span>
+                    )}
                   </Link>
                 );
               })}
@@ -228,33 +345,95 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="hairline-top" style={{ paddingTop: "0.95rem" }}>
-            <div className="mono-label" style={{ marginBottom: "0.35rem" }}>
-              Escrow &amp; Ledger Status
+            <div
+              className="mono-label"
+              style={{ padding: "0 0.55rem", marginBottom: "0.5rem" }}
+            >
+              Audit &amp; Checkout
             </div>
+            <nav className="app-nav-list">
+              {complianceNav.map((item) => {
+                const active = isActive(item.href, item.exact);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`app-nav-link ${active ? "app-nav-link-active" : ""}`}
+                    aria-current={active ? "page" : undefined}
+                  >
+                    <span className="app-nav-link-label-group">
+                      <NavIcon kind={item.icon} />
+                      <span className="truncate">{item.label}</span>
+                    </span>
+                    {item.badge !== null && (
+                      <span className="app-nav-badge tabular-nums">{item.badge}</span>
+                    )}
+                  </Link>
+                );
+              })}
+            </nav>
+          </div>
+
+          {/* Escrow & Reconciliation Status Card */}
+          <div
+            style={{
+              padding: "0.85rem 0.9rem",
+              borderRadius: "var(--primitive-radius-md)",
+              background: "var(--surface-2)",
+              border: "1px solid var(--border-default)",
+            }}
+          >
             <div
               style={{
-                fontSize: "0.79rem",
-                color: "var(--sage-green)",
-                fontWeight: 500,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: "0.35rem",
+              }}
+            >
+              <span className="mono-label">Escrow &amp; Ledger</span>
+              <CheckCircle2
+                className="w-3.5 h-3.5 shrink-0"
+                style={{ color: "var(--status-settled-fg)" }}
+                aria-hidden="true"
+              />
+            </div>
+
+            <div
+              style={{
+                fontSize: "0.8rem",
+                color:
+                  (state?.reconciliation.discrepancies.length ?? 0) === 0
+                    ? "var(--status-settled-fg)"
+                    : "var(--status-pending-fg)",
+                fontWeight: 600,
                 display: "flex",
                 alignItems: "center",
                 gap: "0.42rem",
               }}
             >
               <span className="status-pill-dot" aria-hidden="true" />
-              <span>
-                {state?.reconciliation.discrepancies.length === 0
-                  ? "All Escrows Balanced"
+              <span className="tabular-nums">
+                {(state?.reconciliation.discrepancies.length ?? 0) === 0
+                  ? "Balanced books"
                   : `${state?.reconciliation.discrepancies.length ?? 0} Pending Review`}
               </span>
             </div>
-            <div className="mono-label" style={{ marginTop: "0.3rem", fontSize: "0.65rem" }}>
-              {state?.ledger.entriesCount ?? 0} Journal Legs · SHA-256 Anchored
+
+            <div
+              className="tabular-nums"
+              style={{
+                marginTop: "0.3rem",
+                fontSize: "0.72rem",
+                color: "var(--text-muted)",
+              }}
+            >
+              {state?.ledger.entriesCount ?? 0} journal legs · Verified on NEAR
             </div>
           </div>
         </aside>
 
-        {/* Active Page Content with Smooth Page Transition */}
+        {/* Active Page Content */}
         <main style={{ minWidth: 0 }}>
           <div key={pathname} className="page-transition-enter">
             {children}
@@ -277,7 +456,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
                     className="status-pill-dot"
                     style={{
                       marginTop: "0.38rem",
-                      color: isSuccess ? "var(--sage-green)" : "var(--crimson-red)",
+                      color: isSuccess ? "var(--status-settled-fg)" : "var(--status-failed-fg)",
                     }}
                     aria-hidden="true"
                   />
@@ -286,7 +465,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
                       style={{
                         fontSize: "0.82rem",
                         fontWeight: 600,
-                        color: isSuccess ? "var(--ink-charcoal)" : "var(--crimson-red)",
+                        color: isSuccess ? "var(--text-primary)" : "var(--status-failed-fg)",
                         marginBottom: "0.12rem",
                       }}
                     >
@@ -295,7 +474,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
                     <div
                       style={{
                         fontSize: "0.79rem",
-                        color: "var(--ink-body)",
+                        color: "var(--text-secondary)",
                         lineHeight: 1.45,
                       }}
                     >
@@ -308,18 +487,13 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
                   type="button"
                   onClick={() => dismissToast(toast.id)}
                   aria-label="Dismiss notification"
-                  className="mono-label"
+                  className="btn-quiet"
                   style={{
-                    background: "transparent",
-                    border: "none",
-                    color: "var(--ink-muted)",
-                    fontSize: "0.64rem",
-                    cursor: "pointer",
-                    padding: "0.15rem 0.35rem",
+                    padding: "0.2rem",
                     flexShrink: 0,
                   }}
                 >
-                  Close
+                  <X className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                 </button>
               </div>
             );

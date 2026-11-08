@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { AlertCircle, ArrowRight } from "lucide-react";
 
 export interface PaymentRequestItem {
   id: string;
@@ -506,7 +507,7 @@ export function SkeletonRows({ count = 3 }: { count?: number }) {
           key={idx}
           style={{
             padding: "0.9rem 1rem",
-            borderBottom: idx < count - 1 ? "1px solid var(--line-soft)" : "none",
+            borderBottom: idx < count - 1 ? "1px solid var(--border-subtle)" : "none",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
@@ -514,12 +515,12 @@ export function SkeletonRows({ count = 3 }: { count?: number }) {
           }}
         >
           <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", flex: 1 }}>
-            <div className="skeleton-block" style={{ width: "38%", height: 14 }} />
-            <div className="skeleton-block" style={{ width: "62%", height: 10 }} />
+            <div className="skeleton-placeholder" style={{ width: "38%", height: 14 }} />
+            <div className="skeleton-placeholder" style={{ width: "62%", height: 10 }} />
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "0.65rem" }}>
-            <div className="skeleton-block" style={{ width: 82, height: 14 }} />
-            <div className="skeleton-block" style={{ width: 64, height: 20, borderRadius: 4 }} />
+            <div className="skeleton-placeholder" style={{ width: 82, height: 14 }} />
+            <div className="skeleton-placeholder" style={{ width: 64, height: 20, borderRadius: 4 }} />
           </div>
         </div>
       ))}
@@ -540,10 +541,13 @@ export function StatusBadgeWithTransition({
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem", flexWrap: "wrap" }}>
       {transition && (
-        <span className="status-transition-tag" title="Recent state transition">
+        <span
+          className="status-transition-tag inline-flex items-center gap-1"
+          title="Recent state transition"
+        >
           <span>{transition.from.replace(/_/g, " ")}</span>
-          <span aria-hidden="true">→</span>
-          <span style={{ color: "var(--sage-green)", fontWeight: 600 }}>
+          <ArrowRight className="w-3 h-3 shrink-0" aria-hidden="true" />
+          <span style={{ color: "var(--status-settled-fg)", fontWeight: 600 }}>
             {transition.to.replace(/_/g, " ")}
           </span>
         </span>
@@ -573,13 +577,13 @@ export function DashboardEmptyState({
           <path d="M5.5 6h5M5.5 9.5h3" strokeLinecap="round" />
         </svg>
       </div>
-      <div style={{ fontWeight: 550, fontSize: "0.9rem", color: "var(--ink-charcoal)" }}>
+      <div style={{ fontWeight: 550, fontSize: "0.9rem", color: "var(--text-primary)" }}>
         {title}
       </div>
       <p
         style={{
           fontSize: "0.81rem",
-          color: "var(--ink-muted)",
+          color: "var(--text-muted)",
           maxWidth: 400,
           lineHeight: 1.5,
         }}
@@ -630,7 +634,11 @@ export function InlineErrorBanner({ scope }: { scope: string }) {
   return (
     <div className="inline-error-banner" role="alert" style={{ marginBottom: "1rem" }}>
       <div style={{ display: "flex", alignItems: "flex-start", gap: "0.6rem" }}>
-        <span style={{ fontWeight: 600, fontSize: "0.9rem", lineHeight: 1.3 }}>✕</span>
+        <AlertCircle
+          className="w-4 h-4 shrink-0"
+          style={{ marginTop: "0.12rem" }}
+          aria-hidden="true"
+        />
         <div>
           <div style={{ fontWeight: 600, fontSize: "0.84rem", marginBottom: "0.15rem" }}>
             {inlineError.code}
@@ -646,7 +654,7 @@ export function InlineErrorBanner({ scope }: { scope: string }) {
         style={{
           background: "transparent",
           border: "none",
-          color: "var(--crimson-red)",
+          color: "var(--status-failed-fg)",
           fontSize: "0.76rem",
           fontWeight: 500,
           cursor: "pointer",

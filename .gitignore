@@ -11,3 +11,10 @@ contracts/**/target/
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal
+*.db
+
+# Local agent & editor skills
+.agents/
+.claude/
+.cursor/
+skills-lock.json

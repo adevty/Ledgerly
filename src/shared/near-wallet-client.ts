@@ -389,9 +389,9 @@ export async function connectMeteorWallet(
  * Connect an embedded NEAR Testnet buyer signer with a real Ed25519 keypair.
  */
 export async function connectEmbeddedTestnetWallet(
-  preferredAccountId = "kyoto-living.testnet",
+  preferredAccountId = "buyer.testnet",
 ): Promise<NearWalletSession> {
-  const cleanAccount = preferredAccountId.trim().toLowerCase() || "kyoto-living.testnet";
+  const cleanAccount = preferredAccountId.trim().toLowerCase() || "buyer.testnet";
   const publicKey = await generateRandomNearPublicKey();
 
   const session: NearWalletSession = {

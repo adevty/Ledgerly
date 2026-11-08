@@ -2,15 +2,38 @@
 
 import React, { useMemo, useState } from "react";
 import {
+  AlertTriangle,
+  ArrowDown,
+  ArrowUp,
+  ArrowUpRight,
+  CheckCircle2,
+  Download,
+  KeyRound,
+  RefreshCw,
+  Search,
+  X,
+} from "lucide-react";
+import {
   DashboardEmptyState,
   InlineErrorBanner,
   SkeletonRows,
   StatusBadge,
   useLedgerlyDashboard,
 } from "../_context";
+import { HashBadge } from "../../components/HashBadge";
+import { PayloadPreviewCard } from "../../components/PayloadPreviewCard";
 
 type AuditRecordFilter = "ALL" | "PAYMENT" | "REMITTANCE" | "UNVERIFIED";
 type AuditSortOrder = "NEWEST" | "OLDEST" | "RECORD_ID" | "UNVERIFIED";
+
+function formatMinorUsdc(minorStr: string | number): string {
+  const num = Number(minorStr);
+  if (Number.isNaN(num)) return String(minorStr);
+  return `${(num / 1_000_000).toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })} USDC`;
+}
 
 export default function AuditorVerificationPage() {
   const { state, busy, pendingKey, runAction, downloadCsv } = useLedgerlyDashboard();
@@ -89,6 +112,10 @@ export default function AuditorVerificationPage() {
       },
     );
 
+  const explorerUrl = state?.network?.explorerBaseUrl ?? "https://testnet.nearblocks.io";
+  const escrowContractId =
+    state?.network?.escrowContractId ?? "ledgerly-escrow-9e70f9ea.testnet";
+
   return (
     <div>
       {/* Page Header */}
@@ -104,20 +131,29 @@ export default function AuditorVerificationPage() {
       >
         <div>
           <div className="eyebrow" style={{ marginBottom: "0.35rem" }}>
-            Selective Disclosure &amp; Reconciliation
+            Auditor Access &amp; Balanced Books
           </div>
           <h1
+            className="text-balance"
             style={{
-              fontSize: "1.65rem",
-              fontWeight: 600,
-              letterSpacing: "-0.025em",
+              fontSize: "1.75rem",
+              fontWeight: 650,
+              letterSpacing: "-0.03em",
               marginBottom: "0.35rem",
-              color: "var(--ink-charcoal)",
+              color: "var(--text-primary)",
             }}
           >
             Auditor Verification &amp; Accounting Export
           </h1>
-          <p style={{ fontSize: "0.86rem", color: "var(--ink-muted)", maxWidth: 660, lineHeight: 1.55 }}>
+          <p
+            className="text-pretty"
+            style={{
+              fontSize: "0.86rem",
+              color: "var(--text-muted)",
+              maxWidth: 660,
+              lineHeight: 1.55,
+            }}
+          >
             Scoped, time-bound X25519 view keys let external auditors decrypt authorized records
             locally and verify every canonical payload hash against the immutable commitment stored
             in <code className="mono-data">ledgerly-escrow</code>.
@@ -127,38 +163,42 @@ export default function AuditorVerificationPage() {
         <div style={{ display: "flex", gap: "0.55rem", flexWrap: "wrap" }}>
           <button
             type="button"
-            className="btn-secondary"
+            className="btn-secondary inline-flex items-center gap-1.5 whitespace-nowrap"
             disabled={busy}
             onClick={handleRotateKey}
           >
             {pendingKey === "rotate_view_key" ? (
               <>
                 <span className="btn-spinner" aria-hidden="true" />
-                <span>Processing…</span>
+                <span>Rotating…</span>
               </>
             ) : (
-              <span>Rotate Scoped View Key</span>
+              <>
+                <KeyRound className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                <span>Rotate Scoped View Key</span>
+              </>
             )}
           </button>
           <button
             type="button"
-            className="btn-primary"
+            className="btn-primary inline-flex items-center gap-1.5 whitespace-nowrap tabular-nums"
             disabled={busy}
             onClick={downloadCsv}
           >
-            Export Reconciliation CSV ({state?.ledger.entriesCount ?? 0} legs)
+            <Download className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+            <span>Export Reconciliation CSV ({state?.ledger.entriesCount ?? 0} legs)</span>
           </button>
         </div>
       </div>
 
       <InlineErrorBanner scope="auditor_page" />
 
-      {/* Unified 2-Column Architectural Telemetry Strip */}
+      {/* Unified 2-Column Assurance Strip */}
       <div
         className="kpi-strip"
         style={{
-          gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
-          marginBottom: "1.5rem",
+          gridTemplateColumns: "repeat(auto-fit, minmax(310px, 1fr))",
+          marginBottom: "1.4rem",
         }}
       >
         <div className="kpi-cell">
@@ -170,14 +210,47 @@ export default function AuditorVerificationPage() {
               gap: "0.5rem",
             }}
           >
-            <span className="mono-label">Active Scoped View Key Grant</span>
+            <span className="inline-flex items-center gap-2">
+              <span className="kpi-icon-badge">
+                <KeyRound className="w-3.5 h-3.5" aria-hidden="true" />
+              </span>
+              <span className="mono-label">Active Scoped View Key Grant</span>
+            </span>
             <StatusBadge status="ACTIVE" label="Active Grant" />
           </div>
-          <div className="mono-data" style={{ fontSize: "1.05rem", fontWeight: 600, margin: "0.2rem 0" }}>
-            {state?.audit.grantId ?? "—"}
+          <div
+            style={{
+              margin: "0.35rem 0",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "0.5rem",
+              flexWrap: "wrap",
+            }}
+          >
+            <span className="mono-data tabular-nums" style={{ fontSize: "1.12rem", fontWeight: 650 }}>
+              {state?.audit.grantId ?? "—"}
+            </span>
+            <span
+              style={{
+                fontSize: "0.72rem",
+                color: "var(--status-settled-fg)",
+                background: "var(--status-settled-bg)",
+                padding: "0.16rem 0.5rem",
+                borderRadius: 6,
+                fontWeight: 600,
+              }}
+            >
+              Scope: Payments + Remittances
+            </span>
           </div>
-          <div className="mono-label">
-            Auditor X25519 Key: {state?.audit.auditorKeyShort ?? "—"} · Scope: PAYMENT + REMITTANCE
+          <div style={{ display: "flex", alignItems: "center", gap: "0.45rem", flexWrap: "wrap" }}>
+            <HashBadge
+              label="X25519 Key"
+              value={state?.audit.auditorKeyShort ?? "—"}
+              startChars={12}
+              endChars={8}
+            />
           </div>
         </div>
 
@@ -190,40 +263,60 @@ export default function AuditorVerificationPage() {
               gap: "0.5rem",
             }}
           >
-            <span className="mono-label">Tamper-Evident Audit Hash Chain</span>
+            <span className="inline-flex items-center gap-2">
+              <span className="kpi-icon-badge">
+                <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" />
+              </span>
+              <span className="mono-label">Tamper-Evident Audit Hash Chain</span>
+            </span>
             <StatusBadge
               status={state?.audit.chainValid ? "VERIFIED" : "PENDING"}
               label={state?.audit.chainValid ? "Hash Chain Intact" : "Verifying"}
             />
           </div>
-          <div className="mono-data" style={{ fontSize: "1.05rem", fontWeight: 600, margin: "0.2rem 0" }}>
+          <div
+            className="mono-data tabular-nums"
+            style={{ fontSize: "1.12rem", fontWeight: 650, margin: "0.35rem 0" }}
+          >
             {state?.audit.anchoredRootsCount ?? 0} Anchored Roots on NEAR
           </div>
-          <div className="mono-label" style={{ wordBreak: "break-all" }}>
-            Latest Root: {state?.audit.latestAnchoredRoot ?? "—"}
-            {state?.network && (
-              <span style={{ marginLeft: "0.5rem" }}>
-                ·{" "}
-                <a
-                  href={`${state.network.explorerBaseUrl}/address/${state.network.escrowContractId}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{ textDecoration: "underline", color: "var(--slate-blue)" }}
-                >
-                  Verify on Nearblocks ↗
-                </a>
-              </span>
-            )}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "0.5rem",
+              flexWrap: "wrap",
+            }}
+          >
+            <HashBadge
+              label="Latest Root"
+              value={state?.audit.latestAnchoredRoot ?? "—"}
+              startChars={10}
+              endChars={8}
+            />
+            <a
+              href={`${explorerUrl}/address/${escrowContractId}`}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 whitespace-nowrap mono-label"
+              style={{
+                color: "var(--accent-primary)",
+                textDecoration: "none",
+                fontWeight: 600,
+              }}
+            >
+              <span>Verify on Nearblocks</span>
+              <ArrowUpRight className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+            </a>
           </div>
         </div>
       </div>
 
-      {/* High-Density Decrypted Records Ledger Table */}
-      <div className="fin-card" style={{ padding: 0, overflow: "hidden", marginBottom: "1.5rem" }}>
+      {/* Chain vs. Internal Ledger Reconciliation Banner */}
+      <div className="fin-card" style={{ padding: "1.15rem 1.3rem", marginBottom: "1.4rem" }}>
         <div
           style={{
-            padding: "1.1rem 1.25rem",
-            borderBottom: "1px solid var(--line-soft)",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
@@ -232,10 +325,154 @@ export default function AuditorVerificationPage() {
           }}
         >
           <div>
-            <h2 style={{ fontWeight: 600, fontSize: "0.98rem", color: "var(--ink-charcoal)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              {(state?.reconciliation.discrepancies.length ?? 0) === 0 ? (
+                <CheckCircle2
+                  className="w-4 h-4 shrink-0"
+                  style={{ color: "var(--status-settled-fg)" }}
+                  aria-hidden="true"
+                />
+              ) : (
+                <AlertTriangle
+                  className="w-4 h-4 shrink-0"
+                  style={{ color: "var(--status-pending-fg)" }}
+                  aria-hidden="true"
+                />
+              )}
+              <span className="tabular-nums" style={{ fontWeight: 600, fontSize: "0.96rem" }}>
+                Chain vs. Internal Ledger Reconciliation ({state?.reconciliation.checkedCount ?? 0}{" "}
+                checked)
+              </span>
+            </div>
+            <div className="mono-label" style={{ marginTop: "0.22rem" }}>
+              Source of Truth: NEAR Escrow Contract · Zero Discrepancies:{" "}
+              {(state?.reconciliation.discrepancies.length ?? 0) === 0
+                ? "Confirmed"
+                : "Review Required"}
+            </div>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap" }}>
+            <StatusBadge
+              status={
+                (state?.reconciliation.discrepancies.length ?? 0) === 0
+                  ? "SETTLED"
+                  : "PAYOUT_FAILED"
+              }
+              label={
+                (state?.reconciliation.discrepancies.length ?? 0) === 0
+                  ? "Reconciled"
+                  : `${state?.reconciliation.discrepancies.length ?? 0} Discrepancies`
+              }
+            />
+            {state?.reconciliation.discrepancies &&
+              state.reconciliation.discrepancies.length > 0 && (
+                <button
+                  type="button"
+                  className="btn-primary inline-flex items-center gap-1.5 whitespace-nowrap"
+                  disabled={busy}
+                  onClick={handleAutoReconcile}
+                  style={{ fontSize: "0.78rem", padding: "0.42rem 0.85rem", height: "auto" }}
+                >
+                  <RefreshCw
+                    className={`w-3.5 h-3.5 shrink-0 ${
+                      pendingKey === "auto_reconcile" ? "animate-spin" : ""
+                    }`}
+                    aria-hidden="true"
+                  />
+                  <span>
+                    {pendingKey === "auto_reconcile"
+                      ? "Reconciling on NEAR…"
+                      : "Auto-Reconcile On-Chain Balances"}
+                  </span>
+                </button>
+              )}
+          </div>
+        </div>
+
+        {(state?.reconciliation.discrepancies.length ?? 0) > 0 && (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "0.45rem",
+              marginTop: "0.95rem",
+              maxHeight: 260,
+              overflowY: "auto",
+              paddingRight: "0.2rem",
+            }}
+          >
+            {state?.reconciliation.discrepancies.map((d) => (
+              <div
+                key={d.recordId}
+                style={{
+                  padding: "0.62rem 0.85rem",
+                  borderRadius: 8,
+                  border: "1px solid var(--status-pending-border)",
+                  background: "var(--status-pending-bg)",
+                  color: "var(--text-primary)",
+                  fontSize: "0.79rem",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "0.75rem",
+                  flexWrap: "wrap",
+                }}
+              >
+                <div className="inline-flex items-center gap-2 flex-wrap">
+                  <span
+                    style={{
+                      fontSize: "0.72rem",
+                      color: "var(--status-pending-fg)",
+                      fontWeight: 600,
+                      background: "var(--surface-1)",
+                      padding: "0.12rem 0.45rem",
+                      borderRadius: 6,
+                      border: "1px solid var(--status-pending-border)",
+                    }}
+                  >
+                    {d.reason}
+                  </span>
+                  <span className="mono-data tabular-nums" style={{ fontWeight: 600 }}>
+                    {d.recordId}
+                  </span>
+                  <span
+                    className="mono-data tabular-nums"
+                    style={{ color: "var(--text-secondary)", fontSize: "0.76rem" }}
+                    title={`Raw minor units — Expected: ${d.expectedHeldMinor} · On-Chain: ${d.onchainHeldMinor}`}
+                  >
+                    Expected: {formatMinorUsdc(d.expectedHeldMinor)} · On-Chain:{" "}
+                    {formatMinorUsdc(d.onchainHeldMinor)}
+                  </span>
+                </div>
+                <StatusBadge status={d.status} />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* High-Density Decrypted Records Ledger Table */}
+      <div className="fin-card" style={{ padding: 0, overflow: "hidden" }}>
+        <div
+          style={{
+            padding: "1.1rem 1.3rem",
+            borderBottom: "1px solid var(--border-subtle)",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: "0.75rem",
+          }}
+        >
+          <div>
+            <h2
+              className="tabular-nums"
+              style={{ fontWeight: 600, fontSize: "0.98rem", color: "var(--text-primary)" }}
+            >
               Decrypted Records in Scope ({filteredRecords.length})
             </h2>
-            <p style={{ fontSize: "0.78rem", color: "var(--ink-muted)", marginTop: "0.1rem" }}>
+            <p style={{ fontSize: "0.78rem", color: "var(--text-muted)", marginTop: "0.1rem" }}>
               Verified locally via canonical JSON commitment{" "}
               <code className="mono-data" style={{ fontSize: "0.72rem" }}>
                 sha256(canonicalJSON(payload) || salt)
@@ -279,9 +516,9 @@ export default function AuditorVerificationPage() {
         {/* Search & Sort Secondary Toolbar */}
         <div
           style={{
-            padding: "0.75rem 1.25rem",
-            background: "var(--bg-ivory-subtle)",
-            borderBottom: "1px solid var(--line-soft)",
+            padding: "0.75rem 1.3rem",
+            background: "var(--surface-2)",
+            borderBottom: "1px solid var(--border-subtle)",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
@@ -297,35 +534,34 @@ export default function AuditorVerificationPage() {
               maxWidth: 440,
             }}
           >
-            <span
+            <Search
+              className="w-3.5 h-3.5 shrink-0"
               style={{
                 position: "absolute",
-                left: "0.65rem",
+                left: "0.72rem",
                 top: "50%",
                 transform: "translateY(-50%)",
-                fontSize: "0.82rem",
-                color: "var(--ink-muted)",
+                color: "var(--text-muted)",
                 pointerEvents: "none",
               }}
               aria-hidden="true"
-            >
-              🔍
-            </span>
+            />
             <input
               type="text"
+              aria-label="Search auditor records"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search by ID, email, memo, order ref, or counterparty…"
               style={{
                 width: "100%",
-                paddingLeft: "2rem",
+                paddingLeft: "2.1rem",
                 paddingRight: searchQuery ? "2rem" : "0.75rem",
                 fontSize: "0.8rem",
-                height: 32,
-                borderRadius: 4,
-                border: "1px solid var(--line-medium)",
-                background: "var(--bg-ivory-card)",
-                color: "var(--ink-charcoal)",
+                height: 36,
+                borderRadius: 8,
+                border: "1px solid var(--input-border)",
+                background: "var(--input-bg)",
+                color: "var(--input-fg)",
                 outline: "none",
               }}
             />
@@ -333,6 +569,7 @@ export default function AuditorVerificationPage() {
               <button
                 type="button"
                 onClick={() => setSearchQuery("")}
+                aria-label="Clear search query"
                 style={{
                   position: "absolute",
                   right: "0.45rem",
@@ -341,45 +578,71 @@ export default function AuditorVerificationPage() {
                   background: "transparent",
                   border: "none",
                   cursor: "pointer",
-                  color: "var(--ink-muted)",
-                  fontSize: "0.8rem",
+                  color: "var(--text-muted)",
                   padding: "0.2rem",
+                  display: "inline-flex",
+                  alignItems: "center",
                 }}
                 title="Clear search"
               >
-                ✕
+                <X className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
               </button>
             )}
           </div>
 
           {/* Sort Controls */}
           <div style={{ display: "flex", alignItems: "center", gap: "0.55rem", flexWrap: "wrap" }}>
-            <span className="mono-label" style={{ fontSize: "0.72rem" }}>
-              Sort:
-            </span>
+            <span className="mono-label">Sort</span>
             <div className="filter-pill-group" role="group" aria-label="Sort auditor records">
-              {(
-                [
-                  { id: "NEWEST", label: "Newest First ↓" },
-                  { id: "OLDEST", label: "Oldest First ↑" },
-                  { id: "RECORD_ID", label: "ID (A-Z)" },
-                  { id: "UNVERIFIED", label: "Status" },
-                ] as const
-              ).map((s) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  className={`filter-pill ${sortOrder === s.id ? "filter-pill-active" : ""}`}
-                  style={{ fontSize: "0.72rem", height: 26, padding: "0 0.55rem" }}
-                  onClick={() => setSortOrder(s.id)}
-                >
-                  {s.label}
-                </button>
-              ))}
+              <button
+                type="button"
+                className={`filter-pill inline-flex items-center gap-1 whitespace-nowrap ${
+                  sortOrder === "NEWEST" ? "filter-pill-active" : ""
+                }`}
+                style={{ fontSize: "0.74rem", height: 28, padding: "0 0.6rem" }}
+                onClick={() => setSortOrder("NEWEST")}
+              >
+                <span>Newest</span>
+                <ArrowDown className="w-3 h-3 shrink-0" aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                className={`filter-pill inline-flex items-center gap-1 whitespace-nowrap ${
+                  sortOrder === "OLDEST" ? "filter-pill-active" : ""
+                }`}
+                style={{ fontSize: "0.74rem", height: 28, padding: "0 0.6rem" }}
+                onClick={() => setSortOrder("OLDEST")}
+              >
+                <span>Oldest</span>
+                <ArrowUp className="w-3 h-3 shrink-0" aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                className={`filter-pill whitespace-nowrap ${
+                  sortOrder === "RECORD_ID" ? "filter-pill-active" : ""
+                }`}
+                style={{ fontSize: "0.74rem", height: 28, padding: "0 0.6rem" }}
+                onClick={() => setSortOrder("RECORD_ID")}
+              >
+                ID (A-Z)
+              </button>
+              <button
+                type="button"
+                className={`filter-pill whitespace-nowrap ${
+                  sortOrder === "UNVERIFIED" ? "filter-pill-active" : ""
+                }`}
+                style={{ fontSize: "0.74rem", height: 28, padding: "0 0.6rem" }}
+                onClick={() => setSortOrder("UNVERIFIED")}
+              >
+                Status
+              </button>
             </div>
 
             {searchQuery && (
-              <span className="mono-label" style={{ fontSize: "0.72rem", color: "var(--sage-green)" }}>
+              <span
+                className="tabular-nums"
+                style={{ fontSize: "0.74rem", color: "var(--status-settled-fg)", fontWeight: 600 }}
+              >
                 Matched {filteredRecords.length}
               </span>
             )}
@@ -401,12 +664,12 @@ export default function AuditorVerificationPage() {
             }
             description={
               allRecords.length === 0
-                ? "Issue or rotate a scoped X25519 view key grant to decrypt authorized payment and remittance envelopes for external verification."
+                ? "Issue or rotate a scoped X25519 view key grant to decrypt authorized payment and remittance records for external verification."
                 : searchQuery
-                  ? "Try searching with another keyword or clear the search field to view all scope records."
+                   ? "Try searching with another keyword or clear the search field to view all scope records."
                   : recordFilter === "UNVERIFIED"
                     ? "Every decrypted record in this grant matches its immutable SHA-256 commitment stored on the NEAR escrow contract."
-                    : "Switch back to All to inspect all decrypted envelopes in the active auditor grant."
+                    : "Switch back to All to inspect all decrypted records in the active auditor grant."
             }
             primaryAction={
               allRecords.length === 0
@@ -438,13 +701,13 @@ export default function AuditorVerificationPage() {
             }
           />
         ) : (
-          <div className="ledger-table-wrap">
+          <div className="ledger-table-wrap overflow-x-auto">
             <table className="ledger-table">
               <thead>
                 <tr>
                   <th>Kind</th>
                   <th>Record ID &amp; Timestamp</th>
-                  <th>Decrypted Envelope Payload</th>
+                  <th>Decrypted Off-Chain Record</th>
                   <th>Escrow &amp; Commitment</th>
                   <th className="col-num">Verification</th>
                 </tr>
@@ -454,27 +717,36 @@ export default function AuditorVerificationPage() {
                   <tr key={rec.recordId}>
                     <td>
                       <span
-                        className="mono-label"
                         style={{
-                          fontSize: "0.63rem",
-                          padding: "0.12rem 0.42rem",
-                          borderRadius: 3,
+                          fontSize: "0.72rem",
+                          fontWeight: 600,
+                          padding: "0.16rem 0.48rem",
+                          borderRadius: 6,
                           background:
                             rec.kind === "PAYMENT"
-                              ? "var(--sage-green-soft)"
-                              : "var(--slate-blue-soft)",
+                              ? "var(--status-settled-bg)"
+                              : "var(--accent-subtle)",
                           color:
-                            rec.kind === "PAYMENT" ? "var(--sage-green)" : "var(--slate-blue)",
+                            rec.kind === "PAYMENT"
+                              ? "var(--status-settled-fg)"
+                              : "var(--accent-primary)",
                         }}
                       >
                         {rec.kind}
                       </span>
                     </td>
                     <td>
-                      <span className="mono-data" style={{ fontWeight: 600 }}>
+                      <span className="mono-data tabular-nums" style={{ fontWeight: 600 }}>
                         {rec.recordId}
                       </span>
-                      <div className="mono-label" style={{ fontSize: "0.68rem", color: "var(--ink-muted)", marginTop: "0.15rem" }}>
+                      <div
+                        className="tabular-nums"
+                        style={{
+                          fontSize: "0.72rem",
+                          color: "var(--text-muted)",
+                          marginTop: "0.15rem",
+                        }}
+                      >
                         {new Date(rec.createdAtIso).toLocaleString("en-US", {
                           month: "short",
                           day: "numeric",
@@ -483,112 +755,42 @@ export default function AuditorVerificationPage() {
                         })}
                       </div>
                     </td>
-                    <td style={{ maxWidth: 420 }}>
-                      <div
-                        className="mono-data"
-                        style={{
-                          fontSize: "0.73rem",
-                          padding: "0.35rem 0.55rem",
-                          borderRadius: 4,
-                          background: "rgba(20, 21, 23, 0.03)",
-                          border: "1px solid var(--line-soft)",
-                          color: "var(--ink-charcoal)",
-                          wordBreak: "break-word",
-                        }}
-                      >
-                        {JSON.stringify(rec.decryptedPayload)}
-                      </div>
+                    <td style={{ minWidth: 230, maxWidth: 380 }}>
+                      <PayloadPreviewCard payload={rec.decryptedPayload} kind={rec.kind} />
                     </td>
                     <td>
-                      <span className="mono-label">
-                        {rec.escrowId.slice(0, 12)}… · {rec.commitment.slice(0, 12)}…
-                      </span>
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "0.3rem",
+                          alignItems: "flex-start",
+                        }}
+                      >
+                        <HashBadge
+                          label="Escrow"
+                          value={rec.escrowId}
+                          startChars={6}
+                          endChars={4}
+                        />
+                        <HashBadge
+                          label="Commit"
+                          value={rec.commitment}
+                          startChars={6}
+                          endChars={4}
+                        />
+                      </div>
                     </td>
                     <td className="col-num">
                       <StatusBadge
                         status={rec.verifiedOnchain ? "VERIFIED" : "PENDING"}
-                        label={rec.verifiedOnchain ? "Verified On-Chain" : "Pending"}
+                        label={rec.verifiedOnchain ? "Verified" : "Pending"}
                       />
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          </div>
-        )}
-      </div>
-
-      {/* Chain vs. Internal Ledger Reconciliation */}
-      <div className="fin-card" style={{ padding: "1.1rem 1.25rem" }}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            flexWrap: "wrap",
-            gap: "0.75rem",
-          }}
-        >
-          <div>
-            <span style={{ fontWeight: 600, fontSize: "0.94rem" }}>
-              Chain vs. Internal Ledger Reconciliation ({state?.reconciliation.checkedCount ?? 0}{" "}
-              checked)
-            </span>
-            <div className="mono-label" style={{ marginTop: "0.2rem" }}>
-              Source of Truth: NEAR Escrow Contract · Zero Discrepancies:{" "}
-              {state?.reconciliation.discrepancies.length === 0 ? "Confirmed" : "Review Required"}
-            </div>
-          </div>
-
-          <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap" }}>
-            <StatusBadge
-              status={state?.reconciliation.discrepancies.length === 0 ? "SETTLED" : "PAYOUT_FAILED"}
-              label={
-                state?.reconciliation.discrepancies.length === 0
-                  ? "Reconciled"
-                  : `${state?.reconciliation.discrepancies.length ?? 0} Discrepancies`
-              }
-            />
-            {state?.reconciliation.discrepancies && state.reconciliation.discrepancies.length > 0 && (
-              <button
-                type="button"
-                className="btn-secondary"
-                disabled={busy}
-                onClick={handleAutoReconcile}
-                style={{ fontSize: "0.78rem", padding: "0.35rem 0.75rem", height: "auto" }}
-              >
-                {pendingKey === "auto_reconcile" ? "Reconciling on NEAR…" : "⚡ Auto-Reconcile On-Chain Balances"}
-              </button>
-            )}
-          </div>
-        </div>
-
-        {(state?.reconciliation.discrepancies.length ?? 0) > 0 && (
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", marginTop: "0.9rem" }}>
-            {state?.reconciliation.discrepancies.map((d) => (
-              <div
-                key={d.recordId}
-                style={{
-                  padding: "0.65rem 0.85rem",
-                  borderRadius: 4,
-                  border: "1px solid rgba(133, 85, 29, 0.25)",
-                  background: "var(--amber-warm-soft)",
-                  color: "var(--amber-warm)",
-                  fontSize: "0.8rem",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: "0.75rem",
-                  flexWrap: "wrap",
-                }}
-              >
-                <span className="mono-data">
-                  [{d.reason}] {d.recordId} · Expected: {d.expectedHeldMinor} · On-Chain:{" "}
-                  {d.onchainHeldMinor}
-                </span>
-                <StatusBadge status={d.status} />
-              </div>
-            ))}
           </div>
         )}
       </div>

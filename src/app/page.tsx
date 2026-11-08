@@ -1,567 +1,887 @@
 "use client";
 
-import React from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
-import { PaymentWaveRails } from "./components/PaymentWaveRails";
+import { useReducedMotion, useScroll } from "framer-motion";
+import {
+  AlertCircle,
+  ArrowRight,
+  ArrowUpRight,
+  Check,
+  CheckCircle2,
+  Clock,
+  Copy,
+  Download,
+  Moon,
+  Sun,
+} from "lucide-react";
+import { CryptoTokenIcon } from "./components/CryptoTokenIcon";
+import { HashBadge } from "./components/HashBadge";
+import { LandingHeroDashboardMockup } from "./components/LandingHeroDashboardMockup";
 
-export default function LedgerlyLandingPage() {
+const LandingHeroDashboard3D = dynamic(() => import("./components/LandingHeroDashboard3D"), {
+  ssr: false,
+  loading: () => <LandingHeroDashboardMockup />,
+});
+
+const DEMO_COMMITMENT_HASH =
+  "8f9c2e04a1b7d3e9520c64f8a12e7b93d501c8e4f2a690b3d71e5c84a20f41b9";
+const ESCROW_CONTRACT_ID = "ledgerly-escrow-9e70f9ea.testnet";
+const USDC_CONTRACT_ID = "ledgerly-usdc-a627a4c0.testnet";
+const OPERATOR_ACCOUNT_ID = "ledgerly-op-a627a4c0.testnet";
+const VERIFIED_RELEASE_TX = "4PDxv1WbzU9XQ9LAMSKAJ4iVuha9SfymWvw1pRTWuhaa";
+const VERIFIED_DEPOSIT_TX = "48uhApH2ij8eQ4PsDau2J6Zg5qi1ZvJFMK2n1rBJzdFa";
+const VERIFIED_ANCHOR_TX = "1VQz6TK4ksKVsS7uwucPg3B2y3bnFMDghAdfo1RZNWG";
+
+function detectWebGLSupport(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const canvas = document.createElement("canvas");
+    const gl = canvas.getContext("webgl2") || canvas.getContext("webgl");
+    return Boolean(gl);
+  } catch {
+    return false;
+  }
+}
+
+function LedgerlyBrandMark() {
   return (
-    <div style={{ position: "relative", minHeight: "100vh" }}>
-      {/* Soft warm paper grain overlay */}
-      <div className="paper-grain" />
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect width="24" height="24" rx="6" fill="var(--accent-primary)" />
+      <path
+        d="M8 7.5V16.5H16"
+        stroke="var(--text-on-accent)"
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
 
-      {/* Horizontal Wave-Like Particle Rails (left -> right, cursor-reactive, scroll-adaptive) */}
-      <PaymentWaveRails />
+const SUPPORTED_RAILS: Array<{ label: string; symbol: string; chain: string }> = [
+  { label: "NEAR USDC", symbol: "USDC", chain: "near" },
+  { label: "Solana", symbol: "SOL", chain: "sol" },
+  { label: "Base", symbol: "ETH", chain: "base" },
+  { label: "Arbitrum", symbol: "USDC", chain: "arb" },
+  { label: "Ethereum", symbol: "ETH", chain: "eth" },
+  { label: "Bitcoin", symbol: "BTC", chain: "btc" },
+];
 
-      {/* Minimal Header */}
-      <header
-        style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          right: 0,
-          zIndex: 20,
-          background: "rgba(247, 244, 238, 0.85)",
-          backdropFilter: "blur(12px)",
-          WebkitBackdropFilter: "blur(12px)",
-          borderBottom: "1px solid var(--line-soft)",
-        }}
-      >
-        <div
-          style={{
-            maxWidth: 1180,
-            margin: "0 auto",
-            padding: "1rem 1.75rem",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: "1rem",
-          }}
-        >
-          <a
-            href="#hero"
-            style={{
-              fontSize: "1.05rem",
-              fontWeight: 600,
-              letterSpacing: "-0.02em",
-              color: "var(--ink-charcoal)",
-              textDecoration: "none",
-            }}
-          >
-            Ledgerly
-          </a>
+export default function LandingPage() {
+  const prefersReducedMotion = useReducedMotion();
+  const heroRef = useRef<HTMLElement>(null);
+  const [webglReady, setWebglReady] = useState<boolean | null>(null);
+  const [scrollProgress, setScrollProgress] = useState(0);
+  const [copiedHeroHash, setCopiedHeroHash] = useState(false);
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
 
-          <nav
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "2rem",
-              fontSize: "0.86rem",
-              color: "var(--ink-body)",
-            }}
-          >
-            <a href="#problem" style={{ color: "inherit", textDecoration: "none" }}>
-              Problem
-            </a>
-            <a href="#solution" style={{ color: "inherit", textDecoration: "none" }}>
-              Solution
-            </a>
-            <a href="#capabilities" style={{ color: "inherit", textDecoration: "none" }}>
+  const { scrollYProgress } = useScroll({
+    target: heroRef,
+    offset: ["start start", "end start"],
+  });
+
+  useEffect(() => {
+    setWebglReady(detectWebGLSupport());
+    const current = document.documentElement.getAttribute("data-theme");
+    if (current === "light") {
+      setTheme("light");
+    }
+  }, []);
+
+  useEffect(() => {
+    return scrollYProgress.on("change", (latest) => {
+      setScrollProgress(latest);
+    });
+  }, [scrollYProgress]);
+
+  const toggleTheme = useCallback(() => {
+    setTheme((prev) => {
+      const next = prev === "dark" ? "light" : "dark";
+      if (next === "light") {
+        document.documentElement.setAttribute("data-theme", "light");
+      } else {
+        document.documentElement.removeAttribute("data-theme");
+      }
+      return next;
+    });
+  }, []);
+
+  const handleCopyHeroHash = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(DEMO_COMMITMENT_HASH);
+      setCopiedHeroHash(true);
+      window.setTimeout(() => setCopiedHeroHash(false), 1800);
+    } catch {
+      // clipboard unavailable
+    }
+  }, []);
+
+  const show3DStage = webglReady === true && !prefersReducedMotion;
+
+  return (
+    <div
+      style={{
+        minHeight: "100dvh",
+        backgroundColor: "var(--surface-canvas)",
+        color: "var(--text-primary)",
+      }}
+    >
+      {/* Top Navigation */}
+      <header className="lp-header">
+        <div className="lp-header-inner">
+          <Link href="/" className="lp-brand">
+            <LedgerlyBrandMark />
+            <span>Ledgerly</span>
+          </Link>
+
+          <nav className="lp-nav" aria-label="Primary">
+            <a href="#pillars" className="lp-nav-link">
               Capabilities
+            </a>
+            <a href="#workflow" className="lp-nav-link">
+              Workflow
+            </a>
+            <a href="#contracts" className="lp-nav-link">
+              NEAR Testnet
             </a>
           </nav>
 
-          <Link
-            href="/app"
-            className="btn-primary"
-            style={{ padding: "0.52rem 1.05rem", fontSize: "0.84rem" }}
-          >
-            Launch App
-          </Link>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="btn-quiet"
+              style={{ padding: "0.42rem 0.7rem", fontSize: "0.8rem" }}
+            >
+              {theme === "dark" ? (
+                <>
+                  <Sun className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                  <span className="lp-hide-mobile">Light</span>
+                </>
+              ) : (
+                <>
+                  <Moon className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                  <span className="lp-hide-mobile">Dark</span>
+                </>
+              )}
+            </button>
+
+            <Link
+              href="/checkout"
+              className="btn-secondary lp-hide-mobile"
+              style={{ padding: "0.45rem 0.9rem", fontSize: "0.84rem" }}
+            >
+              Buyer Checkout
+            </Link>
+
+            <Link
+              href="/app"
+              className="btn-primary"
+              style={{ padding: "0.46rem 1rem", fontSize: "0.85rem" }}
+            >
+              <span>Open App</span>
+              <ArrowRight className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+            </Link>
+          </div>
         </div>
       </header>
 
-      <main style={{ position: "relative", zIndex: 10 }}>
-        {/* ===================================================================
-            1. HERO SECTION — Calm, steady horizontal particle waves
-           =================================================================== */}
-        <section
-          id="hero"
-          style={{
-            minHeight: "100vh",
-            maxWidth: 1180,
-            margin: "0 auto",
-            padding: "8.5rem 1.75rem 4rem",
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "space-between",
-          }}
-        >
-          <div style={{ maxWidth: 720 }}>
-            <div className="eyebrow" style={{ marginBottom: "0.9rem" }}>
-              Payment Infrastructure on NEAR
+      <main>
+        {/* Hero Section */}
+        <section ref={heroRef} className="lp-container">
+          <div className="lp-hero">
+            <div>
+              <div
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  padding: "0.3rem 0.7rem",
+                  borderRadius: "var(--primitive-radius-sm)",
+                  backgroundColor: "var(--surface-1)",
+                  border: "1px solid var(--border-default)",
+                  fontSize: "0.78rem",
+                  fontWeight: 500,
+                  color: "var(--text-secondary)",
+                }}
+              >
+                <CheckCircle2
+                  className="w-3.5 h-3.5 shrink-0"
+                  style={{ color: "var(--status-settled-fg)" }}
+                  aria-hidden="true"
+                />
+                <span>Live on NEAR Testnet · NEP-141 USDC &amp; 1Click Intents</span>
+              </div>
+
+              <h1 className="lp-hero-title">
+                Private stablecoin invoicing and accounting.
+              </h1>
+
+              <p className="lp-hero-lead">
+                Accept USDC and cross-chain payments without exposing customer or invoice data.
+                Settle via smart escrow, share scoped auditor access, and export balanced books.
+              </p>
+
+              <div className="lp-cta-row">
+                <Link href="/app/merchant" className="btn-primary">
+                  <span>Create Invoice</span>
+                  <ArrowRight className="w-4 h-4 shrink-0" aria-hidden="true" />
+                </Link>
+                <Link href="/checkout" className="btn-secondary">
+                  <span>Try Buyer Checkout</span>
+                </Link>
+                <Link href="/app/auditor" className="btn-quiet">
+                  <span>Auditor View</span>
+                  <ArrowUpRight className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                </Link>
+              </div>
+
+              <div className="lp-rails-row">
+                <span style={{ fontSize: "0.78rem", fontWeight: 500, color: "var(--text-muted)" }}>
+                  Settle in USDC directly or pay across chains
+                </span>
+                <div className="lp-rails-chips">
+                  {SUPPORTED_RAILS.map((rail) => (
+                    <span key={rail.label} className="lp-rail-chip">
+                      <CryptoTokenIcon symbol={rail.symbol} chain={rail.chain} size={16} />
+                      <span>{rail.label}</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
             </div>
 
-            <h1
-              style={{
-                fontSize: "clamp(2.5rem, 5vw, 4.35rem)",
-                fontWeight: 500,
-                lineHeight: 1.06,
-                letterSpacing: "-0.035em",
-                color: "var(--ink-charcoal)",
-                marginBottom: "1.25rem",
-              }}
-            >
-              Bring the boring business money onchain.
-            </h1>
+            {/* Layered 3D Dashboard Preview (or Static Mockup Fallback) */}
+            <div className="lp-hero-stage-card">
+              <div className="lp-hero-stage-topbar">
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <span className="status-pill status-pill-emerald">
+                    <span className="status-pill-dot" aria-hidden="true" />
+                    <span>SETTLED</span>
+                  </span>
+                  <span
+                    style={{
+                      fontSize: "0.8rem",
+                      fontWeight: 600,
+                      color: "var(--text-primary)",
+                    }}
+                  >
+                    Ledgerly Workspace
+                  </span>
+                </div>
 
-            <p
-              style={{
-                fontSize: "clamp(1.02rem, 1.3vw, 1.18rem)",
-                lineHeight: 1.62,
-                color: "var(--ink-body)",
-                maxWidth: 580,
-                marginBottom: "2rem",
-              }}
-            >
-              Instant merchant checkout, cross-border stablecoin remittances, and
-              private-by-default auditability—built for real finance teams.
-            </p>
+                <span
+                  className="tabular-nums"
+                  style={{
+                    fontFamily: "var(--font-family-mono)",
+                    fontSize: "0.75rem",
+                    color: "var(--text-muted)",
+                  }}
+                >
+                  {ESCROW_CONTRACT_ID}
+                </span>
+              </div>
 
-            <div style={{ display: "flex", alignItems: "center", gap: "0.85rem", flexWrap: "wrap" }}>
-              <Link href="/app" className="btn-primary">
-                Launch App
-              </Link>
-              <a href="#capabilities" className="btn-secondary">
-                View Documentation
-              </a>
+              <div className="lp-hero-stage-viewport">
+                {show3DStage ? (
+                  <LandingHeroDashboard3D
+                    scrollProgress={scrollProgress}
+                    copied={copiedHeroHash}
+                    onCopyHash={handleCopyHeroHash}
+                  />
+                ) : (
+                  <LandingHeroDashboardMockup />
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Open visual band where the horizontal wave particle rails flow */}
-          <div style={{ flex: 1, minHeight: "26vh" }} />
+          {/* 4 Plain-Language Product Pillars */}
+          <div id="pillars" className="lp-pillars-grid">
+            <article className="lp-pillar-card">
+              <h2 className="lp-pillar-title">
+                <CheckCircle2
+                  className="w-4 h-4 shrink-0"
+                  style={{ color: "var(--status-settled-fg)" }}
+                  aria-hidden="true"
+                />
+                <span>Private by default</span>
+              </h2>
+              <p className="lp-pillar-body">
+                Customer contacts, line items, and bank details stay encrypted off-chain.
+              </p>
+            </article>
 
-          {/* Subtle key metrics bar */}
-          <div
-            className="hairline-top"
-            style={{
-              paddingTop: "1.5rem",
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-              gap: "1.5rem",
-            }}
-          >
-            <div>
-              <div className="mono-label">Settlement Finality</div>
-              <div style={{ fontSize: "1.1rem", fontWeight: 500, marginTop: "0.25rem" }}>
-                Under 2 seconds
-              </div>
-            </div>
-            <div>
-              <div className="mono-label">Cross-Border Cost</div>
-              <div style={{ fontSize: "1.1rem", fontWeight: 500, marginTop: "0.25rem" }}>
-                &lt; 0.5% transparent fee
-              </div>
-            </div>
-            <div>
-              <div className="mono-label">Data Confidentiality</div>
-              <div style={{ fontSize: "1.1rem", fontWeight: 500, marginTop: "0.25rem" }}>
-                Encrypted envelopes
-              </div>
-            </div>
-            <div>
-              <div className="mono-label">Audit Readiness</div>
-              <div style={{ fontSize: "1.1rem", fontWeight: 500, marginTop: "0.25rem" }}>
-                Scoped view keys
-              </div>
-            </div>
+            <article className="lp-pillar-card">
+              <h2 className="lp-pillar-title">
+                <CheckCircle2
+                  className="w-4 h-4 shrink-0"
+                  style={{ color: "var(--status-settled-fg)" }}
+                  aria-hidden="true"
+                />
+                <span>Verified on NEAR</span>
+              </h2>
+              <p className="lp-pillar-body">
+                Every invoice anchors a cryptographic commitment hash on-chain for proof of payment.
+              </p>
+            </article>
+
+            <article className="lp-pillar-card">
+              <h2 className="lp-pillar-title">
+                <Clock
+                  className="w-4 h-4 shrink-0"
+                  style={{ color: "var(--status-pending-fg)" }}
+                  aria-hidden="true"
+                />
+                <span>Auditor access</span>
+              </h2>
+              <p className="lp-pillar-body">
+                Share time-bound view keys so external auditors can verify records without public leaks.
+              </p>
+            </article>
+
+            <article className="lp-pillar-card">
+              <h2 className="lp-pillar-title">
+                <CheckCircle2
+                  className="w-4 h-4 shrink-0"
+                  style={{ color: "var(--status-settled-fg)" }}
+                  aria-hidden="true"
+                />
+                <span>Balanced books</span>
+              </h2>
+              <p className="lp-pillar-body">
+                Every settlement generates balanced double-entry journals ready for CSV export.
+              </p>
+            </article>
           </div>
         </section>
 
-        {/* ===================================================================
-            2. THE PROBLEM — Particle waves become turbulent & irregular
-           =================================================================== */}
-        <section
-          id="problem"
-          style={{
-            minHeight: "92vh",
-            maxWidth: 1180,
-            margin: "0 auto",
-            padding: "6rem 1.75rem",
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "center",
-          }}
-        >
-          <div style={{ maxWidth: 640, marginBottom: "2.75rem" }}>
-            <div className="eyebrow" style={{ color: "var(--slate-blue)", marginBottom: "0.75rem" }}>
-              The Problem
-            </div>
-            <h2
-              style={{
-                fontSize: "clamp(1.85rem, 3.3vw, 2.85rem)",
-                fontWeight: 500,
-                lineHeight: 1.12,
-                letterSpacing: "-0.03em",
-                marginBottom: "1rem",
-              }}
-            >
-              Legacy rails are slow and expensive. Raw blockchains expose your business.
-            </h2>
-            <p style={{ fontSize: "1.02rem", lineHeight: 1.65, color: "var(--ink-body)" }}>
-              Cross-border wires trap working capital for days and charge opaque FX spreads. Yet
-              standard stablecoin transfers broadcast supplier pricing, payroll, and revenue to
-              the public—without handling refunds, underpayments, or accounting reconciliation.
-            </p>
-          </div>
+        {/* Below Hero: 3 Clean Workflow Sections with Real UI Snippets */}
+        <section id="workflow" className="lp-container">
+          <div className="lp-workflow-stack">
+            {/* Section 1: Create invoice */}
+            <article className="lp-workflow-section">
+              <div>
+                <span className="lp-step-pill">1 · Create invoice</span>
+                <h2 className="lp-section-title">
+                  Create invoices without exposing commercial terms.
+                </h2>
+                <p className="lp-section-body">
+                  Set amount, buyer contact, and tax notes in your workspace. Commercial terms stay
+                  off-chain while only a proof commitment registers on NEAR.
+                </p>
+                <ul className="lp-bullet-list">
+                  <li className="lp-bullet-item">
+                    <CheckCircle2
+                      className="w-4 h-4 shrink-0"
+                      style={{ color: "var(--status-settled-fg)", marginTop: "0.18rem" }}
+                      aria-hidden="true"
+                    />
+                    <span>Instant buyer checkout links and QR codes</span>
+                  </li>
+                  <li className="lp-bullet-item">
+                    <CheckCircle2
+                      className="w-4 h-4 shrink-0"
+                      style={{ color: "var(--status-settled-fg)", marginTop: "0.18rem" }}
+                      aria-hidden="true"
+                    />
+                    <span>Supports global remittance payout corridors</span>
+                  </li>
+                </ul>
+                <Link href="/app/merchant" className="btn-secondary">
+                  <span>Open Merchant Workspace</span>
+                  <ArrowRight className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                </Link>
+              </div>
 
+              {/* Real UI Snippet 1: Merchant Invoice Form + Commitment Preview */}
+              <div className="lp-ui-snippet" aria-label="Create invoice workspace snippet">
+                <div className="lp-ui-snippet-header">
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    <span style={{ fontSize: "0.86rem", fontWeight: 600, color: "var(--text-primary)" }}>
+                      New Payment Request
+                    </span>
+                    <span className="status-pill status-pill-amber">
+                      <span className="status-pill-dot" aria-hidden="true" />
+                      <span>OPEN</span>
+                    </span>
+                  </div>
+                  <span
+                    className="tabular-nums"
+                    style={{
+                      fontFamily: "var(--font-family-mono)",
+                      fontSize: "0.78rem",
+                      color: "var(--text-muted)",
+                    }}
+                  >
+                    INV-2026-8849
+                  </span>
+                </div>
+
+                <div className="lp-ui-snippet-body">
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                      gap: "0.75rem",
+                    }}
+                  >
+                    <div
+                      style={{
+                        padding: "0.75rem 0.9rem",
+                        borderRadius: "var(--primitive-radius-sm)",
+                        backgroundColor: "var(--surface-1)",
+                        border: "1px solid var(--border-subtle)",
+                      }}
+                    >
+                      <div style={{ fontSize: "0.74rem", color: "var(--text-muted)" }}>
+                        Invoice Amount
+                      </div>
+                      <div
+                        className="tabular-nums"
+                        style={{
+                          marginTop: "0.25rem",
+                          fontFamily: "var(--font-family-mono)",
+                          fontSize: "1.15rem",
+                          fontWeight: 700,
+                          color: "var(--text-primary)",
+                        }}
+                      >
+                        680.00 USDC
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        padding: "0.75rem 0.9rem",
+                        borderRadius: "var(--primitive-radius-sm)",
+                        backgroundColor: "var(--surface-1)",
+                        border: "1px solid var(--border-subtle)",
+                      }}
+                    >
+                      <div style={{ fontSize: "0.74rem", color: "var(--text-muted)" }}>
+                        Off-Chain Buyer Record
+                      </div>
+                      <div
+                        style={{
+                          marginTop: "0.28rem",
+                          fontSize: "0.85rem",
+                          fontWeight: 600,
+                          color: "var(--text-primary)",
+                        }}
+                      >
+                        ap@nordic-freight.example
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="lp-ui-row">
+                    <div>
+                      <div style={{ fontSize: "0.78rem", fontWeight: 600, color: "var(--text-primary)" }}>
+                        Line Item &amp; Tax Breakdown (Off-Chain Only)
+                      </div>
+                      <div style={{ fontSize: "0.78rem", color: "var(--text-secondary)" }}>
+                        Q4 API Retainer · 0% Reverse-Charge VAT · Net 7
+                      </div>
+                    </div>
+                    <span className="status-pill status-pill-emerald">
+                      <CheckCircle2 className="w-3 h-3 shrink-0" aria-hidden="true" />
+                      <span>Private</span>
+                    </span>
+                  </div>
+
+                  <div className="lp-ui-row">
+                    <span style={{ fontSize: "0.78rem", color: "var(--text-secondary)" }}>
+                      On-chain SHA-256 commitment
+                    </span>
+                    <HashBadge
+                      value={DEMO_COMMITMENT_HASH}
+                      href={`https://testnet.nearblocks.io/txns/8Zk7wGRQFhWUwR6Lv54adty52yVdfxbT1yZHuzmu4NQK`}
+                    />
+                  </div>
+                </div>
+              </div>
+            </article>
+
+            {/* Section 2: Settle on NEAR */}
+            <article className="lp-workflow-section">
+              <div>
+                <span className="lp-step-pill">2 · Settle on NEAR</span>
+                <h2 className="lp-section-title">
+                  Settle in USDC or pay from any major chain.
+                </h2>
+                <p className="lp-section-body">
+                  Buyers pay directly with USDC on NEAR or bridge seamlessly from Solana, Ethereum,
+                  and Bitcoin. Escrow handles refunds and timeouts automatically.
+                </p>
+                <ul className="lp-bullet-list">
+                  <li className="lp-bullet-item">
+                    <CheckCircle2
+                      className="w-4 h-4 shrink-0"
+                      style={{ color: "var(--status-settled-fg)", marginTop: "0.18rem" }}
+                      aria-hidden="true"
+                    />
+                    <span>Automatic excess refund in the same transaction flow</span>
+                  </li>
+                  <li className="lp-bullet-item">
+                    <AlertCircle
+                      className="w-4 h-4 shrink-0"
+                      style={{ color: "var(--status-pending-fg)", marginTop: "0.18rem" }}
+                      aria-hidden="true"
+                    />
+                    <span>Direct refund recovery if an invoice expires</span>
+                  </li>
+                </ul>
+                <Link href="/checkout" className="btn-secondary">
+                  <span>Inspect Buyer Checkout</span>
+                  <ArrowRight className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                </Link>
+              </div>
+
+              {/* Real UI Snippet 2: Escrow Settlement & Exception Breakdown */}
+              <div className="lp-ui-snippet" aria-label="Settle on NEAR checkout snippet">
+                <div className="lp-ui-snippet-header">
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    <CryptoTokenIcon symbol="USDC" chain="near" size={18} />
+                    <span style={{ fontSize: "0.86rem", fontWeight: 600, color: "var(--text-primary)" }}>
+                      Escrow Settlement Receipt
+                    </span>
+                  </div>
+                  <span className="status-pill status-pill-emerald">
+                    <span className="status-pill-dot" aria-hidden="true" />
+                    <span>SETTLED</span>
+                  </span>
+                </div>
+
+                <div className="lp-ui-snippet-body">
+                  <div className="lp-ui-row">
+                    <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
+                      Buyer Deposit (<code style={{ fontFamily: "var(--font-family-mono)" }}>ft_transfer_call</code>)
+                    </span>
+                    <span
+                      className="tabular-nums"
+                      style={{
+                        fontFamily: "var(--font-family-mono)",
+                        fontSize: "0.9rem",
+                        fontWeight: 700,
+                        color: "var(--text-primary)",
+                      }}
+                    >
+                      700.00 USDC
+                    </span>
+                  </div>
+
+                  <div className="lp-ui-row">
+                    <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
+                      Released to Merchant (<code style={{ fontFamily: "var(--font-family-mono)" }}>INV-2026-8849</code>)
+                    </span>
+                    <span
+                      className="tabular-nums"
+                      style={{
+                        fontFamily: "var(--font-family-mono)",
+                        fontSize: "0.9rem",
+                        fontWeight: 700,
+                        color: "var(--status-settled-fg)",
+                      }}
+                    >
+                      680.00 USDC
+                    </span>
+                  </div>
+
+                  <div className="lp-ui-row">
+                    <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
+                      Automatic Overpayment Refund
+                    </span>
+                    <span
+                      className="tabular-nums"
+                      style={{
+                        fontFamily: "var(--font-family-mono)",
+                        fontSize: "0.88rem",
+                        fontWeight: 600,
+                        color: "var(--status-pending-fg)",
+                      }}
+                    >
+                      20.00 USDC returned
+                    </span>
+                  </div>
+
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: "0.75rem",
+                      flexWrap: "wrap",
+                      paddingTop: "0.25rem",
+                    }}
+                  >
+                    <HashBadge
+                      label="Deposit"
+                      value={VERIFIED_DEPOSIT_TX}
+                      href={`https://testnet.nearblocks.io/txns/${VERIFIED_DEPOSIT_TX}`}
+                    />
+                    <HashBadge
+                      label="Release"
+                      value={VERIFIED_RELEASE_TX}
+                      href={`https://testnet.nearblocks.io/txns/${VERIFIED_RELEASE_TX}`}
+                    />
+                  </div>
+                </div>
+              </div>
+            </article>
+
+            {/* Section 3: Audit & export */}
+            <article className="lp-workflow-section">
+              <div>
+                <span className="lp-step-pill">3 · Audit &amp; export</span>
+                <h2 className="lp-section-title">
+                  Prove balances with scoped view keys and CSV exports.
+                </h2>
+                <p className="lp-section-body">
+                  External auditors decrypt only authorized records, check cryptographic proof on
+                  NEAR, and export balanced double-entry books in one click.
+                </p>
+                <ul className="lp-bullet-list">
+                  <li className="lp-bullet-item">
+                    <CheckCircle2
+                      className="w-4 h-4 shrink-0"
+                      style={{ color: "var(--status-settled-fg)", marginTop: "0.18rem" }}
+                      aria-hidden="true"
+                    />
+                    <span>Audit log roots anchored directly on NEAR Testnet</span>
+                  </li>
+                  <li className="lp-bullet-item">
+                    <CheckCircle2
+                      className="w-4 h-4 shrink-0"
+                      style={{ color: "var(--status-settled-fg)", marginTop: "0.18rem" }}
+                      aria-hidden="true"
+                    />
+                    <span>Double-entry balance guarantee: total debits equal total credits</span>
+                  </li>
+                </ul>
+                <Link href="/app/auditor" className="btn-primary">
+                  <Download className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                  <span>Open Auditor &amp; CSV Export</span>
+                </Link>
+              </div>
+
+              {/* Real UI Snippet 3: Auditor Verification + Balanced Ledger Rows */}
+              <div className="lp-ui-snippet" aria-label="Audit and CSV export workspace snippet">
+                <div className="lp-ui-snippet-header">
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    <span style={{ fontSize: "0.86rem", fontWeight: 600, color: "var(--text-primary)" }}>
+                      Selective Disclosure &amp; Ledger
+                    </span>
+                    <span className="status-pill status-pill-emerald">
+                      <CheckCircle2 className="w-3 h-3 shrink-0" aria-hidden="true" />
+                      <span>VERIFIED</span>
+                    </span>
+                  </div>
+                  <HashBadge
+                    label="Anchor"
+                    value={VERIFIED_ANCHOR_TX}
+                    href={`https://testnet.nearblocks.io/txns/${VERIFIED_ANCHOR_TX}`}
+                  />
+                </div>
+
+                <div className="lp-ui-snippet-body">
+                  <div className="lp-ui-row">
+                    <div>
+                      <div style={{ fontSize: "0.78rem", fontWeight: 600, color: "var(--text-primary)" }}>
+                        DR · 1010 Escrow Clearing (USDC)
+                      </div>
+                      <div style={{ fontSize: "0.74rem", color: "var(--text-muted)" }}>
+                        Journal leg #1 · Ref INV-2026-8849
+                      </div>
+                    </div>
+                    <span
+                      className="tabular-nums"
+                      style={{
+                        fontFamily: "var(--font-family-mono)",
+                        fontSize: "0.88rem",
+                        fontWeight: 600,
+                        color: "var(--text-primary)",
+                      }}
+                    >
+                      +680.00 USDC
+                    </span>
+                  </div>
+
+                  <div className="lp-ui-row">
+                    <div>
+                      <div style={{ fontSize: "0.78rem", fontWeight: 600, color: "var(--text-primary)" }}>
+                        CR · 4000 Merchant Settlement Revenue
+                      </div>
+                      <div style={{ fontSize: "0.74rem", color: "var(--text-muted)" }}>
+                        Journal leg #2 · Ref INV-2026-8849
+                      </div>
+                    </div>
+                    <span
+                      className="tabular-nums"
+                      style={{
+                        fontFamily: "var(--font-family-mono)",
+                        fontSize: "0.88rem",
+                        fontWeight: 600,
+                        color: "var(--status-settled-fg)",
+                      }}
+                    >
+                      -680.00 USDC
+                    </span>
+                  </div>
+
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: "0.75rem",
+                      paddingTop: "0.2rem",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <span style={{ fontSize: "0.78rem", color: "var(--text-secondary)" }}>
+                      Net variance:{" "}
+                      <strong
+                        className="tabular-nums"
+                        style={{
+                          fontFamily: "var(--font-family-mono)",
+                          color: "var(--status-settled-fg)",
+                        }}
+                      >
+                        0.00 USDC
+                      </strong>
+                    </span>
+                    <span
+                      style={{
+                        fontSize: "0.76rem",
+                        fontWeight: 500,
+                        color: "var(--text-muted)",
+                      }}
+                    >
+                      Xero / QuickBooks CSV
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        {/* Live Deployed NEAR Testnet Contracts Strip */}
+        <section id="contracts" className="lp-container" style={{ paddingBottom: "4rem" }}>
           <div
             style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+              backgroundColor: "var(--surface-1)",
+              border: "1px solid var(--border-default)",
+              borderRadius: "var(--section-radius)",
+              padding: "1.75rem 2rem",
+              display: "flex",
+              flexDirection: "column",
               gap: "1.25rem",
             }}
           >
-            <div className="fin-card">
-              <div className="mono-label" style={{ marginBottom: "0.5rem" }}>
-                01 · Settlement Friction
-              </div>
-              <h3 style={{ fontSize: "1.12rem", fontWeight: 500, marginBottom: "0.5rem" }}>
-                Days in transit, 3–6% lost in fees
-              </h3>
-              <p style={{ fontSize: "0.9rem", lineHeight: 1.6, color: "var(--ink-muted)" }}>
-                Correspondent banks deduct unpredictable intermediary fees while suppliers and
-                overseas contractors wait days for local currency clearing.
-              </p>
-            </div>
-
-            <div className="fin-card">
-              <div className="mono-label" style={{ marginBottom: "0.5rem" }}>
-                02 · Public Ledger Exposure
-              </div>
-              <h3 style={{ fontSize: "1.12rem", fontWeight: 500, marginBottom: "0.5rem" }}>
-                Zero commercial privacy
-              </h3>
-              <p style={{ fontSize: "0.9rem", lineHeight: 1.6, color: "var(--ink-muted)" }}>
-                On standard public chains, a single payment reveals your treasury wallet, vendor
-                margins, and transaction history to competitors.
-              </p>
-            </div>
-
-            <div className="fin-card">
-              <div className="mono-label" style={{ marginBottom: "0.5rem" }}>
-                03 · Missing Financial Controls
-              </div>
-              <h3 style={{ fontSize: "1.12rem", fontWeight: 500, marginBottom: "0.5rem" }}>
-                No exception handling or context
-              </h3>
-              <p style={{ fontSize: "0.9rem", lineHeight: 1.6, color: "var(--ink-muted)" }}>
-                Direct token transfers carry no invoice reference, cannot auto-refund overpayments,
-                and leave finance teams reconciling hashes by hand.
-              </p>
-            </div>
-          </div>
-        </section>
-
-        {/* ===================================================================
-            3. THE SOLUTION — Waves align into clean, structured parallel rails
-           =================================================================== */}
-        <section
-          id="solution"
-          style={{
-            minHeight: "88vh",
-            maxWidth: 1180,
-            margin: "0 auto",
-            padding: "6rem 1.75rem",
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "center",
-          }}
-        >
-          <div className="fin-card" style={{ maxWidth: 880, padding: "2.5rem" }}>
-            <div className="eyebrow" style={{ marginBottom: "0.75rem" }}>
-              The Solution
-            </div>
-            <h2
+            <div
               style={{
-                fontSize: "clamp(1.85rem, 3.2vw, 2.75rem)",
-                fontWeight: 500,
-                lineHeight: 1.14,
-                letterSpacing: "-0.03em",
-                marginBottom: "1rem",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "1rem",
+                flexWrap: "wrap",
               }}
             >
-              Structured stablecoin rails with built-in escrow, privacy, and accounting.
-            </h2>
-            <p
-              style={{
-                fontSize: "1.02rem",
-                lineHeight: 1.65,
-                color: "var(--ink-body)",
-                marginBottom: "1.75rem",
-                maxWidth: 720,
-              }}
-            >
-              Ledgerly combines pooled NEAR escrow contracts with off-chain envelope encryption.
-              Every payment carries rich accounting context for your ERP, settles in seconds, and
-              anchors a cryptographic commitment onchain—verifiable by your auditor, invisible to
-              everyone else.
-            </p>
+              <div>
+                <h2
+                  style={{
+                    fontSize: "1.12rem",
+                    fontWeight: 650,
+                    letterSpacing: "-0.02em",
+                    color: "var(--text-primary)",
+                  }}
+                >
+                  Deployed NEAR Testnet Accounts
+                </h2>
+                <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginTop: "0.2rem" }}>
+                  View live contract state, token transfers, and audit roots on NEAR Testnet.
+                </p>
+              </div>
+              <Link href="/app" className="btn-primary">
+                <span>Launch Workspace</span>
+                <ArrowRight className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+              </Link>
+            </div>
 
             <div
-              className="hairline-top"
               style={{
-                paddingTop: "1.5rem",
                 display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
-                gap: "1.25rem",
+                gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+                gap: "0.85rem",
               }}
             >
-              <div>
-                <div style={{ fontWeight: 500, fontSize: "0.95rem", marginBottom: "0.25rem" }}>
-                  Pooled Escrow Protection
-                </div>
-                <p style={{ fontSize: "0.86rem", color: "var(--ink-muted)", lineHeight: 1.55 }}>
-                  Holds funds safely until conditions match, with fail-safe user exits if offline.
-                </p>
+              <div className="lp-ui-row">
+                <span style={{ fontSize: "0.8rem", fontWeight: 500, color: "var(--text-secondary)" }}>
+                  Escrow Contract
+                </span>
+                <HashBadge
+                  value={ESCROW_CONTRACT_ID}
+                  href={`https://testnet.nearblocks.io/address/${ESCROW_CONTRACT_ID}`}
+                />
               </div>
-              <div>
-                <div style={{ fontWeight: 500, fontSize: "0.95rem", marginBottom: "0.25rem" }}>
-                  Envelope Encryption
-                </div>
-                <p style={{ fontSize: "0.86rem", color: "var(--ink-muted)", lineHeight: 1.55 }}>
-                  AES-256-GCM per-record keys wrapped with X25519 keep invoices and PII private.
-                </p>
-              </div>
-              <div>
-                <div style={{ fontWeight: 500, fontSize: "0.95rem", marginBottom: "0.25rem" }}>
-                  Double-Entry Ledger
-                </div>
-                <p style={{ fontSize: "0.86rem", color: "var(--ink-muted)", lineHeight: 1.55 }}>
-                  Every settlement and refund posts balanced journal legs ready for CSV export.
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
 
-        {/* ===================================================================
-            4. KEY CAPABILITIES — Clean minimal cards
-           =================================================================== */}
-        <section
-          id="capabilities"
-          style={{
-            minHeight: "88vh",
-            maxWidth: 1180,
-            margin: "0 auto",
-            padding: "5rem 1.75rem",
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "center",
-          }}
-        >
-          <div style={{ maxWidth: 620, marginBottom: "2.5rem" }}>
-            <div className="eyebrow" style={{ marginBottom: "0.65rem" }}>
-              Key Capabilities
-            </div>
-            <h2
-              style={{
-                fontSize: "clamp(1.75rem, 3vw, 2.5rem)",
-                fontWeight: 500,
-                letterSpacing: "-0.03em",
-                lineHeight: 1.15,
-              }}
-            >
-              Everything a finance team needs to run onchain operations tomorrow.
-            </h2>
-          </div>
+              <div className="lp-ui-row">
+                <span style={{ fontSize: "0.8rem", fontWeight: 500, color: "var(--text-secondary)" }}>
+                  Mock USDC (NEP-141)
+                </span>
+                <HashBadge
+                  value={USDC_CONTRACT_ID}
+                  href={`https://testnet.nearblocks.io/address/${USDC_CONTRACT_ID}`}
+                />
+              </div>
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(310px, 1fr))",
-              gap: "1.5rem",
-            }}
-          >
-            {/* Card 1: Merchant Checkout */}
-            <div className="fin-card" style={{ display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-              <div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-                  <span className="status-pill status-pill-emerald">Merchant Checkout</span>
-                  <span className="mono-label">USDC · NEP-141</span>
-                </div>
-                <h3 style={{ fontSize: "1.25rem", fontWeight: 500, marginBottom: "0.6rem" }}>
-                  Automated invoice matching &amp; exception handling
-                </h3>
-                <p style={{ fontSize: "0.92rem", lineHeight: 1.6, color: "var(--ink-muted)", marginBottom: "1.25rem" }}>
-                  Generate clean checkout links tied to opaque escrow IDs. Exact payments release
-                  instantly to your treasury, overpayments automatically refund the excess, and
-                  partial deposits hold until completion or expiry.
-                </p>
+              <div className="lp-ui-row">
+                <span style={{ fontSize: "0.8rem", fontWeight: 500, color: "var(--text-secondary)" }}>
+                  Operator / Relayer
+                </span>
+                <HashBadge
+                  value={OPERATOR_ACCOUNT_ID}
+                  href={`https://testnet.nearblocks.io/address/${OPERATOR_ACCOUNT_ID}`}
+                />
               </div>
-              <div className="hairline-top" style={{ paddingTop: "0.9rem", display: "flex", justifyContent: "space-between", fontSize: "0.82rem", color: "var(--ink-muted)" }}>
-                <span>Auto-reconciled to order ID</span>
-                <Link href="/app" style={{ color: "var(--sage-green)", textDecoration: "none", fontWeight: 500 }}>
-                  Try Checkout →
-                </Link>
-              </div>
-            </div>
-
-            {/* Card 2: Cross-Border Remittance */}
-            <div className="fin-card" style={{ display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-              <div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-                  <span className="status-pill status-pill-blue">Remittances</span>
-                  <span className="mono-label">PHP · IDR · EUR · USDC</span>
-                </div>
-                <h3 style={{ fontSize: "1.25rem", fontWeight: 500, marginBottom: "0.6rem" }}>
-                  Stablecoin speed to local bank and e-wallet rails
-                </h3>
-                <p style={{ fontSize: "0.92rem", lineHeight: 1.6, color: "var(--ink-muted)", marginBottom: "1.25rem" }}>
-                  Lock guaranteed FX quotes with transparent fees, enforce sanctions and Travel
-                  Rule checks, and pay out to local corridors. Automatic retries and escrow
-                  refunds ensure funds are never stranded.
-                </p>
-              </div>
-              <div className="hairline-top" style={{ paddingTop: "0.9rem", display: "flex", justifyContent: "space-between", fontSize: "0.82rem", color: "var(--ink-muted)" }}>
-                <span>Idempotent partner payouts</span>
-                <Link href="/app" style={{ color: "var(--slate-blue)", textDecoration: "none", fontWeight: 500 }}>
-                  Send Remittance →
-                </Link>
-              </div>
-            </div>
-
-            {/* Card 3: Auditability */}
-            <div className="fin-card" style={{ display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-              <div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-                  <span className="status-pill status-pill-emerald">Auditability</span>
-                  <span className="mono-label">X25519 + SHA-256</span>
-                </div>
-                <h3 style={{ fontSize: "1.25rem", fontWeight: 500, marginBottom: "0.6rem" }}>
-                  Selective disclosure with onchain proof
-                </h3>
-                <p style={{ fontSize: "0.92rem", lineHeight: 1.6, color: "var(--ink-muted)", marginBottom: "1.25rem" }}>
-                  Issue time-bound, revocable view keys scoped to a specific reporting period.
-                  Auditors decrypt authorized records and verify every payload against the
-                  commitment anchored in the NEAR escrow contract.
-                </p>
-              </div>
-              <div className="hairline-top" style={{ paddingTop: "0.9rem", display: "flex", justifyContent: "space-between", fontSize: "0.82rem", color: "var(--ink-muted)" }}>
-                <span>One-click ERP CSV export</span>
-                <Link href="/app" style={{ color: "var(--sage-green)", textDecoration: "none", fontWeight: 500 }}>
-                  Inspect Audit View →
-                </Link>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ===================================================================
-            5. FINAL CTA SECTION — Particle waves converge toward "Launch App"
-           =================================================================== */}
-        <section
-          id="cta"
-          style={{
-            minHeight: "78vh",
-            maxWidth: 1180,
-            margin: "0 auto",
-            padding: "6rem 1.75rem",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            textAlign: "center",
-          }}
-        >
-          <div
-            className="fin-card"
-            style={{
-              maxWidth: 680,
-              width: "100%",
-              padding: "3rem 2.25rem",
-            }}
-          >
-            <div className="eyebrow" style={{ marginBottom: "0.75rem" }}>
-              Ready for Modern Finance Teams
-            </div>
-            <h2
-              style={{
-                fontSize: "clamp(1.85rem, 3.2vw, 2.65rem)",
-                fontWeight: 500,
-                letterSpacing: "-0.03em",
-                lineHeight: 1.14,
-                marginBottom: "0.9rem",
-              }}
-            >
-              Run your first confidential settlement in seconds.
-            </h2>
-            <p
-              style={{
-                fontSize: "0.98rem",
-                lineHeight: 1.6,
-                color: "var(--ink-body)",
-                maxWidth: 500,
-                margin: "0 auto 1.85rem",
-              }}
-            >
-              Explore the live interactive sandbox on NEAR Testnet—create invoices, simulate
-              buyer checkouts, dispatch remittances, and verify auditor proofs.
-            </p>
-
-            <div style={{ display: "flex", justifyContent: "center", gap: "0.85rem", flexWrap: "wrap" }}>
-              <Link id="final-launch-btn" href="/app" className="btn-primary">
-                Launch App
-              </Link>
-              <a href="#hero" className="btn-secondary">
-                Back to Top
-              </a>
             </div>
           </div>
         </section>
       </main>
 
-      {/* ===================================================================
-          MINIMAL LIGHT FOOTER — Small text only, simple links & copyright
-         =================================================================== */}
-      <footer
-        style={{
-          position: "relative",
-          zIndex: 10,
-          borderTop: "1px solid var(--line-soft)",
-          background: "rgba(247, 244, 238, 0.85)",
-          backdropFilter: "blur(8px)",
-        }}
-      >
-        <div
-          style={{
-            maxWidth: 1180,
-            margin: "0 auto",
-            padding: "1.6rem 1.75rem",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: "1rem",
-            flexWrap: "wrap",
-            fontSize: "0.8rem",
-            color: "var(--ink-muted)",
-          }}
-        >
-          <div>© 2026 Ledgerly. Built on NEAR Protocol.</div>
+      {/* Footer */}
+      <footer className="lp-footer">
+        <div className="lp-footer-inner">
+          <div style={{ display: "flex", alignItems: "center", gap: "0.65rem" }}>
+            <LedgerlyBrandMark />
+            <span style={{ fontSize: "0.9rem", fontWeight: 600, color: "var(--text-primary)" }}>
+              Ledgerly
+            </span>
+            <span style={{ fontSize: "0.82rem", color: "var(--text-muted)" }}>
+              · Private stablecoin payments &amp; balanced accounting on NEAR
+            </span>
+          </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "1.5rem", flexWrap: "wrap" }}>
-            <Link href="/app" style={{ color: "var(--ink-body)", textDecoration: "none" }}>
-              Launch App
+          <div style={{ display: "flex", alignItems: "center", gap: "1.25rem", flexWrap: "wrap" }}>
+            <Link href="/app" className="lp-nav-link">
+              Overview
             </Link>
-            <a href="#problem" style={{ color: "var(--ink-body)", textDecoration: "none" }}>
-              Problem
-            </a>
-            <a href="#solution" style={{ color: "var(--ink-body)", textDecoration: "none" }}>
-              Solution
-            </a>
-            <a href="#capabilities" style={{ color: "var(--ink-body)", textDecoration: "none" }}>
-              Capabilities
-            </a>
+            <Link href="/app/merchant" className="lp-nav-link">
+              Merchant
+            </Link>
+            <Link href="/app/remittance" className="lp-nav-link">
+              Remittance
+            </Link>
+            <Link href="/app/auditor" className="lp-nav-link">
+              Auditor
+            </Link>
+            <Link href="/checkout" className="lp-nav-link">
+              Checkout
+            </Link>
           </div>
         </div>
       </footer>
