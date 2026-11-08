@@ -47,6 +47,7 @@ import {
 } from "../src/shared";
 import { exportLedgerToCsv } from "../src/modules/ledger/domain";
 import { computeCommitment } from "../src/modules/privacy/domain/commitment";
+import { stopBackgroundWorkers } from "../src/workers";
 import {
   assertBalancedDoubleEntry,
   verifyCommitmentRecomputation,
@@ -73,6 +74,8 @@ function loadLocalEnv(): void {
 }
 
 loadLocalEnv();
+// Disable background intervals during deterministic CLI live verification
+process.env.LEDGERLY_DISABLE_BACKGROUND_WORKERS = "true";
 
 const OPERATOR_ACCOUNT_ID = process.env.NEAR_OPERATOR_ACCOUNT_ID as AccountId | undefined;
 const OPERATOR_PRIVATE_KEY = process.env.NEAR_OPERATOR_PRIVATE_KEY;
@@ -260,7 +263,9 @@ async function main(): Promise<void> {
   // LIVE FLOW (STANDARD OR REFUND PATH)
   // --------------------------------------------------------------------------
   console.log(`Initializing live runtime for ${OPERATOR_ACCOUNT_ID}...`);
+  stopBackgroundWorkers();
   const rt = await getRuntime(true);
+  stopBackgroundWorkers();
 
   if (rt.networkMode !== "NEAR_TESTNET_RPC") {
     throw new Error(`Runtime failed to initialize in NEAR_TESTNET_RPC mode (current: ${rt.networkMode})`);

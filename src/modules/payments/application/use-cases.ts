@@ -66,6 +66,8 @@ export interface CreatePaymentRequestOutput {
 }
 
 export class PaymentUseCases {
+  private readonly activeDepositLocks = new Set<string>();
+
   constructor(
     private readonly deps: {
       repo: PaymentRequestRepository;
@@ -197,93 +199,118 @@ export class PaymentUseCases {
     payer: AccountId;
     amountMinor: bigint;
   }): Promise<Result<{ status: PaymentStatus }, DomainError>> {
-    const stored = await this.deps.repo.findByEscrowId(input.escrowId);
-    if (!stored) {
-      return err(domainError("NOT_FOUND", `No PaymentRequest for escrow ${input.escrowId}`));
+    if (this.activeDepositLocks.has(input.escrowId)) {
+      return ok({ status: "OPEN" }); // In-flight by concurrent worker
     }
-    const pr = stored.aggregate;
-    const amount = Money.of(input.amountMinor, "USDC");
-    if (!amount.ok) return amount;
+    this.activeDepositLocks.add(input.escrowId);
 
-    const now = this.deps.clock.now();
-    const recRes = pr.recordPayment({
-      txHash: input.txHash,
-      payer: input.payer,
-      amount: amount.value,
-      detectedAt: now,
-    });
-    if (!recRes.ok) {
-      if (recRes.error.code === "DUPLICATE_PAYMENT") {
-        return ok({ status: pr.status }); // Idempotent no-op
+    try {
+      const stored = await this.deps.repo.findByEscrowId(input.escrowId);
+      if (!stored) {
+        return err(domainError("NOT_FOUND", `No PaymentRequest for escrow ${input.escrowId}`));
       }
-      return recRes;
-    }
+      const pr = stored.aggregate;
 
-    // Record deposit into escrow holding account in internal ledger
-    await this.deps.ledger.postBalancedJournal({
-      journalId: `dep_${input.txHash}`,
-      currency: "USDC",
-      refType: "PAYMENT_REQUEST",
-      refId: pr.id,
-      now,
-      legs: [
-        { account: "asset:escrow_usdc", debitMinor: input.amountMinor, creditMinor: 0n },
-        { account: `liability:merchant_pending:${pr.snapshot().merchantId}`, debitMinor: 0n, creditMinor: input.amountMinor },
-      ],
-    });
+      // Terminal state guard: avoid reprocessing already settled or refunded requests
+      if (pr.status === "SETTLED" || pr.status === "REFUNDED") {
+        return ok({ status: pr.status });
+      }
 
-    // Auto-refund excess on overpayment (Journey 1)
-    if (pr.status === "OVERPAID") {
-      const excess = pr.excess();
-      await this.deps.chain.refund({
-        escrowId: pr.escrowId,
-        amountMinor: excess.amountMinor,
+      const amount = Money.of(input.amountMinor, "USDC");
+      if (!amount.ok) return amount;
+
+      const now = this.deps.clock.now();
+      const recRes = pr.recordPayment({
+        txHash: input.txHash,
+        payer: input.payer,
+        amount: amount.value,
+        detectedAt: now,
       });
-      const conf = pr.confirmRefund(excess, now);
-      if (!conf.ok) return conf;
+      if (!recRes.ok) {
+        if (recRes.error.code === "DUPLICATE_PAYMENT") {
+          return ok({ status: pr.status }); // Idempotent no-op
+        }
+        return recRes;
+      }
 
+      // Record deposit into escrow holding account in internal ledger
       await this.deps.ledger.postBalancedJournal({
-        journalId: `overpay_ref_${input.txHash}`,
+        journalId: `dep_${input.txHash}`,
         currency: "USDC",
         refType: "PAYMENT_REQUEST",
         refId: pr.id,
         now,
         legs: [
-          { account: `liability:merchant_pending:${pr.snapshot().merchantId}`, debitMinor: excess.amountMinor, creditMinor: 0n },
-          { account: "asset:escrow_usdc", debitMinor: 0n, creditMinor: excess.amountMinor },
+          { account: "asset:escrow_usdc", debitMinor: input.amountMinor, creditMinor: 0n },
+          { account: `liability:merchant_pending:${pr.snapshot().merchantId}`, debitMinor: 0n, creditMinor: input.amountMinor },
         ],
       });
+
+      // Auto-refund excess on overpayment (Journey 1)
+      if (pr.status === "OVERPAID") {
+        const excess = pr.excess();
+        await this.deps.chain.refund({
+          escrowId: pr.escrowId,
+          amountMinor: excess.amountMinor,
+        });
+        const conf = pr.confirmRefund(excess, now);
+        if (!conf.ok) return conf;
+
+        await this.deps.ledger.postBalancedJournal({
+          journalId: `overpay_ref_${input.txHash}`,
+          currency: "USDC",
+          refType: "PAYMENT_REQUEST",
+          refId: pr.id,
+          now,
+          legs: [
+            { account: `liability:merchant_pending:${pr.snapshot().merchantId}`, debitMinor: excess.amountMinor, creditMinor: 0n },
+            { account: "asset:escrow_usdc", debitMinor: 0n, creditMinor: excess.amountMinor },
+          ],
+        });
+        // Save intermediate state so refund is never duplicated on retry
+        await this.deps.repo.save(pr);
+      }
+
+      // Settle to merchant when PAID
+      if (pr.status === "PAID") {
+        const merchantAccount =
+          this.deps.merchantNearAccounts.get(pr.snapshot().merchantId) ??
+          ("merchant.ledgerly.testnet" as AccountId);
+
+        // Check on-chain escrow held balance to be robust against already refunded/released states
+        const onchain = await this.deps.chain.getEscrow(pr.escrowId, true);
+        const maxAvailable = onchain ? onchain.heldMinor : pr.amount.amountMinor;
+        const releaseAmountMinor =
+          maxAvailable < pr.amount.amountMinor ? maxAvailable : pr.amount.amountMinor;
+
+        if (releaseAmountMinor > 0n) {
+          await this.deps.chain.release({
+            escrowId: pr.escrowId,
+            receiver: merchantAccount,
+            amountMinor: releaseAmountMinor,
+          });
+        }
+        const settled = pr.markSettled(pr.amount, now);
+        if (!settled.ok) return settled;
+
+        await this.deps.ledger.postBalancedJournal({
+          journalId: `settle_${pr.id}`,
+          currency: "USDC",
+          refType: "PAYMENT_REQUEST",
+          refId: pr.id,
+          now,
+          legs: [
+            { account: `liability:merchant_pending:${pr.snapshot().merchantId}`, debitMinor: pr.amount.amountMinor, creditMinor: 0n },
+            { account: "asset:escrow_usdc", debitMinor: 0n, creditMinor: pr.amount.amountMinor },
+          ],
+        });
+      }
+
+      await this.deps.repo.save(pr);
+      return ok({ status: pr.status });
+    } finally {
+      this.activeDepositLocks.delete(input.escrowId);
     }
-
-    // Settle to merchant when PAID
-    if (pr.status === "PAID") {
-      const merchantAccount =
-        this.deps.merchantNearAccounts.get(pr.snapshot().merchantId) ??
-        ("merchant.ledgerly.testnet" as AccountId);
-
-      await this.deps.chain.release({
-        escrowId: pr.escrowId,
-        receiver: merchantAccount,
-        amountMinor: pr.amount.amountMinor,
-      });
-      const settled = pr.markSettled(pr.amount, now);
-      if (!settled.ok) return settled;
-
-      await this.deps.ledger.postBalancedJournal({
-        journalId: `settle_${pr.id}`,
-        currency: "USDC",
-        refType: "PAYMENT_REQUEST",
-        refId: pr.id,
-        now,
-        legs: [
-          { account: `liability:merchant_pending:${pr.snapshot().merchantId}`, debitMinor: pr.amount.amountMinor, creditMinor: 0n },
-          { account: "asset:escrow_usdc", debitMinor: 0n, creditMinor: pr.amount.amountMinor },
-        ],
-      });
-    }
-
-    await this.deps.repo.save(pr);
-    return ok({ status: pr.status });
   }
 
   /**

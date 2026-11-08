@@ -46,15 +46,20 @@ export function getWorkerHeartbeatAgesMs(): Record<keyof WorkerHeartbeats, numbe
   };
 }
 
-export function startBackgroundWorkers(rt: LedgerlyRuntime): void {
+export function startBackgroundWorkers(
+  rt: LedgerlyRuntime,
+  opts?: { disabled?: boolean },
+): void {
   // Guard against double-start under Next.js development HMR or concurrent module evaluation
   if (globalForWorkers.__ledgerlyWorkersStarted) {
     return;
   }
 
-  // Do not run background intervals during vitest / unit test runs unless explicitly invoked
+  // Do not run background intervals during vitest / unit test runs or when explicitly disabled
   const isTest = process.env.VITEST === "true" || process.env.NODE_ENV === "test";
-  if (isTest && !process.env.FORCE_WORKER_INTERVALS) {
+  const isDisabled =
+    process.env.LEDGERLY_DISABLE_BACKGROUND_WORKERS === "true" || opts?.disabled === true;
+  if ((isTest || isDisabled) && !process.env.FORCE_WORKER_INTERVALS) {
     return;
   }
 

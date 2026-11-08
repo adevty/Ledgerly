@@ -23,7 +23,9 @@ import type { RemittanceUseCases } from "@/modules/remittance/application/use-ca
  */
 export class ChainIndexerWorker {
   private cursorBlockHeight = 0n;
+  private isRunning = false;
   private readonly processedEventIds = new Set<string>();
+  private readonly inFlightEventIds = new Set<string>();
 
   constructor(
     private readonly deps: {
@@ -41,28 +43,43 @@ export class ChainIndexerWorker {
   }
 
   async runOnce(): Promise<{ processedCount: number; latestBlockHeight: bigint }> {
-    const { events, latestBlockHeight } = await this.deps.chain.pollEvents(this.cursorBlockHeight);
-    let processedCount = 0;
+    if (this.isRunning) {
+      return { processedCount: 0, latestBlockHeight: this.cursorBlockHeight };
+    }
+    this.isRunning = true;
 
-    for (const ev of events) {
-      const dedupKey = `${ev.txHash}:${ev.logIndex}`;
-      if (this.processedEventIds.has(dedupKey)) {
-        continue;
+    try {
+      const { events, latestBlockHeight } = await this.deps.chain.pollEvents(this.cursorBlockHeight);
+      let processedCount = 0;
+
+      for (const ev of events) {
+        const dedupKey = `${ev.txHash}:${ev.logIndex}`;
+        if (this.processedEventIds.has(dedupKey) || this.inFlightEventIds.has(dedupKey)) {
+          continue;
+        }
+
+        this.inFlightEventIds.add(dedupKey);
+        try {
+          await this.dispatchEvent(ev);
+          this.processedEventIds.add(dedupKey);
+        } finally {
+          this.inFlightEventIds.delete(dedupKey);
+        }
+
+        processedCount += 1;
+        if (ev.blockHeight > this.cursorBlockHeight) {
+          this.cursorBlockHeight = ev.blockHeight;
+        }
       }
 
-      await this.dispatchEvent(ev);
-      this.processedEventIds.add(dedupKey);
-      processedCount += 1;
-      if (ev.blockHeight > this.cursorBlockHeight) {
-        this.cursorBlockHeight = ev.blockHeight;
+      if (processedCount > 0 && latestBlockHeight > this.cursorBlockHeight) {
+        this.cursorBlockHeight = latestBlockHeight;
       }
-    }
 
-    if (processedCount > 0 && latestBlockHeight > this.cursorBlockHeight) {
-      this.cursorBlockHeight = latestBlockHeight;
+      return { processedCount, latestBlockHeight: this.cursorBlockHeight };
+    } finally {
+      this.isRunning = false;
     }
-
-    return { processedCount, latestBlockHeight: this.cursorBlockHeight };
   }
 
   private async dispatchEvent(ev: OnchainEvent): Promise<void> {
