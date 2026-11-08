@@ -5,6 +5,7 @@ import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { RoundedBox } from "@react-three/drei";
 import { SEED_DISPLAY_VALUES, SEED_INVOICES, SEED_OPEN_ESCROW_USDC } from "@/lib/seed-data";
+import type { DashboardState } from "@/app/app/_context";
 
 interface ResolvedScenePalette {
   canvasBg: string;
@@ -130,6 +131,9 @@ function drawCopyGlyph(
 function buildBaseDashboardTexture(
   palette: ResolvedScenePalette,
   maxAnisotropy: number,
+  settledBalance: string = SEED_DISPLAY_VALUES.settledBalanceFormatted,
+  contractId = "ledgerly-escrow-9e70f9ea.testnet",
+  orgTitle = "/  Merchant Workspace",
 ): THREE.CanvasTexture {
   const width = 1280;
   const height = 800;
@@ -185,7 +189,7 @@ function buildBaseDashboardTexture(
 
   ctx.fillStyle = palette.textMuted;
   ctx.font = `500 20px ${palette.fontSans}`;
-  ctx.fillText("/  Merchant Workspace", 200, 49);
+  ctx.fillText(orgTitle, 200, 49);
 
   // Network contract badge on right
   drawRoundedRect(ctx, 846, 20, 402, 42, 11);
@@ -202,7 +206,7 @@ function buildBaseDashboardTexture(
 
   ctx.fillStyle = palette.textSecondary;
   ctx.font = `500 18px ${palette.fontMono}`;
-  ctx.fillText("ledgerly-escrow-9e70f9ea.testnet", 888, 47);
+  ctx.fillText(contractId, 888, 47);
 
   // Sidebar column
   ctx.fillStyle = palette.surface1;
@@ -277,7 +281,7 @@ function buildBaseDashboardTexture(
 
   ctx.fillStyle = palette.textPrimary;
   ctx.font = `700 56px ${palette.fontMono}`;
-  ctx.fillText(SEED_DISPLAY_VALUES.settledBalanceFormatted, 324, 232);
+  ctx.fillText(settledBalance, 324, 232);
 
   // Verified status pill inside balance card
   drawRoundedRect(ctx, 324, 258, 366, 40, 10);
@@ -341,6 +345,13 @@ function buildInvoicesPlaneTexture(
   palette: ResolvedScenePalette,
   copied: boolean,
   maxAnisotropy: number,
+  invoices?: Array<{
+    id: string;
+    amount: string;
+    status: string;
+    settled: boolean;
+    hash: string;
+  }>,
 ): THREE.CanvasTexture {
   const width = 1080;
   const height = 430;
@@ -374,29 +385,31 @@ function buildInvoicesPlaneTexture(
   ctx.lineTo(width - 2, 78);
   ctx.stroke();
 
-  const rows = [
-    {
-      id: SEED_INVOICES[0].id,
-      amount: `${SEED_INVOICES[0].amountDecimal} USDC`,
-      status: SEED_INVOICES[0].status,
-      settled: SEED_INVOICES[0].status === "SETTLED",
-      hash: SEED_INVOICES[0].commitmentShort,
-    },
-    {
-      id: SEED_INVOICES[1].id,
-      amount: `${SEED_INVOICES[1].amountDecimal} USDC`,
-      status: SEED_INVOICES[1].status,
-      settled: SEED_INVOICES[1].status === "SETTLED",
-      hash: SEED_INVOICES[1].commitmentShort,
-    },
-    {
-      id: SEED_INVOICES[3].id,
-      amount: `${SEED_INVOICES[3].amountDecimal} USDC`,
-      status: SEED_INVOICES[3].status,
-      settled: (SEED_INVOICES[3].status as string) === "SETTLED",
-      hash: SEED_INVOICES[3].commitmentShort,
-    },
-  ];
+  const rows = invoices && invoices.length > 0
+    ? invoices.slice(0, 3)
+    : [
+        {
+          id: SEED_INVOICES[0].id,
+          amount: `${SEED_INVOICES[0].amountDecimal} USDC`,
+          status: SEED_INVOICES[0].status,
+          settled: SEED_INVOICES[0].status === "SETTLED",
+          hash: SEED_INVOICES[0].commitmentShort,
+        },
+        {
+          id: SEED_INVOICES[1].id,
+          amount: `${SEED_INVOICES[1].amountDecimal} USDC`,
+          status: SEED_INVOICES[1].status,
+          settled: SEED_INVOICES[1].status === "SETTLED",
+          hash: SEED_INVOICES[1].commitmentShort,
+        },
+        {
+          id: SEED_INVOICES[3].id,
+          amount: `${SEED_INVOICES[3].amountDecimal} USDC`,
+          status: SEED_INVOICES[3].status,
+          settled: (SEED_INVOICES[3].status as string) === "SETTLED",
+          hash: SEED_INVOICES[3].commitmentShort,
+        },
+      ];
 
   rows.forEach((row, idx) => {
     const y = 100 + idx * 104;
@@ -467,6 +480,8 @@ function buildVerificationCardTexture(
   palette: ResolvedScenePalette,
   copied: boolean,
   maxAnisotropy: number,
+  commitmentHash = "8f9c2e04a1b7d3e9520c64f8a12e7b93d501c8e4f2a690b3d71e5c84a20f41b9",
+  txHash = "4PDxv1WbzU9XQ9LAMSKAJ4iVuha9SfymWvw1pRTWuhaa",
 ): THREE.CanvasTexture {
   const width = 620;
   const height = 250;
@@ -517,9 +532,12 @@ function buildVerificationCardTexture(
   ctx.font = `500 17px ${palette.fontSans}`;
   ctx.fillText("Commitment", 48, 126);
 
+  const shortCommitment = commitmentHash
+    ? `${commitmentHash.slice(0, 6)}...${commitmentHash.slice(-4)}`
+    : "8f9c2e...41b9";
   ctx.fillStyle = palette.textPrimary;
   ctx.font = `600 20px ${palette.fontMono}`;
-  ctx.fillText("8f9c2e...41b9", 188, 127);
+  ctx.fillText(shortCommitment, 188, 127);
 
   drawRoundedRect(ctx, 456, 100, 114, 40, 10);
   ctx.fillStyle = copied ? palette.settledBg : palette.accentSubtle;
@@ -529,9 +547,12 @@ function buildVerificationCardTexture(
   ctx.fillText(copied ? "Copied" : "Copy Hash", copied ? 485 : 472, 126);
 
   // Bottom receipt metadata
+  const shortTx = txHash
+    ? `${txHash.slice(0, 6)}...${txHash.slice(-5)}`
+    : "4PDxv1...Wuhaa";
   ctx.fillStyle = palette.textSecondary;
   ctx.font = `500 17px ${palette.fontMono}`;
-  ctx.fillText("Tx 4PDxv1...Wuhaa  ·  2/2 Balanced Journal Legs", 30, 206);
+  ctx.fillText(`Tx ${shortTx}  ·  2/2 Balanced Journal Legs`, 30, 206);
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
@@ -546,6 +567,7 @@ interface LayeredPlanesProps {
   scrollProgress: number;
   copied: boolean;
   onCopyHash: () => void;
+  state?: DashboardState | null;
 }
 
 function LayeredDashboardPlanes({
@@ -554,6 +576,7 @@ function LayeredDashboardPlanes({
   scrollProgress,
   copied,
   onCopyHash,
+  state,
 }: LayeredPlanesProps) {
   const groupRef = useRef<THREE.Group>(null);
   const { gl, invalidate } = useThree();
@@ -570,17 +593,72 @@ function LayeredDashboardPlanes({
     [palette.lightAmbient],
   );
 
+  const dynamicValues = useMemo(() => {
+    const totalSettledNum = state?.paymentRequests
+      ? state.paymentRequests
+          .filter((p) => p.status === "SETTLED")
+          .reduce((sum, p) => sum + Number(p.receivedDecimal || p.amountDecimal), 0)
+      : null;
+
+    const settledBalance = totalSettledNum !== null
+      ? `${totalSettledNum.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDC`
+      : SEED_DISPLAY_VALUES.settledBalanceFormatted;
+
+    const contractId = state?.network?.escrowContractId ?? "ledgerly-escrow-9e70f9ea.testnet";
+    const orgTitle = state?.organization?.name
+      ? `/  ${state.organization.name}`
+      : "/  Merchant Workspace";
+
+    const invoices = state?.paymentRequests && state.paymentRequests.length > 0
+      ? state.paymentRequests.slice(0, 3).map((p, idx) => ({
+          id: p.id,
+          amount: `${Number(p.amountDecimal).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDC`,
+          status: p.status,
+          settled: p.status === "SETTLED" || p.status === "PAID",
+          hash: p.commitment
+            ? `${p.commitment.slice(0, 6)}...${p.commitment.slice(-4)}`
+            : (SEED_INVOICES[idx]?.commitmentShort ?? "e738c4...ab47"),
+        }))
+      : undefined;
+
+    const latestPr = state?.paymentRequests?.[0];
+    const commitmentHash = latestPr?.commitment ?? undefined;
+    const txHash = latestPr?.latestTxHash ?? undefined;
+
+    return { settledBalance, contractId, orgTitle, invoices, commitmentHash, txHash };
+  }, [state]);
+
   const baseTexture = useMemo(
-    () => buildBaseDashboardTexture(palette, maxAnisotropy),
-    [palette, maxAnisotropy],
+    () =>
+      buildBaseDashboardTexture(
+        palette,
+        maxAnisotropy,
+        dynamicValues.settledBalance,
+        dynamicValues.contractId,
+        dynamicValues.orgTitle,
+      ),
+    [palette, maxAnisotropy, dynamicValues.settledBalance, dynamicValues.contractId, dynamicValues.orgTitle],
   );
   const invoicesTexture = useMemo(
-    () => buildInvoicesPlaneTexture(palette, copied, maxAnisotropy),
-    [palette, copied, maxAnisotropy],
+    () =>
+      buildInvoicesPlaneTexture(
+        palette,
+        copied,
+        maxAnisotropy,
+        dynamicValues.invoices,
+      ),
+    [palette, copied, maxAnisotropy, dynamicValues.invoices],
   );
   const verificationTexture = useMemo(
-    () => buildVerificationCardTexture(palette, copied, maxAnisotropy),
-    [palette, copied, maxAnisotropy],
+    () =>
+      buildVerificationCardTexture(
+        palette,
+        copied,
+        maxAnisotropy,
+        dynamicValues.commitmentHash,
+        dynamicValues.txHash,
+      ),
+    [palette, copied, maxAnisotropy, dynamicValues.commitmentHash, dynamicValues.txHash],
   );
 
   useEffect(() => {
@@ -693,12 +771,14 @@ export interface LandingHeroDashboard3DProps {
   scrollProgress: number;
   copied: boolean;
   onCopyHash: () => void;
+  state?: DashboardState | null;
 }
 
 export default function LandingHeroDashboard3D({
   scrollProgress,
   copied,
   onCopyHash,
+  state,
 }: LandingHeroDashboard3DProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const pointerRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -790,6 +870,7 @@ export default function LandingHeroDashboard3D({
             scrollProgress={scrollProgress}
             copied={copied}
             onCopyHash={onCopyHash}
+            state={state}
           />
         </Canvas>
       )}

@@ -2,13 +2,78 @@
 
 import React from "react";
 import { SEED_DISPLAY_VALUES, SEED_INVOICES } from "@/lib/seed-data";
+import type { DashboardState } from "@/app/app/_context";
+
+export interface LandingHeroDashboardMockupProps {
+  state?: DashboardState | null;
+}
 
 /**
- * Static SVG mockup fallback of the real Ledgerly workspace dashboard.
+ * SVG mockup fallback of the real Ledgerly workspace dashboard.
  * Rendered when WebGL is unavailable or prefers-reduced-motion is enabled.
- * Consumes semantic CSS tokens exclusively — zero hardcoded color literals.
+ * Dynamically binds to live protocol state when provided.
  */
-export function LandingHeroDashboardMockup() {
+export function LandingHeroDashboardMockup({ state }: LandingHeroDashboardMockupProps = {}) {
+  const escrowContractId = state?.network?.escrowContractId ?? "ledgerly-escrow-9e70f9ea.testnet";
+  const orgName = state?.organization?.name ?? "Merchant Workspace";
+
+  const totalSettledNum = state?.paymentRequests
+    ? state.paymentRequests
+        .filter((p) => p.status === "SETTLED")
+        .reduce((sum, p) => sum + Number(p.receivedDecimal || p.amountDecimal), 0)
+    : null;
+
+  const settledBalanceFormatted = totalSettledNum !== null
+    ? `${totalSettledNum.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDC`
+    : SEED_DISPLAY_VALUES.settledBalanceFormatted;
+
+  const subtitle = state?.paymentRequests
+    ? `${state.paymentRequests.length} Active Escrow Contracts · Reconciled`
+    : SEED_DISPLAY_VALUES.subtitle;
+
+  const defaultRow1 = {
+    id: "pr_inv_8841",
+    amount: "1,450.00 USDC",
+    status: "SETTLED",
+    isGreen: true,
+    hash: "e738c4...ab47",
+  };
+  const defaultRow2 = {
+    id: SEED_INVOICES[1]?.orderRef || "INV-2026-8842",
+    amount: "1,050.00 USDC",
+    status: "SETTLED",
+    isGreen: true,
+    hash: "3a71d0...92c4",
+  };
+  const defaultRow3 = {
+    id: "INV-2026-8851",
+    amount: "420.00 USDC",
+    status: "OPEN",
+    isGreen: false,
+    hash: "7f4c91...19a2",
+  };
+
+  const parsedRows = state?.paymentRequests && state.paymentRequests.length > 0
+    ? state.paymentRequests.slice(0, 3).map((p, idx) => {
+        const isSettled = p.status === "SETTLED";
+        const isPaid = p.status === "PAID";
+        const isGreen = isSettled || isPaid;
+        const hash = p.commitment
+          ? `${p.commitment.slice(0, 6)}...${p.commitment.slice(-4)}`
+          : (SEED_INVOICES[idx]?.commitmentShort ?? "e738c4...ab47");
+        return {
+          id: p.id,
+          amount: `${Number(p.amountDecimal).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDC`,
+          status: p.status,
+          isGreen,
+          hash,
+        };
+      })
+    : [];
+
+  const row1 = parsedRows[0] ?? defaultRow1;
+  const row2 = parsedRows[1] ?? defaultRow2;
+  const row3 = parsedRows[2] ?? defaultRow3;
   return (
     <div
       style={{
@@ -109,7 +174,7 @@ export function LandingHeroDashboardMockup() {
             fontSize="10.5"
             fontWeight="500"
           >
-            ledgerly-escrow-9e70f9ea.testnet
+            {escrowContractId}
           </text>
 
           {/* Left Sidebar */}
@@ -193,7 +258,7 @@ export function LandingHeroDashboardMockup() {
             fontSize="30"
             fontWeight="700"
           >
-            {SEED_DISPLAY_VALUES.settledBalanceFormatted}
+            {settledBalanceFormatted}
           </text>
           <text
             x="208"
@@ -203,7 +268,7 @@ export function LandingHeroDashboardMockup() {
             fontSize="11.5"
             fontWeight="600"
           >
-            {SEED_DISPLAY_VALUES.subtitle}
+            {subtitle}
           </text>
 
           {/* Action CTA in Mockup */}
@@ -282,7 +347,7 @@ export function LandingHeroDashboardMockup() {
               fontSize="12.5"
               fontWeight="600"
             >
-              pr_inv_8841
+              {row1.id}
             </text>
             <text
               x="164"
@@ -292,29 +357,29 @@ export function LandingHeroDashboardMockup() {
               fontSize="12.5"
               fontWeight="700"
             >
-              1,450.00 USDC
+              {row1.amount}
             </text>
-            {/* SETTLED badge */}
+            {/* Status badge */}
             <rect
               x="300"
               y="13"
               width="78"
               height="22"
               rx="6"
-              fill="var(--status-settled-bg)"
-              stroke="var(--status-settled-border)"
+              fill={row1.isGreen ? "var(--status-settled-bg)" : "var(--status-pending-bg)"}
+              stroke={row1.isGreen ? "var(--status-settled-border)" : "var(--status-pending-border)"}
               strokeWidth="1"
             />
-            <circle cx="313" cy="24" r="3" fill="var(--status-settled-fg)" />
+            <circle cx="313" cy="24" r="3" fill={row1.isGreen ? "var(--status-settled-fg)" : "var(--status-pending-fg)"} />
             <text
               x="323"
               y="28"
-              fill="var(--status-settled-fg)"
+              fill={row1.isGreen ? "var(--status-settled-fg)" : "var(--status-pending-fg)"}
               fontFamily="var(--font-family-sans)"
               fontSize="10.5"
               fontWeight="650"
             >
-              SETTLED
+              {row1.status}
             </text>
             {/* Short hash + copy */}
             <rect
@@ -334,7 +399,7 @@ export function LandingHeroDashboardMockup() {
               fontFamily="var(--font-family-mono)"
               fontSize="11"
             >
-              e738c4...ab47
+              {row1.hash}
             </text>
             <rect
               x="573"
@@ -374,7 +439,7 @@ export function LandingHeroDashboardMockup() {
               fontSize="12.5"
               fontWeight="600"
             >
-              {SEED_INVOICES[1].orderRef}
+              {row2.id}
             </text>
             <text
               x="164"
@@ -384,7 +449,7 @@ export function LandingHeroDashboardMockup() {
               fontSize="12.5"
               fontWeight="700"
             >
-              {`${SEED_INVOICES[1].amountDecimal} USDC`}
+              {row2.amount}
             </text>
             <rect
               x="300"
@@ -392,20 +457,20 @@ export function LandingHeroDashboardMockup() {
               width="78"
               height="22"
               rx="6"
-              fill="var(--status-settled-bg)"
-              stroke="var(--status-settled-border)"
+              fill={row2.isGreen ? "var(--status-settled-bg)" : "var(--status-pending-bg)"}
+              stroke={row2.isGreen ? "var(--status-settled-border)" : "var(--status-pending-border)"}
               strokeWidth="1"
             />
-            <circle cx="313" cy="24" r="3" fill="var(--status-settled-fg)" />
+            <circle cx="313" cy="24" r="3" fill={row2.isGreen ? "var(--status-settled-fg)" : "var(--status-pending-fg)"} />
             <text
               x="323"
               y="28"
-              fill="var(--status-settled-fg)"
+              fill={row2.isGreen ? "var(--status-settled-fg)" : "var(--status-pending-fg)"}
               fontFamily="var(--font-family-sans)"
               fontSize="10.5"
               fontWeight="650"
             >
-              SETTLED
+              {row2.status}
             </text>
             <rect
               x="448"
@@ -424,7 +489,7 @@ export function LandingHeroDashboardMockup() {
               fontFamily="var(--font-family-mono)"
               fontSize="11"
             >
-              3a71d0...92c4
+              {row2.hash}
             </text>
             <rect
               x="573"
@@ -464,7 +529,7 @@ export function LandingHeroDashboardMockup() {
               fontSize="12.5"
               fontWeight="600"
             >
-              INV-2026-8851
+              {row3.id}
             </text>
             <text
               x="164"
@@ -474,7 +539,7 @@ export function LandingHeroDashboardMockup() {
               fontSize="12.5"
               fontWeight="700"
             >
-              420.00 USDC
+              {row3.amount}
             </text>
             <rect
               x="300"
@@ -482,20 +547,20 @@ export function LandingHeroDashboardMockup() {
               width="66"
               height="22"
               rx="6"
-              fill="var(--status-pending-bg)"
-              stroke="var(--status-pending-border)"
+              fill={row3.isGreen ? "var(--status-settled-bg)" : "var(--status-pending-bg)"}
+              stroke={row3.isGreen ? "var(--status-settled-border)" : "var(--status-pending-border)"}
               strokeWidth="1"
             />
-            <circle cx="313" cy="24" r="3" fill="var(--status-pending-fg)" />
+            <circle cx="313" cy="24" r="3" fill={row3.isGreen ? "var(--status-settled-fg)" : "var(--status-pending-fg)"} />
             <text
               x="323"
               y="28"
-              fill="var(--status-pending-fg)"
+              fill={row3.isGreen ? "var(--status-settled-fg)" : "var(--status-pending-fg)"}
               fontFamily="var(--font-family-sans)"
               fontSize="10.5"
               fontWeight="650"
             >
-              OPEN
+              {row3.status}
             </text>
             <rect
               x="448"
@@ -514,7 +579,7 @@ export function LandingHeroDashboardMockup() {
               fontFamily="var(--font-family-mono)"
               fontSize="11"
             >
-              c419b8...07e2
+              {row3.hash}
             </text>
             <rect
               x="573"

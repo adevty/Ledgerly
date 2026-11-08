@@ -19,6 +19,7 @@ import {
 import { CryptoTokenIcon } from "./components/CryptoTokenIcon";
 import { HashBadge } from "./components/HashBadge";
 import { LandingHeroDashboardMockup } from "./components/LandingHeroDashboardMockup";
+import type { DashboardState } from "./app/_context";
 
 const LandingHeroDashboard3D = dynamic(() => import("./components/LandingHeroDashboard3D"), {
   ssr: false,
@@ -76,11 +77,63 @@ export default function LandingPage() {
   const [scrollProgress, setScrollProgress] = useState(0);
   const [copiedHeroHash, setCopiedHeroHash] = useState(false);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [protocolState, setProtocolState] = useState<DashboardState | null>(null);
 
   const { scrollYProgress } = useScroll({
     target: heroRef,
     offset: ["start start", "end start"],
   });
+
+  useEffect(() => {
+    let mounted = true;
+    const fetchState = async () => {
+      try {
+        const res = await fetch("/api/v1/state", { cache: "no-store" });
+        if (!res.ok) return;
+        const data = (await res.json()) as DashboardState;
+        if (mounted) {
+          setProtocolState(data);
+        }
+      } catch {
+        // silent fallback
+      }
+    };
+
+    void fetchState();
+    const interval = setInterval(fetchState, 5000);
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
+  }, []);
+
+  const escrowContractId = protocolState?.network?.escrowContractId || ESCROW_CONTRACT_ID;
+  const explorerBaseUrl = protocolState?.network?.explorerBaseUrl || "https://testnet.nearblocks.io";
+  const orgName = protocolState?.organization?.name || "Atelier Sari Global Ltd.";
+
+  const paymentRequests = protocolState?.paymentRequests;
+  const totalInvoicesCount = paymentRequests?.length ?? 4;
+  const settledInvoicesCount = paymentRequests
+    ? paymentRequests.filter((p) => p.status === "SETTLED").length
+    : 3;
+  const hasPendingInvoices = paymentRequests
+    ? paymentRequests.some((p) => p.status === "OPEN" || p.status === "PARTIALLY_PAID")
+    : false;
+
+  const statusLabel = hasPendingInvoices
+    ? `${settledInvoicesCount}/${totalInvoicesCount} SETTLED`
+    : "SETTLED";
+  const statusPillClass = hasPendingInvoices ? "status-pill-amber" : "status-pill-emerald";
+
+  const totalSettledUsdc = paymentRequests
+    ? paymentRequests
+        .filter((p) => p.status === "SETTLED")
+        .reduce((acc, p) => acc + Number(p.receivedDecimal || p.amountDecimal), 0)
+        .toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : "4,390.00";
+
+  const activeCommitmentHash =
+    paymentRequests?.[0]?.commitment || DEMO_COMMITMENT_HASH;
 
   useEffect(() => {
     setWebglReady(detectWebGLSupport());
@@ -110,13 +163,13 @@ export default function LandingPage() {
 
   const handleCopyHeroHash = useCallback(async () => {
     try {
-      await navigator.clipboard.writeText(DEMO_COMMITMENT_HASH);
+      await navigator.clipboard.writeText(activeCommitmentHash);
       setCopiedHeroHash(true);
       window.setTimeout(() => setCopiedHeroHash(false), 1800);
     } catch {
       // clipboard unavailable
     }
-  }, []);
+  }, [activeCommitmentHash]);
 
   const show3DStage = webglReady === true && !prefersReducedMotion;
 
@@ -212,7 +265,13 @@ export default function LandingPage() {
                   style={{ color: "var(--status-settled-fg)" }}
                   aria-hidden="true"
                 />
-                <span>Live on NEAR Testnet · NEP-141 USDC &amp; 1Click Intents</span>
+                <span>
+                  {protocolState?.network?.mode === "NEAR_TESTNET_RPC"
+                    ? `Live on NEAR Testnet · ${protocolState.network.escrowContractId}`
+                    : protocolState?.network?.mode === "LOCAL_SANDBOX_SIMULATION"
+                      ? "Sandbox Simulation Active · NEP-141 USDC & 1Click Intents"
+                      : "Live on NEAR Testnet · NEP-141 USDC & 1Click Intents"}
+                </span>
               </div>
 
               <h1 className="lp-hero-title">
@@ -256,32 +315,128 @@ export default function LandingPage() {
             {/* Layered 3D Dashboard Preview (or Static Mockup Fallback) */}
             <div className="lp-hero-stage-card">
               <div className="lp-hero-stage-topbar">
-                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                  <span className="status-pill status-pill-emerald">
+                <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap" }}>
+                  <span className={`status-pill ${statusPillClass}`}>
                     <span className="status-pill-dot" aria-hidden="true" />
-                    <span>SETTLED</span>
+                    <span>{statusLabel}</span>
                   </span>
                   <span
                     style={{
-                      fontSize: "0.8rem",
+                      fontSize: "0.82rem",
                       fontWeight: 600,
                       color: "var(--text-primary)",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "0.35rem",
                     }}
                   >
-                    Ledgerly Workspace
+                    <span>Ledgerly Workspace</span>
+                    <span style={{ color: "var(--text-muted)", fontSize: "0.75rem" }}>·</span>
+                    <span style={{ color: "var(--text-secondary)", fontSize: "0.78rem", fontWeight: 500 }}>
+                      {orgName}
+                    </span>
                   </span>
                 </div>
 
-                <span
-                  className="tabular-nums"
-                  style={{
-                    fontFamily: "var(--font-family-mono)",
-                    fontSize: "0.75rem",
-                    color: "var(--text-muted)",
-                  }}
-                >
-                  {ESCROW_CONTRACT_ID}
-                </span>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                  {protocolState?.network?.mode && (
+                    <span
+                      style={{
+                        fontSize: "0.72rem",
+                        fontWeight: 600,
+                        padding: "0.15rem 0.45rem",
+                        borderRadius: "var(--primitive-radius-xs)",
+                        backgroundColor:
+                          protocolState.network.mode === "NEAR_TESTNET_RPC"
+                            ? "var(--status-settled-bg)"
+                            : "var(--surface-2)",
+                        color:
+                          protocolState.network.mode === "NEAR_TESTNET_RPC"
+                            ? "var(--status-settled-fg)"
+                            : "var(--text-muted)",
+                        border: "1px solid var(--border-subtle)",
+                      }}
+                    >
+                      {protocolState.network.mode === "NEAR_TESTNET_RPC" ? "TESTNET LIVE" : "SANDBOX"}
+                    </span>
+                  )}
+
+                  <a
+                    href={`${explorerBaseUrl}/address/${escrowContractId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="tabular-nums"
+                    style={{
+                      fontFamily: "var(--font-family-mono)",
+                      fontSize: "0.75rem",
+                      color: "var(--text-muted)",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "0.25rem",
+                      textDecoration: "none",
+                    }}
+                    title="View Escrow on NEAR Explorer"
+                  >
+                    <span>{escrowContractId}</span>
+                    <ArrowUpRight className="w-3 h-3 shrink-0" aria-hidden="true" />
+                  </a>
+                </div>
+              </div>
+
+              {/* Dynamic Protocol Metrics Sub-strip */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  flexWrap: "wrap",
+                  gap: "0.5rem",
+                  padding: "0.45rem 1rem",
+                  backgroundColor: "var(--surface-2)",
+                  borderBottom: "1px solid var(--border-subtle)",
+                  fontSize: "0.75rem",
+                  color: "var(--text-muted)",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
+                  <span>
+                    <strong style={{ color: "var(--text-primary)", fontWeight: 600 }}>
+                      {totalSettledUsdc} USDC
+                    </strong>{" "}
+                    Settled Treasury
+                  </span>
+                  <span>·</span>
+                  <span>
+                    <strong style={{ color: "var(--text-primary)", fontWeight: 600 }}>
+                      {totalInvoicesCount}
+                    </strong>{" "}
+                    Invoices
+                  </span>
+                </div>
+
+                <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
+                    <span
+                      style={{
+                        width: "6px",
+                        height: "6px",
+                        borderRadius: "50%",
+                        backgroundColor:
+                          protocolState?.audit?.chainValid !== false
+                            ? "var(--status-settled-fg)"
+                            : "var(--status-amber-fg)",
+                      }}
+                    />
+                    <span>
+                      Audit Chain: {protocolState?.audit?.chainValid !== false ? "Valid" : "Pending"} (
+                      {protocolState?.audit?.anchoredRootsCount ?? 1} Anchored)
+                    </span>
+                  </span>
+                  <span>·</span>
+                  <span style={{ color: "var(--status-settled-fg)", fontWeight: 500 }}>
+                    Double-Entry Balanced
+                  </span>
+                </div>
               </div>
 
               <div className="lp-hero-stage-viewport">
@@ -290,9 +445,10 @@ export default function LandingPage() {
                     scrollProgress={scrollProgress}
                     copied={copiedHeroHash}
                     onCopyHash={handleCopyHeroHash}
+                    state={protocolState}
                   />
                 ) : (
-                  <LandingHeroDashboardMockup />
+                  <LandingHeroDashboardMockup state={protocolState} />
                 )}
               </div>
             </div>
@@ -497,7 +653,7 @@ export default function LandingPage() {
                       On-chain SHA-256 commitment
                     </span>
                     <HashBadge
-                      value={DEMO_COMMITMENT_HASH}
+                      value={activeCommitmentHash}
                       href={`https://testnet.nearblocks.io/txns/8Zk7wGRQFhWUwR6Lv54adty52yVdfxbT1yZHuzmu4NQK`}
                     />
                   </div>
