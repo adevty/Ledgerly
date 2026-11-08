@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "description": "Confidential, audit-ready merchant payments & remittance on NEAR",
+  "engines": {
+    "node": ">=22.13.0"
+  },
   "type": "module",
   "scripts": {
     "dev": "next dev",

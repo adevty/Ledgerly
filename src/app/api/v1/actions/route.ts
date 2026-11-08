@@ -21,12 +21,104 @@ import {
   resetRuntime,
 } from "@/app/api/_runtime";
 
+const ipRateLimits = new Map<string, { count: number; windowStart: number }>();
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const MAX_REQUESTS_PER_WINDOW = 30;
+
+function checkIpRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const entry = ipRateLimits.get(ip);
+  if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
+    ipRateLimits.set(ip, { count: 1, windowStart: now });
+    return true;
+  }
+  if (entry.count >= MAX_REQUESTS_PER_WINDOW) {
+    return false;
+  }
+  entry.count++;
+  return true;
+}
+
+const SIMULATION_ACTIONS = new Set([
+  "SIMULATE_BUYER_DEPOSIT",
+  "FAUCET_USDC",
+  "AUTO_RECONCILE_DISCREPANCIES",
+  "MANUAL_RECONCILE",
+  "RETRY_FAILED_SETTLEMENTS",
+]);
+
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as Record<string, unknown>;
     const action = String(body.action ?? "");
 
+    // 1. IP-based rate limiting
+    const clientIp =
+      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      request.headers.get("x-real-ip") ||
+      "127.0.0.1";
+
+    if (!checkIpRateLimit(clientIp)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: {
+            code: "RATE_LIMIT_EXCEEDED",
+            message: "Rate limit exceeded (max 30 requests/min). Please try again shortly.",
+          },
+        },
+        { status: 429 },
+      );
+    }
+
+    // 2. DEMO_MODE guard for simulation actions on public/production hosts
+    const isProduction = process.env.NODE_ENV === "production";
+    const isDemoMode = process.env.DEMO_MODE === "true";
+
+    if (isProduction && !isDemoMode && SIMULATION_ACTIONS.has(action)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: {
+            code: "DEMO_MODE_DISABLED",
+            message: `Simulation action '${action}' is disabled on public hosts unless DEMO_MODE=true.`,
+          },
+        },
+        { status: 403 },
+      );
+    }
+
+    // 3. State reset protection with DEMO_ADMIN_TOKEN header
     if (action === "RESET_DEV_STATE") {
+      const adminToken = process.env.DEMO_ADMIN_TOKEN;
+      const authHeader = request.headers.get("x-demo-admin-token");
+
+      if (adminToken && authHeader !== adminToken) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: {
+              code: "UNAUTHORIZED_RESET",
+              message: "State reset requires a valid x-demo-admin-token header matching DEMO_ADMIN_TOKEN.",
+            },
+          },
+          { status: 401 },
+        );
+      }
+
+      if (isProduction && !adminToken) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: {
+              code: "RESET_DISABLED",
+              message: "State reset is disabled in production without DEMO_ADMIN_TOKEN configured.",
+            },
+          },
+          { status: 403 },
+        );
+      }
+
       resetRuntime();
       return NextResponse.json({ ok: true, message: "Runtime cache reset" });
     }

@@ -396,10 +396,20 @@ export function runMigrations(db: DatabaseSync): number {
   return currentVersion;
 }
 
+export function assertNodeSqliteSupport(): void {
+  const [major, minor] = process.versions.node.split(".").map(Number);
+  if ((major ?? 0) < 22 || ((major ?? 0) === 22 && (minor ?? 0) < 13)) {
+    throw new Error(
+      `[Ledgerly] Incompatible Node.js runtime: ${process.version}. Ledgerly requires Node.js >= 22.13.0 (Node 24 recommended) with built-in 'node:sqlite' database engine support.`,
+    );
+  }
+}
+
 /**
  * Open or initialize the SQLite database using Node's built-in `node:sqlite`.
  */
 export function openLedgerlySqliteDb(dbPath?: string): DatabaseSync {
+  assertNodeSqliteSupport();
   const target =
     dbPath ??
     process.env.LEDGERLY_DB_PATH ??

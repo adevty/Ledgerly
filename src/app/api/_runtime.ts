@@ -39,6 +39,7 @@ import {
   ExpiryWorker,
   ReconciliationWorker,
   SettlementWorker,
+  startBackgroundWorkers,
 } from "@/workers";
 import { seedLedgerlyDataset } from "@/lib/seeder";
 
@@ -122,7 +123,28 @@ async function createSeededRuntime(): Promise<LedgerlyRuntime> {
   const explorerBaseUrl =
     process.env.NEAR_EXPLORER_BASE_URL ?? "https://testnet.nearblocks.io";
 
-  const useLiveNearRpc = Boolean(operatorAccountId && operatorPrivateKey);
+  const forceSandbox =
+    process.env.LEDGERLY_NETWORK_MODE === "sandbox" ||
+    process.env.LEDGERLY_FORCE_SANDBOX === "true" ||
+    process.env.LOCAL_SANDBOX_SIMULATION === "true";
+  const explicitlyTestnet =
+    process.env.LEDGERLY_NETWORK_MODE === "testnet" ||
+    process.env.LEDGERLY_NETWORK_MODE === "NEAR_TESTNET_RPC";
+  const isHosted = Boolean(
+    process.env.FLY_APP_NAME ||
+      process.env.RAILWAY_ENVIRONMENT ||
+      process.env.VERCEL ||
+      process.env.NODE_ENV === "production",
+  );
+
+  // In hosted mode, default mode is strictly SANDBOX.
+  // NEAR testnet mode on a public host only runs when explicitly configured
+  // with LEDGERLY_NETWORK_MODE=testnet AND operator credentials held as host secrets.
+  const useLiveNearRpc =
+    !forceSandbox &&
+    Boolean(operatorAccountId && operatorPrivateKey) &&
+    (!isHosted || explicitlyTestnet);
+
   const networkMode: "NEAR_TESTNET_RPC" | "LOCAL_SANDBOX_SIMULATION" = useLiveNearRpc
     ? "NEAR_TESTNET_RPC"
     : "LOCAL_SANDBOX_SIMULATION";
@@ -288,6 +310,7 @@ async function createSeededRuntime(): Promise<LedgerlyRuntime> {
     }
   }
 
+  startBackgroundWorkers(runtimeInstance);
   return runtimeInstance;
 }
 
