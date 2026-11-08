@@ -19,6 +19,7 @@ import {
 } from "../_context";
 import { HashBadge } from "../../components/HashBadge";
 import { CryptoTokenIcon } from "../../components/CryptoTokenIcon";
+import { validatePaymentRequestInput } from "@/lib/validation";
 
 type MerchantFilter = "ALL" | "OPEN" | "SETTLED" | "EXCEPTIONS";
 
@@ -65,11 +66,19 @@ export default function MerchantCheckoutPage() {
     );
   }, [allRequests, statusFilter]);
 
+  const validation = useMemo(() => {
+    return validatePaymentRequestInput({
+      orderRef,
+      amountDecimal: orderAmount,
+      customerEmail: customerEmail.trim() ? customerEmail : undefined,
+    });
+  }, [orderRef, orderAmount, customerEmail]);
+
   const handleCreateCheckout = async () => {
-    if (!orderRef.trim()) {
-      const msg = "Invoice reference is required to generate an escrow commitment.";
-      setInlineError({ scope: "merchant_form", code: "MISSING_INVOICE_REF", message: msg });
-      pushToast({ kind: "error", title: "Validation Error", message: msg });
+    if (!validation.valid) {
+      const firstError = Object.values(validation.errors)[0] ?? "Please fix validation errors.";
+      setInlineError({ scope: "merchant_form", code: "VALIDATION_ERROR", message: firstError });
+      pushToast({ kind: "error", title: "Validation Error", message: firstError });
       return;
     }
 
@@ -232,6 +241,11 @@ export default function MerchantCheckoutPage() {
                   placeholder="e.g. INV-2026-001"
                   disabled={busy}
                 />
+                {orderRef.trim() && validation.errors.orderRef && (
+                  <span style={{ color: "var(--status-failed-fg)", fontSize: "0.72rem", display: "block", marginTop: "0.25rem" }}>
+                    {validation.errors.orderRef}
+                  </span>
+                )}
                 <span className="field-hint">
                   Bound to idempotency key for ERP reconciliation.
                 </span>
@@ -260,6 +274,11 @@ export default function MerchantCheckoutPage() {
                   />
                   <span className="input-affix-tag">USDC</span>
                 </div>
+                {orderAmount.trim() && validation.errors.amount && (
+                  <span style={{ color: "var(--status-failed-fg)", fontSize: "0.72rem", display: "block", marginTop: "0.25rem" }}>
+                    {validation.errors.amount}
+                  </span>
+                )}
                 <span className="field-hint">
                   Overpayments auto-refund excess; partial deposits remain held in escrow.
                 </span>
@@ -297,6 +316,11 @@ export default function MerchantCheckoutPage() {
                   placeholder="treasury@client.example"
                   disabled={busy}
                 />
+                {customerEmail.trim() && validation.errors.customerEmail && (
+                  <span style={{ color: "var(--status-failed-fg)", fontSize: "0.72rem", display: "block", marginTop: "0.25rem" }}>
+                    {validation.errors.customerEmail}
+                  </span>
+                )}
                 <span className="field-hint">
                   Private off-chain; visible only to scoped view-key holders.
                 </span>
@@ -335,7 +359,7 @@ export default function MerchantCheckoutPage() {
               <button
                 type="button"
                 className="btn-primary inline-flex items-center gap-1.5 whitespace-nowrap"
-                disabled={busy}
+                disabled={busy || !validation.valid}
                 onClick={handleCreateCheckout}
               >
                 {pendingKey === "create_checkout" ? (
@@ -499,17 +523,31 @@ export default function MerchantCheckoutPage() {
                   marginBottom: "0.45rem",
                 }}
               >
-                <span
-                  className="inline-flex items-center gap-1.5"
-                  style={{
-                    fontSize: "0.76rem",
-                    color: "var(--accent-primary)",
-                    fontWeight: 600,
-                  }}
-                >
-                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                  <span>Verified on NEAR</span>
-                </span>
+                {state?.network?.mode === "NEAR_TESTNET_RPC" ? (
+                  <span
+                    className="inline-flex items-center gap-1.5"
+                    style={{
+                      fontSize: "0.76rem",
+                      color: "var(--status-settled-fg)",
+                      fontWeight: 600,
+                    }}
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                    <span>Verified on NEAR</span>
+                  </span>
+                ) : (
+                  <span
+                    className="inline-flex items-center gap-1.5"
+                    style={{
+                      fontSize: "0.76rem",
+                      color: "var(--status-pending-fg)",
+                      fontWeight: 600,
+                    }}
+                  >
+                    <span className="status-pill-dot" aria-hidden="true" />
+                    <span>Simulated (Sandbox)</span>
+                  </span>
+                )}
               </div>
 
               <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "0.75rem" }}>

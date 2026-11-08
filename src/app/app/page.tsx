@@ -540,7 +540,7 @@ export default function AppOverviewPage() {
             }}
           />
         ) : (
-          <div className="ledger-table-wrap">
+          <div className="ledger-table-wrap overflow-x-auto">
             <table className="ledger-table">
               <thead>
                 <tr>

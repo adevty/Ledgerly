@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { RoundedBox } from "@react-three/drei";
+import { SEED_DISPLAY_VALUES, SEED_INVOICES, SEED_OPEN_ESCROW_USDC } from "@/lib/seed-data";
 
 interface ResolvedScenePalette {
   canvasBg: string;
@@ -276,7 +277,7 @@ function buildBaseDashboardTexture(
 
   ctx.fillStyle = palette.textPrimary;
   ctx.font = `700 56px ${palette.fontMono}`;
-  ctx.fillText("4,390.00 USDC", 324, 232);
+  ctx.fillText(SEED_DISPLAY_VALUES.settledBalanceFormatted, 324, 232);
 
   // Verified status pill inside balance card
   drawRoundedRect(ctx, 324, 258, 366, 40, 10);
@@ -306,7 +307,7 @@ function buildBaseDashboardTexture(
   // Subtle lower metrics grid visible behind the raised foreground planes
   const kpis = [
     { label: "Today Settled", val: "1,930.00 USDC" },
-    { label: "Open Escrow", val: "420.00 USDC" },
+    { label: "Open Escrow", val: SEED_DISPLAY_VALUES.openEscrowFormatted },
     { label: "Active View Keys", val: "1 Scoped Key" },
   ];
   kpis.forEach((kpi, idx) => {
@@ -375,25 +376,25 @@ function buildInvoicesPlaneTexture(
 
   const rows = [
     {
-      id: "pr_inv_8841",
-      amount: "1,450.00 USDC",
-      status: "SETTLED",
-      settled: true,
-      hash: "e738c4...ab47",
+      id: SEED_INVOICES[0].id,
+      amount: `${SEED_INVOICES[0].amountDecimal} USDC`,
+      status: SEED_INVOICES[0].status,
+      settled: SEED_INVOICES[0].status === "SETTLED",
+      hash: SEED_INVOICES[0].commitmentShort,
     },
     {
-      id: "pr_inv_8842",
-      amount: "420.00 USDC",
-      status: "SETTLED",
-      settled: true,
-      hash: "1f7fe8...40c8",
+      id: SEED_INVOICES[1].id,
+      amount: `${SEED_INVOICES[1].amountDecimal} USDC`,
+      status: SEED_INVOICES[1].status,
+      settled: SEED_INVOICES[1].status === "SETTLED",
+      hash: SEED_INVOICES[1].commitmentShort,
     },
     {
-      id: "pr_mw6h36gh",
-      amount: "150.00 USDC",
-      status: "OPEN",
-      settled: false,
-      hash: "32c29d...73f6",
+      id: SEED_INVOICES[3].id,
+      amount: `${SEED_INVOICES[3].amountDecimal} USDC`,
+      status: SEED_INVOICES[3].status,
+      settled: (SEED_INVOICES[3].status as string) === "SETTLED",
+      hash: SEED_INVOICES[3].commitmentShort,
     },
   ];
 

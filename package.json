@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "description": "Confidential, audit-ready merchant payments & remittance on NEAR",
+  "engines": {
+    "node": ">=22.13.0"
+  },
   "type": "module",
   "scripts": {
     "dev": "next dev",
@@ -11,6 +14,12 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "demo": "tsx scripts/demo-sandbox.ts",
+    "verify:onchain": "tsx scripts/verify-onchain.ts",
+    "demo:live": "tsx scripts/demo-live.ts",
+    "db:backup": "node scripts/db-backup.mjs",
+    "seed": "tsx scripts/seed.ts",
+    "seed:reset": "tsx scripts/seed.ts --reset",
     "contract:test": "cargo test --manifest-path contracts/ledgerly-escrow/Cargo.toml --lib",
     "contract:check": "cargo check --manifest-path contracts/ledgerly-escrow/Cargo.toml --target wasm32-unknown-unknown",
     "contract:build": "RUSTFLAGS='-C target-feature=-reference-types,-multivalue -C link-arg=-s' cargo build --manifest-path contracts/ledgerly-escrow/Cargo.toml --target wasm32-unknown-unknown --release",

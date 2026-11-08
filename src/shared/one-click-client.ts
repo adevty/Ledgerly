@@ -16,6 +16,9 @@ export interface OneClickToken {
 
 export interface OneClickQuoteResult {
   readonly ok: boolean;
+  readonly state: "available" | "unavailable";
+  readonly source: "live" | "oracle-fallback";
+  readonly asOf: string;
   readonly depositAddress?: string;
   readonly amountIn: string;
   readonly amountInFormatted: string;
@@ -28,6 +31,11 @@ export interface OneClickQuoteResult {
   readonly timeEstimateSeconds: number;
   readonly deadlineIso?: string;
   readonly correlationId: string;
+  readonly feePercent?: number;
+  readonly feeBps?: number;
+  readonly feeSource?: "quote" | "documented-default";
+  readonly feeLabel?: string;
+  readonly appFees?: ReadonlyArray<{ recipient: string; fee: number }>;
   readonly error?: string;
 }
 
@@ -137,42 +145,36 @@ const FALLBACK_SPOT_PRICES: Record<
   },
 };
 
-function deriveFallbackDepositAddress(blockchain: string, seed: string): string {
-  // Simple FNV-1a stream to produce a deterministic chain-formatted intent deposit address
-  const nextHex = (salt: number, len: number): string => {
-    let out = "";
-    let h = (0x811c9dc5 ^ salt) >>> 0;
-    for (let i = 0; out.length < len; i++) {
-      const ch = seed.charCodeAt(i % seed.length) ^ ((i * 31 + salt) & 0xff);
-      h ^= ch;
-      h = Math.imul(h, 0x01000193) >>> 0;
-      out += h.toString(16).padStart(8, "0");
-    }
-    return out.slice(0, len);
-  };
+/**
+ * Validates a blockchain address format for safety prior to rendering.
+ * Rejects malformed addresses or unexpected string shapes.
+ */
+export function isValidChainAddress(blockchain: string, address?: string): boolean {
+  if (!address || typeof address !== "string") return false;
+  const trimmed = address.trim();
+  switch (blockchain.toLowerCase()) {
+    case "eth":
+    case "base":
+    case "arb":
+      return /^0x[a-fA-F0-9]{40}$/.test(trimmed);
+    case "sol":
+      return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(trimmed);
+    case "btc":
+      return /^(bc1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{25,90}|[13][a-km-zA-HJ-NP-Z1-9]{25,34})$/i.test(trimmed);
+    case "near":
+      return /^(([a-z0-9_-]+\.)*[a-z0-9_-]+|[0-9a-fA-F]{64})$/.test(trimmed);
+    default:
+      return trimmed.length >= 20 && trimmed.length <= 100 && !/\s/.test(trimmed);
+  }
+}
 
-  if (blockchain === "eth" || blockchain === "base" || blockchain === "arb") {
-    return `0x${nextHex(17, 40)}`;
-  }
-  if (blockchain === "btc") {
-    const bech32Alphabet = "qpzry9x8gf2tvdw0s3jn54khce6mua7l";
-    const hex = nextHex(29, 38);
-    let body = "";
-    for (let i = 0; i < 38; i++) {
-      const idx = parseInt(hex[i]!, 16) % bech32Alphabet.length;
-      body += bech32Alphabet[idx];
-    }
-    return `bc1q${body}`;
-  }
-  // Default Solana base58-style 44-char address
-  const base58Alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
-  const hex = nextHex(43, 88);
-  let out = "";
-  for (let i = 0; i < 44; i++) {
-    const byte = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
-    out += base58Alphabet[byte % base58Alphabet.length];
-  }
-  return out;
+/**
+ * Checks if a quote deadline has expired.
+ */
+export function isQuoteExpired(deadlineIso?: string, nowMs = Date.now()): boolean {
+  if (!deadlineIso) return false;
+  const deadline = new Date(deadlineIso).getTime();
+  return Number.isFinite(deadline) && nowMs >= deadline;
 }
 
 export class OneClickClient {
@@ -230,15 +232,19 @@ export class OneClickClient {
     originAsset: string;
     targetUsdcAmountDecimal: string;
     recipientNearAccount: string;
-    dry: boolean;
     usdcMinor: string;
     deadlineIso: string;
     tokenPrices: Map<string, CachedTokenMeta>;
+    reason?: string;
   }): OneClickQuoteResult {
     const targetUsdc = Number(params.targetUsdcAmountDecimal);
     if (!Number.isFinite(targetUsdc) || targetUsdc <= 0) {
       return {
         ok: false,
+        state: "unavailable",
+        source: "oracle-fallback",
+        asOf: new Date().toISOString(),
+        depositAddress: undefined,
         amountIn: "0",
         amountInFormatted: "0",
         amountInUsd: "0",
@@ -246,6 +252,10 @@ export class OneClickClient {
         amountOutFormatted: params.targetUsdcAmountDecimal,
         timeEstimateSeconds: 20,
         correlationId: "",
+        feePercent: 0.2,
+        feeBps: 20,
+        feeSource: "documented-default",
+        feeLabel: "~0.2% (estimate)",
         error: "Invalid target USDC amount",
       };
     }
@@ -257,8 +267,6 @@ export class OneClickClient {
     const spotPrice = liveToken?.price ?? staticFallback?.price ?? 1.0;
     const decimals =
       liveToken?.decimals ?? staticFallback?.decimals ?? popularAsset?.decimals ?? 6;
-    const blockchain =
-      liveToken?.blockchain ?? staticFallback?.blockchain ?? popularAsset?.blockchain ?? "sol";
     const isStable = Math.abs(spotPrice - 1.0) < 0.03;
     // 0.05% spread for stablecoin bridges, 0.30% solver spread for volatile assets
     const spreadMultiplier = isStable ? 1.0005 : 1.003;
@@ -273,16 +281,12 @@ export class OneClickClient {
     const formatDecimals = isStable ? 2 : Math.min(decimals, 6);
     const amountInFormatted = amountInNum.toFixed(formatDecimals);
 
-    const depositAddress = params.dry
-      ? undefined
-      : deriveFallbackDepositAddress(
-          blockchain,
-          `${params.originAsset}:${params.usdcMinor}:${params.recipientNearAccount}:${params.deadlineIso.slice(0, 16)}`,
-        );
-
     return {
-      ok: true,
-      depositAddress,
+      ok: false,
+      state: "unavailable",
+      source: "oracle-fallback",
+      asOf: new Date().toISOString(),
+      depositAddress: undefined,
       amountIn: amountInMinor,
       amountInFormatted,
       amountInUsd: amountInUsdNum.toFixed(2),
@@ -294,6 +298,11 @@ export class OneClickClient {
       timeEstimateSeconds: 18,
       deadlineIso: params.deadlineIso,
       correlationId: `1click-oracle-${Date.now().toString(36)}`,
+      feePercent: 0.2,
+      feeBps: 20,
+      feeSource: "documented-default",
+      feeLabel: "~0.2% (estimate)",
+      error: params.reason ?? "Solver unavailable, retry",
     };
   }
 
@@ -307,12 +316,19 @@ export class OneClickClient {
     targetUsdcAmountDecimal: string;
     recipientNearAccount: string;
     dry?: boolean;
+    confirmedLiveDisclaimer?: boolean;
+    enableLiveIntents?: boolean;
     refundToAccount?: string;
   }): Promise<OneClickQuoteResult> {
+    const isDry = params.dry !== false;
     const targetNum = Number(params.targetUsdcAmountDecimal);
     if (!Number.isFinite(targetNum) || targetNum <= 0) {
       return {
         ok: false,
+        state: "unavailable",
+        source: "oracle-fallback",
+        asOf: new Date().toISOString(),
+        depositAddress: undefined,
         amountIn: "0",
         amountInFormatted: "0",
         amountInUsd: "0",
@@ -320,15 +336,48 @@ export class OneClickClient {
         amountOutFormatted: params.targetUsdcAmountDecimal,
         timeEstimateSeconds: 20,
         correlationId: "",
+        feePercent: 0.2,
+        feeBps: 20,
+        feeSource: "documented-default",
+        feeLabel: "~0.2% (estimate)",
         error: "Target USDC amount must be greater than zero",
       };
     }
 
-    const isDry = params.dry ?? true;
     const usdcMinor = Math.round(targetNum * 1_000_000).toString();
     const deadlineIso = new Date(Date.now() + 15 * 60 * 1000).toISOString();
-    const refundTo = params.refundToAccount ?? params.recipientNearAccount;
 
+    // Check live path safety requirements
+    if (!isDry) {
+      const liveEnabled =
+        params.enableLiveIntents ??
+        (process.env.ENABLE_LIVE_INTENTS === "true" || process.env.ENABLE_LIVE_INTENTS === "1");
+      const confirmed = params.confirmedLiveDisclaimer === true;
+      if (!liveEnabled || !confirmed) {
+        return {
+          ok: false,
+          state: "unavailable",
+          source: "oracle-fallback",
+          asOf: new Date().toISOString(),
+          depositAddress: undefined,
+          amountIn: "0",
+          amountInFormatted: "0",
+          amountInUsd: "0",
+          amountOut: usdcMinor,
+          amountOutFormatted: params.targetUsdcAmountDecimal,
+          timeEstimateSeconds: 20,
+          correlationId: "",
+          feePercent: 0.2,
+          feeBps: 20,
+          feeSource: "documented-default",
+          feeLabel: "~0.2% (estimate)",
+          error:
+            "Live deposit address generation requires ENABLE_LIVE_INTENTS=true and explicit confirmation.",
+        };
+      }
+    }
+
+    const refundTo = params.refundToAccount ?? params.recipientNearAccount;
     const payload = {
       dry: isDry,
       swapType: "EXACT_OUTPUT",
@@ -361,55 +410,120 @@ export class OneClickClient {
           originAsset: params.originAsset,
           targetUsdcAmountDecimal: params.targetUsdcAmountDecimal,
           recipientNearAccount: params.recipientNearAccount,
-          dry: isDry,
           usdcMinor,
           deadlineIso,
           tokenPrices,
+          reason: "Solver unavailable, retry",
         });
       }
 
-      const body = (await res.json()) as {
+      let body: {
         quote?: {
-          amountIn: string;
-          amountInFormatted: string;
-          amountInUsd: string;
-          amountOut: string;
-          amountOutFormatted: string;
+          amountIn?: string;
+          amountInFormatted?: string;
+          amountInUsd?: string;
+          amountOut?: string;
+          amountOutFormatted?: string;
           depositAddress?: string;
           timeEstimate?: number;
           deadline?: string;
         };
+        quoteRequest?: {
+          appFees?: Array<{ recipient: string; fee: number }>;
+        };
+        timestamp?: string;
         correlationId?: string;
       };
 
-      if (!body.quote) {
+      try {
+        body = (await res.json()) as typeof body;
+      } catch {
         return this.buildOracleFallbackQuote({
           originAsset: params.originAsset,
           targetUsdcAmountDecimal: params.targetUsdcAmountDecimal,
           recipientNearAccount: params.recipientNearAccount,
-          dry: isDry,
           usdcMinor,
           deadlineIso,
           tokenPrices,
+          reason: "Solver unavailable, retry",
         });
       }
 
+      if (!body || !body.quote || !body.quote.amountIn) {
+        return this.buildOracleFallbackQuote({
+          originAsset: params.originAsset,
+          targetUsdcAmountDecimal: params.targetUsdcAmountDecimal,
+          recipientNearAccount: params.recipientNearAccount,
+          usdcMinor,
+          deadlineIso,
+          tokenPrices,
+          reason: "Solver unavailable, retry",
+        });
+      }
+
+      const popularAsset = POPULAR_ONE_CLICK_ASSETS.find((a) => a.assetId === params.originAsset);
+      const blockchain = popularAsset?.blockchain ?? "sol";
+
+      // Validate deposit address if one was returned
+      let validDepositAddress: string | undefined = undefined;
+      if (!isDry && body.quote.depositAddress) {
+        if (isValidChainAddress(blockchain, body.quote.depositAddress)) {
+          validDepositAddress = body.quote.depositAddress;
+        } else {
+          return {
+            ok: false,
+            state: "unavailable",
+            source: "live",
+            asOf: body.timestamp ?? new Date().toISOString(),
+            depositAddress: undefined,
+            amountIn: body.quote.amountIn ?? "0",
+            amountInFormatted: body.quote.amountInFormatted ?? "0",
+            amountInUsd: body.quote.amountInUsd ?? "0",
+            amountOut: body.quote.amountOut ?? usdcMinor,
+            amountOutFormatted: body.quote.amountOutFormatted ?? params.targetUsdcAmountDecimal,
+            timeEstimateSeconds: body.quote.timeEstimate ?? 20,
+            correlationId: body.correlationId ?? "",
+            feePercent: 0.2,
+            feeBps: 20,
+            feeSource: "documented-default",
+            feeLabel: "~0.2% (estimate)",
+            error: "Solver returned invalid deposit address",
+          };
+        }
+      }
+
       const tokenInfo = tokenPrices.get(params.originAsset);
+      const appFee = body.quoteRequest?.appFees?.[0];
+      const hasFee = typeof appFee?.fee === "number";
+      const feeBps = hasFee ? appFee.fee : 20;
+      const feePercent = feeBps / 100;
+      const feeSource = hasFee ? ("quote" as const) : ("documented-default" as const);
+      const feeLabel = hasFee
+        ? `${feePercent}% (${feeBps} bps)`
+        : "0.2% default solver fee (no partner key)";
 
       return {
         ok: true,
-        depositAddress: body.quote.depositAddress,
+        state: "available",
+        source: "live",
+        asOf: body.timestamp ?? new Date().toISOString(),
+        depositAddress: validDepositAddress,
         amountIn: body.quote.amountIn,
-        amountInFormatted: body.quote.amountInFormatted,
-        amountInUsd: body.quote.amountInUsd,
-        amountOut: body.quote.amountOut,
-        amountOutFormatted: body.quote.amountOutFormatted,
+        amountInFormatted: body.quote.amountInFormatted ?? "0",
+        amountInUsd: body.quote.amountInUsd ?? "0",
+        amountOut: body.quote.amountOut ?? usdcMinor,
+        amountOutFormatted: body.quote.amountOutFormatted ?? params.targetUsdcAmountDecimal,
         spotPrice: tokenInfo?.price,
         spotPriceUpdatedAt: tokenInfo?.priceUpdatedAt,
         coingeckoId: tokenInfo?.coingeckoId,
         timeEstimateSeconds: body.quote.timeEstimate ?? 20,
-        deadlineIso: body.quote.deadline,
+        deadlineIso: body.quote.deadline ?? deadlineIso,
         correlationId: body.correlationId ?? "",
+        feePercent,
+        feeBps,
+        feeSource,
+        feeLabel,
+        appFees: body.quoteRequest?.appFees,
       };
     } catch {
       const tokenPrices = await tokenPricesPromise;
@@ -417,10 +531,10 @@ export class OneClickClient {
         originAsset: params.originAsset,
         targetUsdcAmountDecimal: params.targetUsdcAmountDecimal,
         recipientNearAccount: params.recipientNearAccount,
-        dry: isDry,
         usdcMinor,
         deadlineIso,
         tokenPrices,
+        reason: "Solver unavailable, retry",
       });
     }
   }

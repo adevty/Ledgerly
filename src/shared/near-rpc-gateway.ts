@@ -702,6 +702,20 @@ export class NearRpcChainGateway implements ChainGateway {
     return { txHash };
   }
 
+  async claimRefund(escrowId: EscrowId): Promise<{ txHash: TxHash }> {
+    const { txHash } = await this.sendFunctionCall(
+      this.escrowContractId,
+      "claim_refund",
+      {
+        escrow_id: escrowId,
+      },
+      GAS_50_TGAS,
+      0n,
+    );
+    this.escrowCache.delete(escrowId);
+    return { txHash };
+  }
+
   async anchorAuditRoot(logRootHex: string): Promise<{ txHash: TxHash }> {
     const { txHash } = await this.sendFunctionCall(
       this.escrowContractId,

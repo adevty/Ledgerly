@@ -103,8 +103,17 @@ export class InMemoryPaymentRequestRepository implements PaymentRequestRepositor
     PaymentRequestId,
     { snap: ReturnType<PaymentRequest["snapshot"]>; envelope: EncryptedEnvelope; createdAt: Date }
   >();
+  private readonly orderRefs = new Set<string>();
 
   constructor(private readonly outbox: InMemoryOutbox) {}
+
+  async hasOrderRef(orgId: OrgId, orderRef: string): Promise<boolean> {
+    return this.orderRefs.has(`${orgId}:${orderRef}`);
+  }
+
+  async recordOrderRef(orgId: OrgId, orderRef: string, _id: PaymentRequestId): Promise<void> {
+    this.orderRefs.add(`${orgId}:${orderRef}`);
+  }
 
   async findById(id: PaymentRequestId): Promise<StoredPaymentRequest | null> {
     const row = this.store.get(id);
@@ -548,6 +557,10 @@ export class MockChainGateway implements ChainGateway {
       amountMinor,
     });
     return { txHash };
+  }
+
+  async claimRefund(escrowId: EscrowId): Promise<{ txHash: TxHash }> {
+    return this.simulateUserClaimRefund(escrowId);
   }
 
   async release(input: {

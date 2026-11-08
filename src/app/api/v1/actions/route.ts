@@ -21,12 +21,104 @@ import {
   resetRuntime,
 } from "@/app/api/_runtime";
 
+const ipRateLimits = new Map<string, { count: number; windowStart: number }>();
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const MAX_REQUESTS_PER_WINDOW = 30;
+
+function checkIpRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const entry = ipRateLimits.get(ip);
+  if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
+    ipRateLimits.set(ip, { count: 1, windowStart: now });
+    return true;
+  }
+  if (entry.count >= MAX_REQUESTS_PER_WINDOW) {
+    return false;
+  }
+  entry.count++;
+  return true;
+}
+
+const SIMULATION_ACTIONS = new Set([
+  "SIMULATE_BUYER_DEPOSIT",
+  "FAUCET_USDC",
+  "AUTO_RECONCILE_DISCREPANCIES",
+  "MANUAL_RECONCILE",
+  "RETRY_FAILED_SETTLEMENTS",
+]);
+
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as Record<string, unknown>;
     const action = String(body.action ?? "");
 
+    // 1. IP-based rate limiting
+    const clientIp =
+      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      request.headers.get("x-real-ip") ||
+      "127.0.0.1";
+
+    if (!checkIpRateLimit(clientIp)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: {
+            code: "RATE_LIMIT_EXCEEDED",
+            message: "Rate limit exceeded (max 30 requests/min). Please try again shortly.",
+          },
+        },
+        { status: 429 },
+      );
+    }
+
+    // 2. DEMO_MODE guard for simulation actions on public/production hosts
+    const isProduction = process.env.NODE_ENV === "production";
+    const isDemoMode = process.env.DEMO_MODE === "true";
+
+    if (isProduction && !isDemoMode && SIMULATION_ACTIONS.has(action)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: {
+            code: "DEMO_MODE_DISABLED",
+            message: `Simulation action '${action}' is disabled on public hosts unless DEMO_MODE=true.`,
+          },
+        },
+        { status: 403 },
+      );
+    }
+
+    // 3. State reset protection with DEMO_ADMIN_TOKEN header
     if (action === "RESET_DEV_STATE") {
+      const adminToken = process.env.DEMO_ADMIN_TOKEN;
+      const authHeader = request.headers.get("x-demo-admin-token");
+
+      if (adminToken && authHeader !== adminToken) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: {
+              code: "UNAUTHORIZED_RESET",
+              message: "State reset requires a valid x-demo-admin-token header matching DEMO_ADMIN_TOKEN.",
+            },
+          },
+          { status: 401 },
+        );
+      }
+
+      if (isProduction && !adminToken) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: {
+              code: "RESET_DISABLED",
+              message: "State reset is disabled in production without DEMO_ADMIN_TOKEN configured.",
+            },
+          },
+          { status: 403 },
+        );
+      }
+
       resetRuntime();
       return NextResponse.json({ ok: true, message: "Runtime cache reset" });
     }
@@ -83,25 +175,58 @@ export async function POST(request: Request) {
   }
 
   if (action === "FAUCET_USDC") {
-    const account = String(body.accountId ?? "").trim();
-    if (!/^[a-z0-9._-]+\.(testnet)$/.test(account)) {
+    const rawAccount = String(body.accountId ?? "").trim().toLowerCase();
+    const isNamedTestnet = /^[a-z0-9._-]+\.testnet$/.test(rawAccount);
+    const isImplicitTestnet = /^[0-9a-f]{64}$/.test(rawAccount);
+
+    if (!isNamedTestnet && !isImplicitTestnet) {
       return NextResponse.json(
-        { ok: false, error: { code: "INVALID_ACCOUNT", message: "A NEAR testnet account is required" } },
+        {
+          ok: false,
+          error: {
+            code: "INVALID_ACCOUNT",
+            message: "A valid NEAR testnet account (named .testnet or 64-char implicit) is required",
+          },
+        },
         { status: 400 },
       );
     }
-    if (!(rt.chain instanceof NearRpcChainGateway)) {
+
+    // In sandbox simulation mode (or when chain does not have real RPC signer), simulate faucet minting
+    if (rt.networkMode !== "NEAR_TESTNET_RPC" || !("sendFunctionCall" in rt.chain)) {
+      const txHash = `tx_faucet_sim_${Date.now()}` as TxHash;
+      return NextResponse.json({
+        ok: true,
+        txHash,
+        explorerUrl: `${rt.explorerBaseUrl}/txns/${txHash}`,
+        simulated: true,
+      });
+    }
+
+    try {
+      // Fixed 100 USDC per call; the token contract auto-registers storage for the buyer.
+      const { txHash } = await (rt.chain as NearRpcChainGateway).sendFunctionCall(
+        rt.chain.usdcContractId,
+        "faucet",
+        {
+          account_id: rawAccount,
+          amount: "100000000",
+        },
+        50_000_000_000_000n,
+      );
+      return NextResponse.json({ ok: true, txHash, explorerUrl: `${rt.explorerBaseUrl}/txns/${txHash}` });
+    } catch (err) {
       return NextResponse.json(
-        { ok: false, error: { code: "NOT_LIVE", message: "Faucet needs live NEAR testnet mode" } },
-        { status: 400 },
+        {
+          ok: false,
+          error: {
+            code: "FAUCET_TRANSACTION_FAILED",
+            message: err instanceof Error ? err.message : String(err),
+          },
+        },
+        { status: 500 },
       );
     }
-    // Fixed 100 USDC per call; the token contract auto-registers storage for the buyer.
-    const { txHash } = await rt.chain.sendFunctionCall(rt.chain.usdcContractId, "faucet", {
-      account_id: account,
-      amount: "100000000",
-    });
-    return NextResponse.json({ ok: true, txHash, explorerUrl: `${rt.explorerBaseUrl}/txns/${txHash}` });
   }
 
   if (action === "ONE_CLICK_QUOTE") {
@@ -109,6 +234,25 @@ export async function POST(request: Request) {
     const amountUsdcDecimal = String(body.amountUsdcDecimal ?? "100.00");
     const dry = body.dry !== false; // default true unless explicitly requested
     const recipientNearAccount = "atelier-sari.near";
+    const confirmedLiveDisclaimer = body.confirmedLiveDisclaimer === true;
+
+    if (!dry) {
+      const isLiveEnabled =
+        process.env.ENABLE_LIVE_INTENTS === "true" || process.env.ENABLE_LIVE_INTENTS === "1";
+      if (!isLiveEnabled || !confirmedLiveDisclaimer) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: {
+              code: "LIVE_INTENTS_UNAUTHORIZED",
+              message:
+                "Live deposit address generation requires ENABLE_LIVE_INTENTS=true and explicit user confirmation.",
+            },
+          },
+          { status: 403 },
+        );
+      }
+    }
 
     const client = new OneClickClient();
     const quote = await client.requestExactOutputQuote({
@@ -116,11 +260,20 @@ export async function POST(request: Request) {
       targetUsdcAmountDecimal: amountUsdcDecimal,
       recipientNearAccount,
       dry,
+      confirmedLiveDisclaimer,
     });
 
     if (!quote.ok) {
       return NextResponse.json(
-        { ok: false, error: { code: "ONE_CLICK_QUOTE_ERROR", message: quote.error } },
+        {
+          ok: false,
+          error: {
+            code: "ONE_CLICK_QUOTE_ERROR",
+            message: quote.error ?? "Solver unavailable, retry",
+            state: quote.state,
+          },
+          quote,
+        },
         { status: 422 },
       );
     }
@@ -310,7 +463,27 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, state: await buildDashboardSnapshot(true) });
   }
 
-  if (action === "AUTO_RECONCILE_DISCREPANCIES") {
+  if (action === "EXPORT_RECONCILIATION_CSV") {
+    await rt.disclosures.recordAuditAction(
+      DEMO_ACTOR.userId,
+      "EXPORT_RECONCILIATION_CSV",
+      `ledger_export_${Date.now()}`,
+    );
+    invalidateDashboardSnapshotCache();
+    return NextResponse.json({ ok: true, state: await buildDashboardSnapshot(true) });
+  }
+
+  if (action === "ANCHOR_AUDIT_LOG" || action === "ANCHOR_ROOT") {
+    const entry = await rt.disclosures.recordAuditAction(
+      DEMO_ACTOR.userId,
+      "MANUAL_ANCHOR",
+      rt.defaultGrantId,
+    );
+    invalidateDashboardSnapshotCache();
+    return NextResponse.json({ ok: true, entry, state: await buildDashboardSnapshot(true) });
+  }
+
+  if (action === "AUTO_RECONCILE_DISCREPANCIES" || action === "MANUAL_RECONCILE") {
     rt.offRamp.setBehavior({ mode: "SUCCESS" });
     const recon = await rt.reconciliation.runOnce();
     for (const d of recon.discrepancies) {
@@ -338,6 +511,11 @@ export async function POST(request: Request) {
       }
     }
     await rt.settlement.runOnce();
+    await rt.disclosures.recordAuditAction(
+      DEMO_ACTOR.userId,
+      "RECONCILE_DISCREPANCIES",
+      `checked_${recon.checkedCount}_discrepancies_${recon.discrepancies.length}`,
+    );
     invalidateDashboardSnapshotCache();
     return NextResponse.json({ ok: true, state: await buildDashboardSnapshot(true) });
   }
@@ -379,5 +557,6 @@ async function refreshAuditorGrant(rt: Awaited<ReturnType<typeof getRuntime>>) {
   if (res.ok) {
     rt.defaultGrantId = newGrantId;
     rt.metaStore.set("default_grant_id", newGrantId);
+    await rt.disclosures.recordAuditAction(DEMO_ACTOR.userId, "ROTATE_VIEW_KEY", newGrantId);
   }
 }

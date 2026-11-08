@@ -25,6 +25,12 @@ import {
   type PaymentRequestRepository,
   type PaymentStatus,
 } from "../domain";
+import {
+  validateInvoiceRef,
+  validateUsdcAmount,
+  validateCustomerEmail,
+  MAX_INVOICE_USDC_DECIMAL,
+} from "@/lib/validation";
 
 /**
  * Confidential business payload sealed inside `EncryptedEnvelope` for a
@@ -93,7 +99,39 @@ export class PaymentUseCases {
         expiresInSec: input.expiresInSec,
       },
       execute: async () => {
-        const amount = Money.parse(input.amountDecimal, "USDC");
+        const refValidation = validateInvoiceRef(input.orderRef);
+        if (!refValidation.valid) {
+          return err(domainError("INVALID_ORDER_REF", refValidation.error ?? "Invalid invoice reference"));
+        }
+
+        if (this.deps.repo.hasOrderRef) {
+          const exists = await this.deps.repo.hasOrderRef(input.actor.orgId, refValidation.value!);
+          if (exists) {
+            return err(
+              domainError(
+                "DUPLICATE_ORDER_REF",
+                `Invoice reference '${refValidation.value}' already exists for this merchant`,
+              ),
+            );
+          }
+        }
+
+        const amtValidation = validateUsdcAmount(input.amountDecimal, {
+          maxAmountDecimal: MAX_INVOICE_USDC_DECIMAL,
+          fieldName: "Invoice amount",
+        });
+        if (!amtValidation.valid) {
+          return err(domainError("INVALID_AMOUNT", amtValidation.error ?? "Invalid amount"));
+        }
+
+        if (input.customerEmail) {
+          const emailValidation = validateCustomerEmail(input.customerEmail, false);
+          if (!emailValidation.valid) {
+            return err(domainError("INVALID_EMAIL", emailValidation.error ?? "Invalid customer email"));
+          }
+        }
+
+        const amount = Money.of(amtValidation.value!.amountMinor, "USDC");
         if (!amount.ok) return amount;
 
         const now = this.deps.clock.now();
@@ -101,10 +139,10 @@ export class PaymentUseCases {
         const escrowId = newEscrowId();
 
         const payload: PaymentRequestConfidentialPayload = {
-          orderRef: input.orderRef,
+          orderRef: refValidation.value!,
           ...(input.description ? { description: input.description } : {}),
-          ...(input.customerEmail ? { customerEmail: input.customerEmail } : {}),
-          amountDecimal: amount.value.toDecimalString(),
+          ...(input.customerEmail ? { customerEmail: input.customerEmail.trim() } : {}),
+          amountDecimal: amtValidation.value!.decimal,
           currency: "USDC",
         };
 
@@ -131,6 +169,9 @@ export class PaymentUseCases {
         });
 
         await this.deps.repo.save(prRes.value, sealed.value, now);
+        if (this.deps.repo.recordOrderRef) {
+          await this.deps.repo.recordOrderRef(input.actor.orgId, refValidation.value!, input.requestId);
+        }
 
         return ok({
           requestId: input.requestId,

@@ -22,7 +22,13 @@ import {
   type RemittanceId,
   type UserId,
 } from "@/shared";
-import { generateX25519KeyPair, verifyAuditChain, type KeyPairHex } from "@/modules/privacy/domain";
+import {
+  generateX25519KeyPair,
+  inspectAuditChain,
+  verifyAuditChain,
+  type AuditChainVerificationResult,
+  type KeyPairHex,
+} from "@/modules/privacy/domain";
 import { exportLedgerToCsv } from "@/modules/ledger/domain";
 import { PaymentUseCases } from "@/modules/payments/application/use-cases";
 import { RemittanceUseCases } from "@/modules/remittance/application/use-cases";
@@ -33,7 +39,9 @@ import {
   ExpiryWorker,
   ReconciliationWorker,
   SettlementWorker,
+  startBackgroundWorkers,
 } from "@/workers";
+import { seedLedgerlyDataset } from "@/lib/seeder";
 
 export const DEMO_ORG_ID = "org_atelier_sari" as OrgId;
 export const DEMO_ACTOR: Actor = {
@@ -115,7 +123,28 @@ async function createSeededRuntime(): Promise<LedgerlyRuntime> {
   const explorerBaseUrl =
     process.env.NEAR_EXPLORER_BASE_URL ?? "https://testnet.nearblocks.io";
 
-  const useLiveNearRpc = Boolean(operatorAccountId && operatorPrivateKey);
+  const forceSandbox =
+    process.env.LEDGERLY_NETWORK_MODE === "sandbox" ||
+    process.env.LEDGERLY_FORCE_SANDBOX === "true" ||
+    process.env.LOCAL_SANDBOX_SIMULATION === "true";
+  const explicitlyTestnet =
+    process.env.LEDGERLY_NETWORK_MODE === "testnet" ||
+    process.env.LEDGERLY_NETWORK_MODE === "NEAR_TESTNET_RPC";
+  const isHosted = Boolean(
+    process.env.FLY_APP_NAME ||
+      process.env.RAILWAY_ENVIRONMENT ||
+      process.env.VERCEL ||
+      process.env.NODE_ENV === "production",
+  );
+
+  // In hosted mode, default mode is strictly SANDBOX.
+  // NEAR testnet mode on a public host only runs when explicitly configured
+  // with LEDGERLY_NETWORK_MODE=testnet AND operator credentials held as host secrets.
+  const useLiveNearRpc =
+    !forceSandbox &&
+    Boolean(operatorAccountId && operatorPrivateKey) &&
+    (!isHosted || explicitlyTestnet);
+
   const networkMode: "NEAR_TESTNET_RPC" | "LOCAL_SANDBOX_SIMULATION" = useLiveNearRpc
     ? "NEAR_TESTNET_RPC"
     : "LOCAL_SANDBOX_SIMULATION";
@@ -199,92 +228,46 @@ async function createSeededRuntime(): Promise<LedgerlyRuntime> {
     chain,
   });
 
-  const alreadySeeded = metaStore.get<boolean>("seeded_v1") === true;
+  const alreadySeeded = metaStore.get<boolean>("seeded_v2") === true;
   let defaultGrantId =
     metaStore.get<GrantId>("default_grant_id") ?? ("grant_q4_external_audit" as GrantId);
 
+  const runtimeInstance: LedgerlyRuntime = {
+    networkMode,
+    rpcUrl,
+    escrowContractId,
+    usdcContractId,
+    explorerBaseUrl,
+    orgKeys,
+    auditorKeys,
+    metaStore,
+    outbox,
+    chain,
+    ledger,
+    fx,
+    offRamp,
+    screening,
+    paymentRepo,
+    remittanceRepo,
+    grantRepo,
+    payments,
+    remittances,
+    disclosures,
+    indexer,
+    settlement,
+    expiry,
+    reconciliation,
+    defaultGrantId,
+  };
+
   if (!alreadySeeded) {
     try {
-      // --- Seed #1: Settled merchant payment (exact match) ---
-      const pr1 = unwrap(
-        await payments.createPaymentRequest({
-          idempotencyKey: "seed_pr_1",
-          actor: DEMO_ACTOR,
-          requestId: "pr_inv_8841" as PaymentRequestId,
-          orgPublicKeyHex: orgKeys.publicKeyHex,
-          orderRef: "INV-2026-8841",
-          description: "Wholesale ceramic vessel batch — Kyoto Studio",
-          customerEmail: "procurement@kyoto-living.jp",
-          amountDecimal: "1450.00",
-          expiresInSec: 86400,
-        }),
-      );
-      await chain.simulateDeposit({
-        escrowId: pr1.escrowId,
-        depositor: "kyoto-living.testnet" as AccountId,
-        amountMinor: 1_450_000_000n,
-      });
-      await indexer.runOnce();
-
-      // --- Seed #2: Open merchant payment request ready for live interactive checkout ---
-      await payments.createPaymentRequest({
-        idempotencyKey: "seed_pr_2",
-        actor: DEMO_ACTOR,
-        requestId: "pr_inv_8842" as PaymentRequestId,
-        orgPublicKeyHex: orgKeys.publicKeyHex,
-        orderRef: "INV-2026-8842",
-        description: "Bespoke brass lighting fixtures (12 units)",
-        customerEmail: "ap@nordic-atelier.dk",
-        amountDecimal: "420.00",
-        expiresInSec: 86400,
-      });
-
-      // --- Seed #3: Settled cross-border remittance (USDC -> PHP via GCash) ---
-      const rm1 = unwrap(
-        await remittances.createQuotedRemittance({
-          idempotencyKey: "seed_rm_1",
-          actor: DEMO_ACTOR,
-          remittanceId: "rm_mnl_301" as RemittanceId,
-          orgPublicKeyHex: orgKeys.publicKeyHex,
-          sourceUsdcDecimal: "350.00",
-          targetCurrency: "PHP",
-          recipientType: "EWALLET",
-          recipientName: "Rosa Santos Artisans Co.",
-          recipientAccountOrWallet: "GCASH:+63-917-555-0192",
-          recipientCountry: "PH",
-          quoteLockSec: 3600,
-        }),
-      );
-      await chain.simulateDeposit({
-        escrowId: rm1.escrowId,
-        depositor: "atelier-sari.ledgerly.testnet" as AccountId,
-        amountMinor: 350_000_000n,
-        commitment: rm1.commitment,
-        kind: "Remittance",
-      });
-      await indexer.runOnce();
+      await seedLedgerlyDataset(runtimeInstance);
+      defaultGrantId = metaStore.get<GrantId>("default_grant_id") ?? defaultGrantId;
+      runtimeInstance.defaultGrantId = defaultGrantId;
     } catch (seedErr) {
       console.warn("Runtime seed warning:", seedErr);
     }
-
-    // --- Seed #4: Issue an initial scoped ViewKeyGrant for the Auditor console ---
-    defaultGrantId = "grant_q4_external_audit" as GrantId;
-    await disclosures.issueScopedViewKey({
-      actor: DEMO_ACTOR,
-      grantId: defaultGrantId,
-      auditorPublicKeyHex: auditorKeys.publicKeyHex,
-      orgPrivateKeyHex: orgKeys.privateKeyHex,
-      scope: {
-        orgId: DEMO_ORG_ID,
-        from: new Date(Date.now() - 7 * 86400 * 1000),
-        to: new Date(Date.now() + 7 * 86400 * 1000),
-        kinds: ["PAYMENT", "REMITTANCE"],
-      },
-      expiresAt: new Date(Date.now() + 30 * 86400 * 1000),
-    });
-
-    metaStore.set("default_grant_id", defaultGrantId);
-    metaStore.set("seeded_v1", true);
   } else if (chain instanceof MockChainGateway) {
     // Re-populate in-memory MockChainGateway when running in sandbox mode after restart
     const savedPayments = await paymentRepo.listAll();
@@ -327,33 +310,8 @@ async function createSeededRuntime(): Promise<LedgerlyRuntime> {
     }
   }
 
-  return {
-    networkMode,
-    rpcUrl,
-    escrowContractId,
-    usdcContractId,
-    explorerBaseUrl,
-    orgKeys,
-    auditorKeys,
-    metaStore,
-    outbox,
-    chain,
-    ledger,
-    fx,
-    offRamp,
-    screening,
-    paymentRepo,
-    remittanceRepo,
-    grantRepo,
-    payments,
-    remittances,
-    disclosures,
-    indexer,
-    settlement,
-    expiry,
-    reconciliation,
-    defaultGrantId,
-  };
+  startBackgroundWorkers(runtimeInstance);
+  return runtimeInstance;
 }
 
 async function computeDashboardSnapshot() {
@@ -369,10 +327,11 @@ async function computeDashboardSnapshot() {
     auditorPrivateKeyHex: rt.auditorKeys.privateKeyHex,
   });
 
-  const auditLog = rt.disclosures.getAuditLog();
+  const auditLog = rt.metaStore.loadAuditLog();
   const anchoredRoots = rt.chain.getAnchoredRoots();
   const latestRootFromChainOrLog =
     anchoredRoots[anchoredRoots.length - 1] ?? auditLog[auditLog.length - 1]?.hash ?? null;
+  const chainInspection = inspectAuditChain(auditLog);
 
   return {
     network: {
@@ -381,6 +340,8 @@ async function computeDashboardSnapshot() {
       escrowContractId: rt.escrowContractId,
       usdcContractId: rt.usdcContractId,
       explorerBaseUrl: rt.explorerBaseUrl,
+      enableLiveIntents:
+        process.env.ENABLE_LIVE_INTENTS === "true" || process.env.ENABLE_LIVE_INTENTS === "1",
     },
     organization: {
       id: DEMO_ORG_ID,
@@ -430,7 +391,8 @@ async function computeDashboardSnapshot() {
     audit: {
       grantId: rt.defaultGrantId,
       auditorKeyShort: `${rt.auditorKeys.publicKeyHex.slice(0, 18)}…${rt.auditorKeys.publicKeyHex.slice(-8)}`,
-      chainValid: verifyAuditChain(auditLog),
+      chainValid: chainInspection.valid,
+      chainVerification: chainInspection,
       anchoredRootsCount: Math.max(anchoredRoots.length, auditLog.length),
       latestAnchoredRoot: latestRootFromChainOrLog,
       records: auditVerifications.ok ? auditVerifications.value : [],

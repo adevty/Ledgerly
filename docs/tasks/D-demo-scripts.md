@@ -1,0 +1,14 @@
+# Task D - Three runnable verification scripts (no private key needed for 1 and 2)
+No new dependencies; reuse existing services/gateways. Workers only run on API calls (docs/AUDIT.md), so scripts must call each worker's runOnce() explicitly.
+
+1. `npm run demo` (sandbox, LOCAL_SANDBOX_SIMULATION, no keys). Print the banner "SANDBOX: simulated chain" at start and end. Steps, each "n. step ... PASS/FAIL": create invoice (idempotency key) -> overpay (invoice 680, deposit 700) -> run indexer/settlement workers -> assert released=680, refund=20, status SETTLED -> anchor audit root -> issue scoped view key, decrypt, recompute sha256(canonicalJSON(payload)||salt) and compare with the commitment -> export CSV to ./out/reconciliation.csv and assert sum(debits)==sum(credits) in integer minor units. `--refund-path`: invoice expires, then depositor claim_refund (simulated) with workers stopped; assert funds returned.
+2. `npm run verify:onchain` (keyless, read-only, public RPC with the existing multi-provider failover): confirm contract and USDC accounts exist; run view calls on ledgerly-escrow-9e70f9ea.testnet; for each tx hash in the README fetch the outcome and assert success, receiver id and method (register, ft_transfer_call, release, anchor); read the anchored root; recompute one sample commitment from a published fictional fixture (payload + salt, no real data). Print Nearblocks links. Handle archival lookups and 429s.
+3. `npm run demo:live` (needs the user's OWN testnet env; refuses to run if env is missing, if the network is not testnet, or without --yes). Same flow against real testnet including claim_refund as the depositor with workers off. Print the accounts it will use before acting. Never print key values.
+
+Common: exit 0 only if all assertions pass; runtime < 3 min; `--dry` prints the plan only; unique ids per run; pure assertion helpers get vitest tests; usage in a header comment.
+
+## Addendum from Phase 2 review
+The local DB was reset in Phase 2; the old on-chain escrows can no longer be decrypted (keys exist only in backups/, never committed). For verify:onchain:
+- `npm run demo:live -- --publish-fixture` (human runs it once, with own testnet env and --yes) registers ONE new escrow whose commitment = sha256(canonicalJSON(payload)||salt) over a clearly FICTIONAL payload, then writes examples/verify-fixture.json {payload, salt, escrowId, commitment, txHashes}.
+- verify:onchain recomputes the commitment from that fixture and compares it with get_escrow on the deployed contract, plus checks the README tx hashes (register, ft_transfer_call, release, anchor), which stay valid regardless of the local DB.
+- The fixture must contain no real data. Never print or commit key values.

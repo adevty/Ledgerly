@@ -646,6 +646,7 @@ body {
 
 .ledger-table {
   width: 100%;
+  min-width: 820px;
   border-collapse: collapse;
   text-align: left;
   font-size: 0.85rem;
@@ -664,6 +665,24 @@ body {
   border-bottom: 1px solid var(--table-border);
   background-color: var(--table-header-bg);
   white-space: nowrap;
+}
+
+/* Sticky first column for wide tabular ledgers */
+.ledger-table th:first-child,
+.ledger-table td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  background-color: var(--surface-1);
+}
+
+.ledger-table th:first-child {
+  z-index: 4;
+  background-color: var(--table-header-bg);
+}
+
+.ledger-table tbody tr:hover td:first-child {
+  background-color: var(--table-row-hover-bg);
 }
 
 .ledger-table td {

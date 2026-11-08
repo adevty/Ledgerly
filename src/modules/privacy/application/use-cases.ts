@@ -23,6 +23,8 @@ import {
   type ViewKeyGrantRepository,
 } from "../domain";
 
+export type AuditorRecordStatus = "verified" | "mismatch" | "not-registered";
+
 export interface AuditedRecordView {
   readonly recordId: string;
   readonly kind: "PAYMENT" | "REMITTANCE";
@@ -32,6 +34,8 @@ export interface AuditedRecordView {
   readonly commitment: string;
   readonly onchainCommitment: string | null;
   readonly verifiedOnchain: boolean;
+  readonly status: AuditorRecordStatus;
+  readonly statusNote: string;
 }
 
 export class DisclosureUseCases {
@@ -46,7 +50,7 @@ export class DisclosureUseCases {
       chain: ChainGateway;
       clock: Clock;
       initialAuditLog?: readonly AuditLogEntry[];
-      onAuditEntry?: (entry: AuditLogEntry) => void;
+      onAuditEntry?: (entry: AuditLogEntry) => AuditLogEntry | void;
     },
   ) {
     if (deps.initialAuditLog && deps.initialAuditLog.length > 0) {
@@ -87,7 +91,7 @@ export class DisclosureUseCases {
     if (!countRes.ok) return countRes;
 
     await this.deps.grantRepo.save(grantRes.value);
-    await this.recordAndAnchorAudit(input.actor.userId, "ISSUE_VIEW_KEY", input.grantId, now);
+    await this.recordAuditAction(input.actor.userId, "ISSUE_VIEW_KEY", input.grantId);
 
     return ok({ grantId: input.grantId, authorizedRecordCount: countRes.value });
   }
@@ -110,7 +114,7 @@ export class DisclosureUseCases {
     if (!rev.ok) return rev;
 
     await this.deps.grantRepo.save(grant);
-    await this.recordAndAnchorAudit(input.actor.userId, "REVOKE_VIEW_KEY", input.grantId, now);
+    await this.recordAuditAction(input.actor.userId, "REVOKE_VIEW_KEY", input.grantId);
     return ok(true);
   }
 
@@ -151,6 +155,19 @@ export class DisclosureUseCases {
         if (!opened.ok) return opened;
 
         const onchain = await this.deps.chain.getEscrow(p.aggregate.escrowId);
+        let status: AuditorRecordStatus = "not-registered";
+        let statusNote = "Quote expired or unfunded; no on-chain escrow registered.";
+
+        if (onchain) {
+          if (onchain.commitment === p.envelope.commitment) {
+            status = "verified";
+            statusNote = "On-chain commitment matches sealed payload hash.";
+          } else {
+            status = "mismatch";
+            statusNote = "CRITICAL: On-chain commitment does not match sealed payload hash.";
+          }
+        }
+
         results.push({
           recordId: p.aggregate.id,
           kind: "PAYMENT",
@@ -159,7 +176,9 @@ export class DisclosureUseCases {
           decryptedPayload: opened.value,
           commitment: p.envelope.commitment,
           onchainCommitment: onchain?.commitment ?? null,
-          verifiedOnchain: onchain?.commitment === p.envelope.commitment,
+          verifiedOnchain: status === "verified",
+          status,
+          statusNote,
         });
       }
     }
@@ -183,6 +202,19 @@ export class DisclosureUseCases {
         if (!opened.ok) return opened;
 
         const onchain = await this.deps.chain.getEscrow(r.aggregate.escrowId);
+        let status: AuditorRecordStatus = "not-registered";
+        let statusNote = "Quote expired or unfunded; no on-chain escrow registered.";
+
+        if (onchain) {
+          if (onchain.commitment === r.envelope.commitment) {
+            status = "verified";
+            statusNote = "On-chain commitment matches sealed payload hash.";
+          } else {
+            status = "mismatch";
+            statusNote = "CRITICAL: On-chain commitment does not match sealed payload hash.";
+          }
+        }
+
         results.push({
           recordId: r.aggregate.id,
           kind: "REMITTANCE",
@@ -191,12 +223,14 @@ export class DisclosureUseCases {
           decryptedPayload: opened.value,
           commitment: r.envelope.commitment,
           onchainCommitment: onchain?.commitment ?? null,
-          verifiedOnchain: onchain?.commitment === r.envelope.commitment,
+          verifiedOnchain: status === "verified",
+          status,
+          statusNote,
         });
       }
     }
 
-    await this.recordAndAnchorAudit("auditor", "VERIFY_SCOPED_RECORDS", input.grantId, now);
+    // Read-only queries must NOT write audit entries
     return ok(results);
   }
 
@@ -247,21 +281,36 @@ export class DisclosureUseCases {
     return out;
   }
 
+  async recordAuditAction(
+    actor: string,
+    action: string,
+    targetId: string,
+  ): Promise<AuditLogEntry> {
+    const now = this.deps.clock.now();
+    return this.recordAndAnchorAudit(actor, action, targetId, now);
+  }
+
   private async recordAndAnchorAudit(
     actor: string,
     action: string,
     targetId: string,
     now: Date,
-  ): Promise<void> {
-    const entry = appendAuditEntry(this.auditLog, {
+  ): Promise<AuditLogEntry> {
+    let entry = appendAuditEntry(this.auditLog, {
       id: `audit_${this.seq++}`,
       actor,
       action,
       targetId,
       at: now,
     });
+    if (this.deps.onAuditEntry) {
+      const dbEntry = this.deps.onAuditEntry(entry);
+      if (dbEntry) {
+        entry = dbEntry;
+      }
+    }
     this.auditLog.push(entry);
-    this.deps.onAuditEntry?.(entry);
     await this.deps.chain.anchorAuditRoot(entry.hash);
+    return entry;
   }
 }

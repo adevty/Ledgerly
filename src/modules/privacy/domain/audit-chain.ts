@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 
 export interface AuditLogEntry {
   readonly id: string;
+  readonly seq?: number;
   readonly actor: string;
   readonly action: string;
   readonly targetId: string;
@@ -11,6 +12,25 @@ export interface AuditLogEntry {
 }
 
 export const GENESIS_AUDIT_HASH = "0".repeat(64);
+
+export interface AuditChainVerificationResult {
+  readonly valid: boolean;
+  readonly brokenAtSeq?: number | null;
+  readonly brokenAtIndex?: number | null;
+  readonly reason?: "prev_hash_mismatch" | "hash_mismatch" | "empty" | "seq_out_of_order" | null;
+  readonly length: number;
+}
+
+export function getAuditEntrySeq(entry: AuditLogEntry, fallbackIndex?: number): number {
+  if (typeof entry.seq === "number" && Number.isFinite(entry.seq)) {
+    return entry.seq;
+  }
+  const match = entry.id.match(/^audit_(\d+)$/);
+  if (match && match[1]) {
+    return parseInt(match[1], 10);
+  }
+  return fallbackIndex !== undefined ? fallbackIndex + 1 : 1;
+}
 
 /**
  * Compute deterministic hash-chain link:
@@ -53,17 +73,76 @@ export function appendAuditEntry(
   };
 }
 
+/**
+ * Inspect every link in the audit log hash chain from genesis (or a known starting hash),
+ * returning diagnostics on the exact failure point if broken.
+ */
+export function inspectAuditChain(
+  chain: readonly AuditLogEntry[],
+  expectedStartPrevHash: string = GENESIS_AUDIT_HASH,
+): AuditChainVerificationResult {
+  if (!chain || chain.length === 0) {
+    return {
+      valid: true,
+      brokenAtSeq: null,
+      brokenAtIndex: null,
+      reason: null,
+      length: 0,
+    };
+  }
+  let prev = expectedStartPrevHash;
+  let lastSeq = -1;
+
+  for (let i = 0; i < chain.length; i++) {
+    const entry = chain[i]!;
+    const seq = getAuditEntrySeq(entry, i);
+
+    if (i > 0 && seq <= lastSeq) {
+      return {
+        valid: false,
+        brokenAtSeq: seq,
+        brokenAtIndex: i,
+        reason: "seq_out_of_order",
+        length: chain.length,
+      };
+    }
+
+    if (entry.prevHash !== prev) {
+      return {
+        valid: false,
+        brokenAtSeq: seq,
+        brokenAtIndex: i,
+        reason: "prev_hash_mismatch",
+        length: chain.length,
+      };
+    }
+    const expected = computeAuditEntryHash(entry);
+    if (entry.hash !== expected) {
+      return {
+        valid: false,
+        brokenAtSeq: seq,
+        brokenAtIndex: i,
+        reason: "hash_mismatch",
+        length: chain.length,
+      };
+    }
+    prev = entry.hash;
+    lastSeq = seq;
+  }
+
+  return {
+    valid: true,
+    brokenAtSeq: null,
+    brokenAtIndex: null,
+    reason: null,
+    length: chain.length,
+  };
+}
+
 /** Verify every link in the audit log hash chain from genesis (or a known starting hash). */
 export function verifyAuditChain(
   chain: readonly AuditLogEntry[],
   expectedStartPrevHash: string = GENESIS_AUDIT_HASH,
 ): boolean {
-  let prev = expectedStartPrevHash;
-  for (const entry of chain) {
-    if (entry.prevHash !== prev) return false;
-    const expected = computeAuditEntryHash(entry);
-    if (entry.hash !== expected) return false;
-    prev = entry.hash;
-  }
-  return true;
+  return inspectAuditChain(chain, expectedStartPrevHash).valid;
 }
