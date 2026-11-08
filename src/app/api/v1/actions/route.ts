@@ -109,6 +109,25 @@ export async function POST(request: Request) {
     const amountUsdcDecimal = String(body.amountUsdcDecimal ?? "100.00");
     const dry = body.dry !== false; // default true unless explicitly requested
     const recipientNearAccount = "atelier-sari.near";
+    const confirmedLiveDisclaimer = body.confirmedLiveDisclaimer === true;
+
+    if (!dry) {
+      const isLiveEnabled =
+        process.env.ENABLE_LIVE_INTENTS === "true" || process.env.ENABLE_LIVE_INTENTS === "1";
+      if (!isLiveEnabled || !confirmedLiveDisclaimer) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: {
+              code: "LIVE_INTENTS_UNAUTHORIZED",
+              message:
+                "Live deposit address generation requires ENABLE_LIVE_INTENTS=true and explicit user confirmation.",
+            },
+          },
+          { status: 403 },
+        );
+      }
+    }
 
     const client = new OneClickClient();
     const quote = await client.requestExactOutputQuote({
@@ -116,11 +135,20 @@ export async function POST(request: Request) {
       targetUsdcAmountDecimal: amountUsdcDecimal,
       recipientNearAccount,
       dry,
+      confirmedLiveDisclaimer,
     });
 
     if (!quote.ok) {
       return NextResponse.json(
-        { ok: false, error: { code: "ONE_CLICK_QUOTE_ERROR", message: quote.error } },
+        {
+          ok: false,
+          error: {
+            code: "ONE_CLICK_QUOTE_ERROR",
+            message: quote.error ?? "Solver unavailable, retry",
+            state: quote.state,
+          },
+          quote,
+        },
         { status: 422 },
       );
     }

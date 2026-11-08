@@ -27,7 +27,12 @@ import {
   signFtDepositWithMeteor,
   type NearWalletSession,
 } from "@/shared/near-wallet-client";
-import { POPULAR_ONE_CLICK_ASSETS, type OneClickQuoteResult } from "@/shared/one-click-client";
+import {
+  POPULAR_ONE_CLICK_ASSETS,
+  isValidChainAddress,
+  isQuoteExpired,
+  type OneClickQuoteResult,
+} from "@/shared/one-click-client";
 import { CryptoTokenIcon } from "../components/CryptoTokenIcon";
 import { HashBadge } from "../components/HashBadge";
 
@@ -111,6 +116,7 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
   const [oneClickStatus, setOneClickStatus] = useState<string | null>(null);
   const [oneClickLoading, setOneClickLoading] = useState(false);
   const [oneClickError, setOneClickError] = useState<string | null>(null);
+  const [liveDisclaimerConfirmed, setLiveDisclaimerConfirmed] = useState(false);
   const initializedInvoiceIdRef = useRef<string>("");
   const quoteAbortRef = useRef<AbortController | null>(null);
   const quoteSeqRef = useRef(0);
@@ -320,7 +326,12 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
   };
 
   const fetchOneClickQuote = useCallback(
-    async (assetId: string, amountDecimal: string, dry = true): Promise<OneClickQuoteResult | null> => {
+    async (
+      assetId: string,
+      amountDecimal: string,
+      dry = true,
+      confirmedLiveDisclaimer = false,
+    ): Promise<OneClickQuoteResult | null> => {
       quoteAbortRef.current?.abort();
       const controller = new AbortController();
       quoteAbortRef.current = controller;
@@ -338,6 +349,7 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
             originAsset: assetId,
             amountUsdcDecimal: amountDecimal,
             dry,
+            confirmedLiveDisclaimer,
           }),
           signal: controller.signal,
         });
@@ -347,24 +359,33 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
           error?: { message?: string };
         };
         if (reqSeq !== quoteSeqRef.current) return null;
-        if (data.ok && data.quote) {
+        if (data.quote) {
           setOneClickQuote(data.quote);
+          if (data.quote.state === "unavailable" || !data.ok) {
+            setOneClickError(data.error?.message ?? data.quote.error ?? "Solver unavailable, retry");
+            setOneClickDepositAddress(null);
+            return data.quote;
+          }
           setOneClickError(null);
           if (data.quote.depositAddress) {
             setOneClickDepositAddress(data.quote.depositAddress);
             setOneClickStatus("PENDING_DEPOSIT");
+          } else {
+            setOneClickDepositAddress(null);
           }
           return data.quote;
         }
         setOneClickQuote(null);
-        setOneClickError(data.error?.message ?? "Unable to fetch solver quote right now.");
+        setOneClickDepositAddress(null);
+        setOneClickError(data.error?.message ?? "Solver unavailable, retry");
         return null;
       } catch (err) {
         if (reqSeq !== quoteSeqRef.current) return null;
         const isAbort = err instanceof Error && err.name === "AbortError";
         setOneClickQuote(null);
+        setOneClickDepositAddress(null);
         setOneClickError(
-          isAbort ? "Solver quote request timed out. Please retry." : "Network error fetching quote.",
+          isAbort ? "Solver quote request timed out. Please retry." : "Solver unavailable, retry",
         );
         return null;
       } finally {
@@ -428,8 +449,16 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
 
   const handleGenerateOneClickAddress = async () => {
     if (!item) return;
+    if (!liveDisclaimerConfirmed) {
+      pushToast(
+        "error",
+        "Confirmation Required",
+        "Please confirm the disclaimer before generating a live deposit address.",
+      );
+      return;
+    }
     const amt = customPayAmount || item.remainingDecimal || item.amountDecimal;
-    const quote = await fetchOneClickQuote(oneClickAsset.assetId, amt, false);
+    const quote = await fetchOneClickQuote(oneClickAsset.assetId, amt, false, true);
     if (quote?.depositAddress) {
       pushToast(
         "success",
@@ -440,7 +469,7 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
       pushToast(
         "error",
         "Could Not Generate Deposit Address",
-        "Please retry generating the intent deposit address.",
+        quote?.error ?? "Solver unavailable, retry",
       );
     }
   };
@@ -1320,36 +1349,122 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                       marginBottom: "1.05rem",
                     }}
                   >
-                    <div className="ticket-header-band" style={{ padding: "0.7rem 1rem" }}>
-                      <span style={{ fontSize: "0.8rem", fontWeight: 600 }}>
-                        Live Intent Solver Quote
-                      </span>
+                    <div
+                      className="ticket-header-band"
+                      style={{
+                        padding: "0.7rem 1rem",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        flexWrap: "wrap",
+                        gap: "0.5rem",
+                      }}
+                    >
+                      <div className="inline-flex items-center gap-2">
+                        <span style={{ fontSize: "0.8rem", fontWeight: 600 }}>
+                          NEAR Intents Quote
+                        </span>
+                        {!oneClickDepositAddress && (
+                          <span
+                            className="status-pill"
+                            style={{
+                              background: "rgba(255, 255, 255, 0.06)",
+                              fontSize: "0.68rem",
+                              fontWeight: 600,
+                              color: "var(--text-muted)",
+                            }}
+                          >
+                            DRY-RUN QUOTE — no deposit address
+                          </span>
+                        )}
+                        {oneClickQuote?.source === "live" ? (
+                          <span
+                            className="status-pill status-pill-emerald"
+                            style={{ fontSize: "0.68rem" }}
+                          >
+                            <span className="status-pill-dot status-pill-dot-pulse" aria-hidden="true" />
+                            <span>Live</span>
+                          </span>
+                        ) : oneClickQuote?.source === "oracle-fallback" ? (
+                          <span
+                            className="status-pill"
+                            style={{
+                              background: "rgba(245, 158, 11, 0.15)",
+                              color: "#f59e0b",
+                              border: "1px solid rgba(245, 158, 11, 0.3)",
+                              fontSize: "0.68rem",
+                              fontWeight: 600,
+                            }}
+                          >
+                            Fallback estimate (not executable)
+                          </span>
+                        ) : null}
+                      </div>
+
                       {oneClickLoading ? (
                         <span style={{ fontSize: "0.74rem", color: "var(--text-muted)" }}>
                           Fetching Solver Quote…
                         </span>
-                      ) : oneClickError ? (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            void fetchOneClickQuote(
-                              oneClickAsset.assetId,
-                              effectiveQuoteAmount || item.amountDecimal,
-                              true,
-                            )
-                          }
-                          style={{
-                            fontSize: "0.72rem",
-                            fontWeight: 600,
-                            color: "var(--accent-primary)",
-                            background: "transparent",
-                            border: "none",
-                            cursor: "pointer",
-                            padding: 0,
-                          }}
-                        >
-                          Retry Quote ↻
-                        </button>
+                      ) : oneClickError || oneClickQuote?.state === "unavailable" ? (
+                        <div className="inline-flex items-center gap-2">
+                          <span
+                            style={{
+                              fontSize: "0.72rem",
+                              color: "var(--status-failed-fg)",
+                              fontWeight: 600,
+                            }}
+                          >
+                            Solver unavailable, retry
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void fetchOneClickQuote(
+                                oneClickAsset.assetId,
+                                effectiveQuoteAmount || item.amountDecimal,
+                                true,
+                              )
+                            }
+                            style={{
+                              fontSize: "0.72rem",
+                              fontWeight: 600,
+                              color: "var(--accent-primary)",
+                              background: "transparent",
+                              border: "none",
+                              cursor: "pointer",
+                              padding: 0,
+                            }}
+                          >
+                            Retry Quote ↻
+                          </button>
+                        </div>
+                      ) : isQuoteExpired(oneClickQuote?.deadlineIso) ? (
+                        <div className="inline-flex items-center gap-2">
+                          <span style={{ fontSize: "0.72rem", color: "#f59e0b", fontWeight: 600 }}>
+                            Quote expired
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void fetchOneClickQuote(
+                                oneClickAsset.assetId,
+                                effectiveQuoteAmount || item.amountDecimal,
+                                true,
+                              )
+                            }
+                            style={{
+                              fontSize: "0.72rem",
+                              fontWeight: 600,
+                              color: "var(--accent-primary)",
+                              background: "transparent",
+                              border: "none",
+                              cursor: "pointer",
+                              padding: 0,
+                            }}
+                          >
+                            Refresh ↻
+                          </button>
+                        </div>
                       ) : (
                         <span
                           className="tabular-nums"
@@ -1455,6 +1570,26 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                         style={{
                           display: "flex",
                           justifyContent: "space-between",
+                          alignItems: "center",
+                          padding: "0.5rem 0",
+                          borderBottom: "1px dashed var(--border-subtle)",
+                          fontSize: "0.75rem",
+                        }}
+                      >
+                        <span style={{ color: "var(--text-muted)" }}>
+                          Solver Protocol Fee:
+                        </span>
+                        <div className="inline-flex items-center gap-2">
+                          <span className="mono-data tabular-nums" style={{ fontWeight: 600 }}>
+                            {oneClickQuote?.feePercent ?? 0.2}% ({oneClickQuote?.feeBps ?? 20} bps)
+                          </span>
+                        </div>
+                      </div>
+
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
                           alignItems: "baseline",
                           padding: "0.65rem 0 0.35rem",
                         }}
@@ -1488,7 +1623,7 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                         }}
                       >
                         <span>
-                          Solvers execute cross-chain settlement automatically.
+                          Direct NEP-141 checkout has zero Ledgerly protocol fee. Cross-chain routing via NEAR Intents includes 0.20% solver network fee.
                         </span>
                         <a
                           href="https://1click.chaindefuser.com"
@@ -1510,8 +1645,32 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                   </div>
                 )}
 
+                {/* Fallback Warning Notice */}
+                {oneClickQuote?.source === "oracle-fallback" && (
+                  <div
+                    style={{
+                      padding: "0.7rem 0.9rem",
+                      borderRadius: 8,
+                      background: "rgba(245, 158, 11, 0.08)",
+                      border: "1px solid rgba(245, 158, 11, 0.25)",
+                      color: "#f59e0b",
+                      fontSize: "0.76rem",
+                      marginBottom: "0.85rem",
+                      lineHeight: 1.45,
+                    }}
+                  >
+                    <strong>Fallback estimate (not executable):</strong> Live solver quote is currently
+                    unavailable. Deposit address generation and execution are disabled until a fresh live quote is
+                    retrieved.
+                  </div>
+                )}
+
                 {/* Deposit Address Box if Generated */}
-                {oneClickDepositAddress && item ? (
+                {oneClickDepositAddress &&
+                item &&
+                oneClickQuote?.state !== "unavailable" &&
+                oneClickQuote?.source !== "oracle-fallback" &&
+                !oneClickError ? (
                   <div
                     style={{
                       padding: "0.9rem 1rem",
@@ -1630,7 +1789,9 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                         width: "100%",
                         fontWeight: 600,
                       }}
-                      disabled={Boolean(busyKey)}
+                      disabled={
+                        Boolean(busyKey) || isQuoteExpired(oneClickQuote?.deadlineIso)
+                      }
                       onClick={handleSimulateOneClickFulfillment}
                     >
                       <Zap className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
@@ -1644,16 +1805,62 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                     </button>
                   </div>
                 ) : (
-                  <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap" }}>
-                    <button
-                      type="button"
-                      className="btn-primary"
-                      style={{ flex: 1 }}
-                      disabled={oneClickLoading || Boolean(busyKey) || !item}
-                      onClick={handleGenerateOneClickAddress}
-                    >
-                      <span>Generate 1Click Deposit Address ({oneClickAsset.symbol})</span>
-                    </button>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+                    {oneClickQuote?.source === "oracle-fallback" ? (
+                      <button
+                        type="button"
+                        className="btn-primary"
+                        style={{ width: "100%", opacity: 0.5, cursor: "not-allowed" }}
+                        disabled
+                      >
+                        <span>Deposit Address Disabled (Fallback Quote)</span>
+                      </button>
+                    ) : (
+                      <>
+                        <label
+                          style={{
+                            display: "flex",
+                            alignItems: "flex-start",
+                            gap: "0.55rem",
+                            fontSize: "0.76rem",
+                            color: "var(--text-muted)",
+                            cursor: "pointer",
+                            lineHeight: 1.4,
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={liveDisclaimerConfirmed}
+                            onChange={(e) => setLiveDisclaimerConfirmed(e.target.checked)}
+                            style={{ marginTop: "0.15rem", cursor: "pointer" }}
+                          />
+                          <span>
+                            mainnet solver address; demo escrow is testnet; do not send real funds
+                          </span>
+                        </label>
+                        <button
+                          type="button"
+                          className="btn-primary"
+                          style={{ width: "100%" }}
+                          disabled={
+                            oneClickLoading ||
+                            Boolean(busyKey) ||
+                            !item ||
+                            !liveDisclaimerConfirmed ||
+                            isQuoteExpired(oneClickQuote?.deadlineIso)
+                          }
+                          onClick={handleGenerateOneClickAddress}
+                        >
+                          <span>
+                            {isQuoteExpired(oneClickQuote?.deadlineIso)
+                              ? "Quote Expired — Please Refresh"
+                              : !liveDisclaimerConfirmed
+                                ? "Confirm Disclaimer to Generate Address"
+                                : `Generate 1Click Deposit Address (${oneClickAsset.symbol})`}
+                          </span>
+                        </button>
+                      </>
+                    )}
                   </div>
                 )}
               </div>

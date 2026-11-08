@@ -25,6 +25,7 @@ import {
   useLedgerlyDashboard,
 } from "../_context";
 import { HashBadge } from "../../components/HashBadge";
+import { getFxBadgeInfo } from "@/shared/real-fx-adapter";
 
 interface FixedQuotePreview {
   sourceUsdc: string;
@@ -281,6 +282,20 @@ export default function RemittancePage() {
       setInlineError({ scope: "remit_form", code: "INVALID_QUOTE_AMOUNT", message: msg });
       pushToast({ kind: "error", title: "Quote Rejected", message: msg });
       return;
+    }
+
+    if (remitCurrency !== "USDC") {
+      const rateEntry = state?.fxRates?.[remitCurrency] ?? {
+        source: activeRates[remitCurrency].source,
+        updatedAtIso: activeRates[remitCurrency].updatedAt,
+      };
+      const badge = getFxBadgeInfo(rateEntry);
+      if (!badge.isExecutable) {
+        const msg = "Fallback exchange rate estimate is not executable. Please retry when a live forex rate is available.";
+        setInlineError({ scope: "remit_form", code: "RATE_FALLBACK_NOT_EXECUTABLE", message: msg });
+        pushToast({ kind: "error", title: "Quote Unavailable", message: msg });
+        return;
+      }
     }
 
     setHoldingQuote(true);
@@ -577,26 +592,51 @@ export default function RemittancePage() {
                   )}
                 </div>
 
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginTop: "0.25rem",
-                    fontSize: "0.72rem",
-                  }}
-                >
-                  <span className="tabular-nums" style={{ color: "var(--text-muted)" }}>
-                    Feed: {activeRates[remitCurrency].source}
-                  </span>
-                  <span
-                    className="inline-flex items-center gap-1.5"
-                    style={{ color: "var(--status-settled-fg)", fontSize: "0.72rem", fontWeight: 600 }}
-                  >
-                    <span className="status-pill-dot status-pill-dot-pulse" aria-hidden="true" />
-                    <span>Live Oracle</span>
-                  </span>
-                </div>
+                {(() => {
+                  const rateEntry = state?.fxRates?.[remitCurrency] ?? {
+                    source: activeRates[remitCurrency].source,
+                    updatedAtIso: activeRates[remitCurrency].updatedAt,
+                  };
+                  const badge = getFxBadgeInfo(rateEntry);
+                  return (
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        marginTop: "0.25rem",
+                        fontSize: "0.72rem",
+                      }}
+                    >
+                      <span className="tabular-nums" style={{ color: "var(--text-muted)" }}>
+                        Feed: {rateEntry.source}
+                      </span>
+                      {badge.variant === "live" ? (
+                        <span
+                          className="inline-flex items-center gap-1.5"
+                          style={{ color: "var(--status-settled-fg)", fontSize: "0.72rem", fontWeight: 600 }}
+                        >
+                          <span className="status-pill-dot status-pill-dot-pulse" aria-hidden="true" />
+                          <span>{badge.label}</span>
+                        </span>
+                      ) : badge.variant === "stale" ? (
+                        <span
+                          className="inline-flex items-center gap-1.5"
+                          style={{ color: "#f59e0b", fontSize: "0.72rem", fontWeight: 600 }}
+                        >
+                          <span>{badge.label}</span>
+                        </span>
+                      ) : (
+                        <span
+                          className="inline-flex items-center gap-1.5"
+                          style={{ color: "var(--text-muted)", fontSize: "0.72rem", fontWeight: 600 }}
+                        >
+                          <span>Fallback estimate (not executable)</span>
+                        </span>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           </div>

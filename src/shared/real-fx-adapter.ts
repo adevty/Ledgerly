@@ -1,15 +1,68 @@
 import { Money, type Currency } from "./money";
 import type { FxRatePort } from "@/modules/remittance/domain/ports";
 
+export type FxSourceType = "live" | "secondary" | "static-fallback";
+
 export interface LiveFxRateEntry {
   readonly rate: number;
   readonly decimals: number;
   readonly formatted: string;
   readonly updatedAtIso: string;
-  readonly source: string;
+  readonly asOf: string;
+  readonly source: FxSourceType;
 }
 
 export type LiveFxRates = Record<Currency, LiveFxRateEntry>;
+
+/**
+ * Checks if rate timestamp is fresh (< 5 minutes old).
+ */
+export function isRateFresh(asOfIso?: string, maxAgeMs = 5 * 60 * 1000, nowMs = Date.now()): boolean {
+  if (!asOfIso) return false;
+  const t = new Date(asOfIso).getTime();
+  return Number.isFinite(t) && nowMs - t < maxAgeMs && nowMs >= t - 60_000;
+}
+
+export function getFxBadgeInfo(entry?: {
+  source?: string;
+  asOf?: string;
+  updatedAtIso?: string;
+}): {
+  label: string;
+  isLive: boolean;
+  isExecutable: boolean;
+  variant: "live" | "stale" | "fallback";
+} {
+  if (!entry || !entry.source) {
+    return {
+      label: "Fallback estimate (not executable)",
+      isLive: false,
+      isExecutable: false,
+      variant: "fallback",
+    };
+  }
+  const asOf = entry.asOf ?? entry.updatedAtIso;
+  const isFresh = isRateFresh(asOf);
+
+  if (entry.source === "live" || entry.source === "open.er-api.com") {
+    if (isFresh) {
+      return { label: "Live", isLive: true, isExecutable: true, variant: "live" };
+    }
+    return { label: "Stale rate", isLive: false, isExecutable: true, variant: "stale" };
+  }
+  if (entry.source === "secondary" || entry.source.includes("frankfurter")) {
+    if (isFresh) {
+      return { label: "Live (Secondary)", isLive: true, isExecutable: true, variant: "live" };
+    }
+    return { label: "Stale rate", isLive: false, isExecutable: true, variant: "stale" };
+  }
+  return {
+    label: "Fallback estimate (not executable)",
+    isLive: false,
+    isExecutable: false,
+    variant: "fallback",
+  };
+}
 
 /** Safe fallback rates if all external APIs are unreachable (e.g. offline testing) */
 const DEFAULT_FALLBACK_RATES: Record<Currency, number> = {
@@ -57,7 +110,8 @@ export class RealFxAdapter implements FxRatePort {
               minimumFractionDigits: this.cachedRates[to].decimals,
               maximumFractionDigits: this.cachedRates[to].decimals,
             }),
-            source: "Manual Override",
+            asOf: new Date().toISOString(),
+            source: "static-fallback",
           },
         };
       }
@@ -87,7 +141,7 @@ export class RealFxAdapter implements FxRatePort {
       .catch(() => {
         this.fetchPromise = null;
         // In case of complete network outage, return cached rates or defaults
-        return this.cachedRates ?? this.buildFallbackRates("Offline Fallback");
+        return this.cachedRates ?? this.buildFallbackRates("static-fallback");
       });
 
     return this.fetchPromise;
@@ -106,7 +160,7 @@ export class RealFxAdapter implements FxRatePort {
           time_last_update_utc?: string;
         };
         if (data.rates && typeof data.rates.IDR === "number") {
-          return this.mapRatesToLiveEntries(data.rates, "open.er-api.com", data.time_last_update_utc);
+          return this.mapRatesToLiveEntries(data.rates, "live", data.time_last_update_utc);
         }
       }
     } catch {
@@ -124,7 +178,7 @@ export class RealFxAdapter implements FxRatePort {
           date?: string;
         };
         if (data.rates && typeof data.rates.IDR === "number") {
-          return this.mapRatesToLiveEntries(data.rates, "api.frankfurter.dev (ECB)", data.date);
+          return this.mapRatesToLiveEntries(data.rates, "secondary", data.date);
         }
       }
     } catch {
@@ -132,12 +186,12 @@ export class RealFxAdapter implements FxRatePort {
     }
 
     // 3. Fallback
-    return this.buildFallbackRates("Static Defaults");
+    return this.buildFallbackRates("static-fallback");
   }
 
   private mapRatesToLiveEntries(
     rates: Record<string, number>,
-    source: string,
+    source: FxSourceType,
     updatedAt?: string,
   ): LiveFxRates {
     const isoDate = updatedAt ? new Date(updatedAt).toISOString() : new Date().toISOString();
@@ -157,21 +211,21 @@ export class RealFxAdapter implements FxRatePort {
     };
 
     return {
-      USDC: { rate: 1.0, decimals: 2, formatted: "1.00", updatedAtIso: isoDate, source },
-      USD: { rate: 1.0, decimals: 2, formatted: "1.00", updatedAtIso: isoDate, source },
-      EUR: { rate: getVal("EUR"), decimals: 4, formatted: formatRate(getVal("EUR"), 4), updatedAtIso: isoDate, source },
-      PHP: { rate: getVal("PHP"), decimals: 2, formatted: formatRate(getVal("PHP"), 2), updatedAtIso: isoDate, source },
-      IDR: { rate: getVal("IDR"), decimals: 2, formatted: formatRate(getVal("IDR"), 2), updatedAtIso: isoDate, source },
-      INR: { rate: getVal("INR"), decimals: 2, formatted: formatRate(getVal("INR"), 2), updatedAtIso: isoDate, source },
-      MXN: { rate: getVal("MXN"), decimals: 2, formatted: formatRate(getVal("MXN"), 2), updatedAtIso: isoDate, source },
-      AUD: { rate: getVal("AUD"), decimals: 2, formatted: formatRate(getVal("AUD"), 2), updatedAtIso: isoDate, source },
-      SGD: { rate: getVal("SGD"), decimals: 2, formatted: formatRate(getVal("SGD"), 2), updatedAtIso: isoDate, source },
-      KRW: { rate: getVal("KRW"), decimals: 0, formatted: formatRate(getVal("KRW"), 0), updatedAtIso: isoDate, source },
-      JPY: { rate: getVal("JPY"), decimals: 2, formatted: formatRate(getVal("JPY"), 2), updatedAtIso: isoDate, source },
+      USDC: { rate: 1.0, decimals: 2, formatted: "1.00", updatedAtIso: isoDate, asOf: isoDate, source },
+      USD: { rate: 1.0, decimals: 2, formatted: "1.00", updatedAtIso: isoDate, asOf: isoDate, source },
+      EUR: { rate: getVal("EUR"), decimals: 4, formatted: formatRate(getVal("EUR"), 4), updatedAtIso: isoDate, asOf: isoDate, source },
+      PHP: { rate: getVal("PHP"), decimals: 2, formatted: formatRate(getVal("PHP"), 2), updatedAtIso: isoDate, asOf: isoDate, source },
+      IDR: { rate: getVal("IDR"), decimals: 2, formatted: formatRate(getVal("IDR"), 2), updatedAtIso: isoDate, asOf: isoDate, source },
+      INR: { rate: getVal("INR"), decimals: 2, formatted: formatRate(getVal("INR"), 2), updatedAtIso: isoDate, asOf: isoDate, source },
+      MXN: { rate: getVal("MXN"), decimals: 2, formatted: formatRate(getVal("MXN"), 2), updatedAtIso: isoDate, asOf: isoDate, source },
+      AUD: { rate: getVal("AUD"), decimals: 2, formatted: formatRate(getVal("AUD"), 2), updatedAtIso: isoDate, asOf: isoDate, source },
+      SGD: { rate: getVal("SGD"), decimals: 2, formatted: formatRate(getVal("SGD"), 2), updatedAtIso: isoDate, asOf: isoDate, source },
+      KRW: { rate: getVal("KRW"), decimals: 0, formatted: formatRate(getVal("KRW"), 0), updatedAtIso: isoDate, asOf: isoDate, source },
+      JPY: { rate: getVal("JPY"), decimals: 2, formatted: formatRate(getVal("JPY"), 2), updatedAtIso: isoDate, asOf: isoDate, source },
     };
   }
 
-  private buildFallbackRates(source: string): LiveFxRates {
+  private buildFallbackRates(source: FxSourceType): LiveFxRates {
     const isoDate = new Date().toISOString();
     const result = {} as Record<Currency, LiveFxRateEntry>;
     for (const [key, val] of Object.entries(this.fallbackRates) as [Currency, number][]) {
@@ -184,6 +238,7 @@ export class RealFxAdapter implements FxRatePort {
           maximumFractionDigits: decimals,
         }),
         updatedAtIso: isoDate,
+        asOf: isoDate,
         source,
       };
     }
