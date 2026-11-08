@@ -511,4 +511,61 @@ describe("SQLite Persistence Layer (node:sqlite)", () => {
       rmSync(tempDir, { recursive: true, force: true });
     }
   });
+
+  it("cross-connection concurrency: two separate DatabaseSync connections appending concurrently produce contiguous seq and a valid chain", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "ledgerly-sqlite-cross-conn-"));
+    const dbPath = join(tempDir, "cross-conn.sqlite");
+
+    try {
+      // Initialize schema
+      const initDb = openLedgerlySqliteDb(dbPath);
+      initDb.close();
+
+      // Two distinct connections to the same database file
+      const db1 = openLedgerlySqliteDb(dbPath);
+      const db2 = openLedgerlySqliteDb(dbPath);
+      const meta1 = new SqliteRuntimeMetaStore(db1);
+      const meta2 = new SqliteRuntimeMetaStore(db2);
+
+      // Concurrently append 10 entries from conn1 and 10 entries from conn2
+      const tasks1 = Array.from({ length: 10 }, (_, i) => ({
+        id: `audit_conn1_${i}`,
+        actor: "conn1_operator",
+        action: "WRITE_CONN1",
+        targetId: `target_1_${i}`,
+        atIso: new Date(Date.now() + i * 50).toISOString(),
+      }));
+
+      const tasks2 = Array.from({ length: 10 }, (_, i) => ({
+        id: `audit_conn2_${i}`,
+        actor: "conn2_operator",
+        action: "WRITE_CONN2",
+        targetId: `target_2_${i}`,
+        atIso: new Date(Date.now() + i * 50 + 25).toISOString(),
+      }));
+
+      // Interleave tasks
+      const allTasks = tasks1.flatMap((t1, i) => [
+        () => meta1.appendAuditEntry(t1),
+        () => meta2.appendAuditEntry(tasks2[i]!),
+      ]);
+
+      await Promise.all(allTasks.map((fn) => Promise.resolve().then(fn)));
+
+      const finalLogs = meta1.loadAuditLog();
+      expect(finalLogs).toHaveLength(20);
+
+      // Verify sequence is contiguous 1..20
+      const seqs = finalLogs.map((l) => l.seq);
+      expect(seqs).toEqual(Array.from({ length: 20 }, (_, i) => i + 1));
+
+      // Verify hash chain integrity
+      expect(verifyAuditChain(finalLogs)).toBe(true);
+
+      db1.close();
+      db2.close();
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
 });

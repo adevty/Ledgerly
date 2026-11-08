@@ -199,11 +199,11 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
               {currentSectionLabel}
             </span>
             <StatusBadge
-              status="ACTIVE"
+              status={state?.network?.mode === "NEAR_TESTNET_RPC" ? "ACTIVE" : "OVERPAID"}
               label={
                 state?.network?.mode === "NEAR_TESTNET_RPC"
-                  ? "NEAR Testnet · Live RPC"
-                  : "NEAR Testnet · Sandbox"
+                  ? "NEAR TESTNET (live RPC)"
+                  : "SANDBOX (simulated chain)"
               }
             />
             {state?.network?.escrowContractId && (

@@ -91,7 +91,7 @@ export class DisclosureUseCases {
     if (!countRes.ok) return countRes;
 
     await this.deps.grantRepo.save(grantRes.value);
-    await this.recordAndAnchorAudit(input.actor.userId, "ISSUE_VIEW_KEY", input.grantId, now);
+    await this.recordAuditAction(input.actor.userId, "ISSUE_VIEW_KEY", input.grantId);
 
     return ok({ grantId: input.grantId, authorizedRecordCount: countRes.value });
   }
@@ -114,7 +114,7 @@ export class DisclosureUseCases {
     if (!rev.ok) return rev;
 
     await this.deps.grantRepo.save(grant);
-    await this.recordAndAnchorAudit(input.actor.userId, "REVOKE_VIEW_KEY", input.grantId, now);
+    await this.recordAuditAction(input.actor.userId, "REVOKE_VIEW_KEY", input.grantId);
     return ok(true);
   }
 

@@ -128,6 +128,8 @@ describe("NEAR Intents 1Click API Client", () => {
       expect(res429.ok).toBe(false);
       expect(res429.state).toBe("unavailable");
       expect(res429.depositAddress).toBeUndefined();
+      expect(res429.feeSource).toBe("documented-default");
+      expect(res429.feeLabel).toBe("~0.2% (estimate)");
 
       // 2. Malformed JSON
       globalThis.fetch = vi.fn().mockResolvedValue(new Response("{ malformed json ", { status: 200 }));
@@ -239,6 +241,8 @@ describe("NEAR Intents 1Click API Client", () => {
       expect(quote.ok).toBe(true);
       expect(quote.feeBps).toBe(25);
       expect(quote.feePercent).toBe(0.25);
+      expect(quote.feeSource).toBe("quote");
+      expect(quote.feeLabel).toBe("0.25% (25 bps)");
       expect(quote.asOf).toBe("2026-11-08T12:00:00.000Z");
     } finally {
       globalThis.fetch = originalFetch;

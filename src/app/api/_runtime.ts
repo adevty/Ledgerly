@@ -388,6 +388,8 @@ async function computeDashboardSnapshot() {
       escrowContractId: rt.escrowContractId,
       usdcContractId: rt.usdcContractId,
       explorerBaseUrl: rt.explorerBaseUrl,
+      enableLiveIntents:
+        process.env.ENABLE_LIVE_INTENTS === "true" || process.env.ENABLE_LIVE_INTENTS === "1",
     },
     organization: {
       id: DEMO_ORG_ID,

@@ -25,6 +25,7 @@ import {
   useLedgerlyDashboard,
 } from "../_context";
 import { HashBadge } from "../../components/HashBadge";
+import { CapabilityBadge } from "../../components/CapabilityBadge";
 import { getFxBadgeInfo } from "@/shared/real-fx-adapter";
 
 interface FixedQuotePreview {
@@ -746,6 +747,10 @@ export default function RemittancePage() {
                 <span>
                   Attach FATF Travel Rule payload (mandatory &ge; 1,000 USDC)
                 </span>
+                <CapabilityBadge
+                  id="travel_rule"
+                  networkMode={state?.network?.mode}
+                />
               </label>
 
               <div style={{ display: "flex", alignItems: "center", gap: "0.45rem" }}>
@@ -775,6 +780,10 @@ export default function RemittancePage() {
                     ? "Instant Partner Settle"
                     : "Simulate Partner Outage"}
                 </button>
+                <CapabilityBadge
+                  id="off_ramp_payout"
+                  networkMode={state?.network?.mode}
+                />
               </div>
             </div>
           </div>
@@ -973,20 +982,42 @@ export default function RemittancePage() {
                   {remitRecipient.trim() || "—"}
                 </span>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: "0.5rem" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.5rem" }}>
                 <span style={{ color: "var(--text-muted)" }}>Compliance</span>
-                <span
-                  className="inline-flex items-center gap-1"
-                  style={{
-                    color: includeTravelRule
-                      ? "var(--status-settled-fg)"
-                      : "var(--status-pending-fg)",
-                    fontWeight: 600,
-                  }}
-                >
-                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                  <span>{includeTravelRule ? "OFAC + Travel Rule" : "OFAC Only"}</span>
-                </span>
+                {remitRecipient.trim() ? (
+                  <span
+                    className="inline-flex items-center gap-1.5"
+                    style={{
+                      color: includeTravelRule
+                        ? "var(--status-settled-fg)"
+                        : "var(--status-pending-fg)",
+                      fontWeight: 600,
+                    }}
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                    <span>{includeTravelRule ? "OFAC + Travel Rule" : "OFAC Only"}</span>
+                    <CapabilityBadge
+                      id="sanctions_screening"
+                      networkMode={state?.network?.mode}
+                    />
+                  </span>
+                ) : (
+                  <span
+                    className="inline-flex items-center gap-1.5"
+                    style={{
+                      color: "var(--text-muted)",
+                      fontSize: "0.76rem",
+                      fontWeight: 500,
+                    }}
+                  >
+                    <span
+                      className="status-pill-dot"
+                      aria-hidden="true"
+                      style={{ background: "var(--text-muted)" }}
+                    />
+                    <span>Pending beneficiary</span>
+                  </span>
+                )}
               </div>
             </div>
           </div>

@@ -35,6 +35,7 @@ import {
 } from "@/shared/one-click-client";
 import { CryptoTokenIcon } from "../components/CryptoTokenIcon";
 import { HashBadge } from "../components/HashBadge";
+import { CapabilityBadge } from "../components/CapabilityBadge";
 
 export interface CheckoutItem {
   id: string;
@@ -58,6 +59,7 @@ export interface NetworkInfo {
   escrowContractId: string;
   usdcContractId: string;
   explorerBaseUrl: string;
+  enableLiveIntents?: boolean;
 }
 
 interface ToastMsg {
@@ -1548,20 +1550,29 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                               })}{" "}
                               USD
                             </span>
-                            <span
-                              className="inline-flex items-center gap-1"
-                              style={{
-                                color: "var(--status-settled-fg)",
-                                fontSize: "0.72rem",
-                                fontWeight: 600,
-                              }}
-                            >
-                              <span
-                                className="status-pill-dot status-pill-dot-pulse"
-                                aria-hidden="true"
-                              />
-                              <span>Live Feed</span>
-                            </span>
+                            {(() => {
+                              const isLiveFeed =
+                                oneClickQuote.source === "live" &&
+                                oneClickQuote.state === "available";
+                              return (
+                                <span
+                                  className="inline-flex items-center gap-1"
+                                  style={{
+                                    color: isLiveFeed
+                                      ? "var(--status-settled-fg)"
+                                      : "var(--status-pending-fg)",
+                                    fontSize: "0.72rem",
+                                    fontWeight: 600,
+                                  }}
+                                >
+                                  <span
+                                    className={`status-pill-dot ${isLiveFeed ? "status-pill-dot-pulse" : ""}`}
+                                    aria-hidden="true"
+                                  />
+                                  <span>{isLiveFeed ? "Live Feed" : "Estimate"}</span>
+                                </span>
+                              );
+                            })()}
                           </div>
                         </div>
                       ) : null}
@@ -1581,7 +1592,13 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                         </span>
                         <div className="inline-flex items-center gap-2">
                           <span className="mono-data tabular-nums" style={{ fontWeight: 600 }}>
-                            {oneClickQuote?.feePercent ?? 0.2}% ({oneClickQuote?.feeBps ?? 20} bps)
+                            {oneClickQuote?.source === "oracle-fallback" ||
+                            oneClickQuote?.state === "unavailable"
+                              ? "~0.2% (estimate)"
+                              : oneClickQuote?.feeLabel ??
+                                (oneClickQuote?.feePercent != null
+                                  ? `${oneClickQuote.feePercent}% (${oneClickQuote.feeBps ?? Math.round(oneClickQuote.feePercent * 100)} bps)`
+                                  : "~0.2% (estimate)")}
                           </span>
                         </div>
                       </div>
@@ -1637,7 +1654,7 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                             fontSize: "0.74rem",
                           }}
                         >
-                          <span>Live Solver API</span>
+                          <span>{oneClickQuote?.source === "live" ? "Live Solver API" : "Estimate"}</span>
                           <ArrowUpRight className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                         </a>
                       </div>
@@ -1802,11 +1819,31 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                               item.amountDecimal,
                             )} USDC)`}
                       </span>
+                      <CapabilityBadge
+                        id="solver_settlement"
+                        networkMode={network?.mode}
+                        className="ml-1"
+                      />
                     </button>
                   </div>
                 ) : (
                   <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
-                    {oneClickQuote?.source === "oracle-fallback" ? (
+                    {!network?.enableLiveIntents ? (
+                      <div
+                        style={{
+                          padding: "0.65rem 0.85rem",
+                          borderRadius: 8,
+                          background: "var(--surface-2)",
+                          border: "1px dashed var(--border-subtle)",
+                          fontSize: "0.76rem",
+                          color: "var(--text-muted)",
+                          textAlign: "center",
+                          lineHeight: 1.4,
+                        }}
+                      >
+                        Live deposit addresses are disabled in this demo
+                      </div>
+                    ) : oneClickQuote?.source === "oracle-fallback" ? (
                       <button
                         type="button"
                         className="btn-primary"
@@ -2322,10 +2359,43 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                 }}
               >
                 <span className="form-section-title">On-Chain Escrow &amp; Privacy Telemetry</span>
-                <span className="status-pill status-pill-emerald">
-                  <CheckCircle2 className="w-3 h-3 shrink-0" aria-hidden="true" />
-                  <span>Verified on NEAR</span>
-                </span>
+                {(() => {
+                  const hasRealTx = Boolean(item?.latestTxHash);
+                  const isHeldOrClosed =
+                    item?.status === "PAID" ||
+                    item?.status === "SETTLED" ||
+                    item?.status === "HELD" ||
+                    item?.status === "CLOSED" ||
+                    item?.status === "OVERPAID" ||
+                    item?.status === "PARTIALLY_PAID";
+                  const isLiveTestnet = network?.mode === "NEAR_TESTNET_RPC";
+
+                  if (hasRealTx && isHeldOrClosed && isLiveTestnet) {
+                    return (
+                      <span className="status-pill status-pill-emerald">
+                        <CheckCircle2 className="w-3 h-3 shrink-0" aria-hidden="true" />
+                        <span>Verified on NEAR</span>
+                      </span>
+                    );
+                  }
+                  if (network?.mode === "LOCAL_SANDBOX_SIMULATION" && isHeldOrClosed) {
+                    return (
+                      <span className="status-pill status-pill-amber">
+                        <span className="status-pill-dot" aria-hidden="true" />
+                        <span>Simulated (Sandbox)</span>
+                      </span>
+                    );
+                  }
+                  return (
+                    <span className="status-pill status-pill-blue">
+                      <span
+                        className="status-pill-dot status-pill-dot-pulse"
+                        aria-hidden="true"
+                      />
+                      <span>Pending Settlement</span>
+                    </span>
+                  );
+                })()}
               </div>
 
               {item ? (

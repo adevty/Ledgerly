@@ -400,4 +400,111 @@ describe("Task B: Truthful Auditor States, Scope Enforcements & Tamper-Evident H
     expect(diag.brokenAtSeq).toBe(3); // seq is 1-indexed
     expect(diag.reason).toBe("hash_mismatch");
   });
+
+  it("every wired explicit action increments audit log by exactly 1, keeps chain valid, and anchors root on-chain", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "ledgerly-audit-actions-"));
+    const dbPath = join(tempDir, "audit-actions.sqlite");
+
+    const clock = new FixedClock(T0);
+    const orgKeys = generateX25519KeyPair();
+    const auditorKeys = generateX25519KeyPair();
+
+    try {
+      const db = openLedgerlySqliteDb(dbPath);
+      const outbox = new InMemoryOutbox();
+      const meta = new SqliteRuntimeMetaStore(db);
+      const paymentRepo = new SqlitePaymentRequestRepository(db, outbox);
+      const remittanceRepo = new SqliteRemittanceRepository(db, outbox);
+      const grantRepo = new SqliteViewKeyGrantRepository(db, outbox);
+      const chain = new MockChainGateway();
+
+      const disclosures = new DisclosureUseCases({
+        grantRepo,
+        paymentRepo,
+        remittanceRepo,
+        chain,
+        clock,
+        initialAuditLog: meta.loadAuditLog(),
+        onAuditEntry: (entry) => meta.appendAuditEntry(entry),
+      });
+
+      let expectedLen = 0;
+      let expectedAnchors = 0;
+
+      // 1. Action: Grant Issuance
+      unwrap(
+        await disclosures.issueScopedViewKey({
+          actor: OWNER,
+          grantId: "grant_action_1" as GrantId,
+          auditorPublicKeyHex: auditorKeys.publicKeyHex,
+          orgPrivateKeyHex: orgKeys.privateKeyHex,
+          scope: {
+            orgId: ORG_ID,
+            from: new Date("2026-11-01T00:00:00Z"),
+            to: new Date("2026-11-30T23:59:59Z"),
+            kinds: ["PAYMENT"],
+          },
+          expiresAt: T_EXP,
+        }),
+      );
+      expectedLen += 1;
+      expectedAnchors += 1;
+      expect(disclosures.getAuditLog()).toHaveLength(expectedLen);
+      expect(verifyAuditChain(disclosures.getAuditLog())).toBe(true);
+      expect(chain.getAnchoredRoots()).toHaveLength(expectedAnchors);
+
+      // 2. Action: Rotate Scoped View Key
+      await disclosures.recordAuditAction(OWNER.userId, "ROTATE_VIEW_KEY", "grant_action_2");
+      expectedLen += 1;
+      expectedAnchors += 1;
+      expect(disclosures.getAuditLog()).toHaveLength(expectedLen);
+      expect(verifyAuditChain(disclosures.getAuditLog())).toBe(true);
+      expect(chain.getAnchoredRoots()).toHaveLength(expectedAnchors);
+
+      // 3. Action: Export Reconciliation CSV
+      await disclosures.recordAuditAction(
+        OWNER.userId,
+        "EXPORT_RECONCILIATION_CSV",
+        "ledger_export_01",
+      );
+      expectedLen += 1;
+      expectedAnchors += 1;
+      expect(disclosures.getAuditLog()).toHaveLength(expectedLen);
+      expect(verifyAuditChain(disclosures.getAuditLog())).toBe(true);
+      expect(chain.getAnchoredRoots()).toHaveLength(expectedAnchors);
+
+      // 4. Action: Manual/Auto Reconcile
+      await disclosures.recordAuditAction(
+        OWNER.userId,
+        "MANUAL_RECONCILE",
+        "checked_10_discrepancies_0",
+      );
+      expectedLen += 1;
+      expectedAnchors += 1;
+      expect(disclosures.getAuditLog()).toHaveLength(expectedLen);
+      expect(verifyAuditChain(disclosures.getAuditLog())).toBe(true);
+      expect(chain.getAnchoredRoots()).toHaveLength(expectedAnchors);
+
+      // 5. Action: Explicit Anchor Action
+      await disclosures.recordAuditAction(OWNER.userId, "MANUAL_ANCHOR", "grant_action_1");
+      expectedLen += 1;
+      expectedAnchors += 1;
+      expect(disclosures.getAuditLog()).toHaveLength(expectedLen);
+      expect(verifyAuditChain(disclosures.getAuditLog())).toBe(true);
+      expect(chain.getAnchoredRoots()).toHaveLength(expectedAnchors);
+
+      // Passive query: verifyScopedRecordsAsAuditor should NOT increment
+      const queryRes = await disclosures.verifyScopedRecordsAsAuditor({
+        grantId: "grant_action_1" as GrantId,
+        auditorPrivateKeyHex: auditorKeys.privateKeyHex,
+      });
+      expect(queryRes.ok).toBe(true);
+      expect(disclosures.getAuditLog()).toHaveLength(expectedLen);
+      expect(chain.getAnchoredRoots()).toHaveLength(expectedAnchors);
+
+      db.close();
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
 });

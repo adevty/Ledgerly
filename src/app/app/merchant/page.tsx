@@ -499,17 +499,31 @@ export default function MerchantCheckoutPage() {
                   marginBottom: "0.45rem",
                 }}
               >
-                <span
-                  className="inline-flex items-center gap-1.5"
-                  style={{
-                    fontSize: "0.76rem",
-                    color: "var(--accent-primary)",
-                    fontWeight: 600,
-                  }}
-                >
-                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                  <span>Verified on NEAR</span>
-                </span>
+                {state?.network?.mode === "NEAR_TESTNET_RPC" ? (
+                  <span
+                    className="inline-flex items-center gap-1.5"
+                    style={{
+                      fontSize: "0.76rem",
+                      color: "var(--status-settled-fg)",
+                      fontWeight: 600,
+                    }}
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                    <span>Verified on NEAR</span>
+                  </span>
+                ) : (
+                  <span
+                    className="inline-flex items-center gap-1.5"
+                    style={{
+                      fontSize: "0.76rem",
+                      color: "var(--status-pending-fg)",
+                      fontWeight: 600,
+                    }}
+                  >
+                    <span className="status-pill-dot" aria-hidden="true" />
+                    <span>Simulated (Sandbox)</span>
+                  </span>
+                )}
               </div>
 
               <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "0.75rem" }}>

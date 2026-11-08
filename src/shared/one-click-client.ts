@@ -33,6 +33,8 @@ export interface OneClickQuoteResult {
   readonly correlationId: string;
   readonly feePercent?: number;
   readonly feeBps?: number;
+  readonly feeSource?: "quote" | "documented-default";
+  readonly feeLabel?: string;
   readonly appFees?: ReadonlyArray<{ recipient: string; fee: number }>;
   readonly error?: string;
 }
@@ -252,6 +254,8 @@ export class OneClickClient {
         correlationId: "",
         feePercent: 0.2,
         feeBps: 20,
+        feeSource: "documented-default",
+        feeLabel: "~0.2% (estimate)",
         error: "Invalid target USDC amount",
       };
     }
@@ -296,6 +300,8 @@ export class OneClickClient {
       correlationId: `1click-oracle-${Date.now().toString(36)}`,
       feePercent: 0.2,
       feeBps: 20,
+      feeSource: "documented-default",
+      feeLabel: "~0.2% (estimate)",
       error: params.reason ?? "Solver unavailable, retry",
     };
   }
@@ -332,6 +338,8 @@ export class OneClickClient {
         correlationId: "",
         feePercent: 0.2,
         feeBps: 20,
+        feeSource: "documented-default",
+        feeLabel: "~0.2% (estimate)",
         error: "Target USDC amount must be greater than zero",
       };
     }
@@ -361,6 +369,8 @@ export class OneClickClient {
           correlationId: "",
           feePercent: 0.2,
           feeBps: 20,
+          feeSource: "documented-default",
+          feeLabel: "~0.2% (estimate)",
           error:
             "Live deposit address generation requires ENABLE_LIVE_INTENTS=true and explicit confirmation.",
         };
@@ -475,6 +485,8 @@ export class OneClickClient {
             correlationId: body.correlationId ?? "",
             feePercent: 0.2,
             feeBps: 20,
+            feeSource: "documented-default",
+            feeLabel: "~0.2% (estimate)",
             error: "Solver returned invalid deposit address",
           };
         }
@@ -482,8 +494,13 @@ export class OneClickClient {
 
       const tokenInfo = tokenPrices.get(params.originAsset);
       const appFee = body.quoteRequest?.appFees?.[0];
-      const feeBps = typeof appFee?.fee === "number" ? appFee.fee : 20;
+      const hasFee = typeof appFee?.fee === "number";
+      const feeBps = hasFee ? appFee.fee : 20;
       const feePercent = feeBps / 100;
+      const feeSource = hasFee ? ("quote" as const) : ("documented-default" as const);
+      const feeLabel = hasFee
+        ? `${feePercent}% (${feeBps} bps)`
+        : "0.2% default solver fee (no partner key)";
 
       return {
         ok: true,
@@ -504,6 +521,8 @@ export class OneClickClient {
         correlationId: body.correlationId ?? "",
         feePercent,
         feeBps,
+        feeSource,
+        feeLabel,
         appFees: body.quoteRequest?.appFees,
       };
     } catch {

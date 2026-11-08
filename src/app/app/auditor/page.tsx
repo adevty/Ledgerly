@@ -231,7 +231,14 @@ export default function AuditorVerificationPage() {
             type="button"
             className="btn-primary inline-flex items-center gap-1.5 whitespace-nowrap tabular-nums"
             disabled={busy}
-            onClick={downloadCsv}
+            onClick={() => {
+              downloadCsv();
+              void runAction(
+                { action: "EXPORT_RECONCILIATION_CSV" },
+                "Exported ledger reconciliation CSV & anchored audit root on NEAR.",
+                { actionKey: "export_csv", errorScope: "auditor_page" },
+              );
+            }}
           >
             <Download className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
             <span>Export Reconciliation CSV ({state?.ledger.entriesCount ?? 0} legs)</span>
@@ -343,20 +350,37 @@ export default function AuditorVerificationPage() {
               startChars={10}
               endChars={8}
             />
-            <a
-              href={`${explorerUrl}/address/${escrowContractId}`}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1 whitespace-nowrap mono-label"
-              style={{
-                color: "var(--accent-primary)",
-                textDecoration: "none",
-                fontWeight: 600,
-              }}
-            >
-              <span>Verify on Nearblocks</span>
-              <ArrowUpRight className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-            </a>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+              <button
+                type="button"
+                className="btn-secondary whitespace-nowrap"
+                disabled={busy}
+                onClick={() =>
+                  void runAction(
+                    { action: "ANCHOR_AUDIT_LOG" },
+                    "Anchored current audit log root hash to NEAR smart contract.",
+                    { actionKey: "anchor_root", errorScope: "auditor_page" },
+                  )
+                }
+                style={{ fontSize: "0.74rem", padding: "0.22rem 0.55rem", height: "auto" }}
+              >
+                Anchor Root
+              </button>
+              <a
+                href={`${explorerUrl}/address/${escrowContractId}`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 whitespace-nowrap mono-label"
+                style={{
+                  color: "var(--accent-primary)",
+                  textDecoration: "none",
+                  fontWeight: 600,
+                }}
+              >
+                <span>Verify on Nearblocks</span>
+                <ArrowUpRight className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+              </a>
+            </div>
           </div>
         </div>
       </div>

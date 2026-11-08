@@ -338,7 +338,27 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, state: await buildDashboardSnapshot(true) });
   }
 
-  if (action === "AUTO_RECONCILE_DISCREPANCIES") {
+  if (action === "EXPORT_RECONCILIATION_CSV") {
+    await rt.disclosures.recordAuditAction(
+      DEMO_ACTOR.userId,
+      "EXPORT_RECONCILIATION_CSV",
+      `ledger_export_${Date.now()}`,
+    );
+    invalidateDashboardSnapshotCache();
+    return NextResponse.json({ ok: true, state: await buildDashboardSnapshot(true) });
+  }
+
+  if (action === "ANCHOR_AUDIT_LOG" || action === "ANCHOR_ROOT") {
+    const entry = await rt.disclosures.recordAuditAction(
+      DEMO_ACTOR.userId,
+      "MANUAL_ANCHOR",
+      rt.defaultGrantId,
+    );
+    invalidateDashboardSnapshotCache();
+    return NextResponse.json({ ok: true, entry, state: await buildDashboardSnapshot(true) });
+  }
+
+  if (action === "AUTO_RECONCILE_DISCREPANCIES" || action === "MANUAL_RECONCILE") {
     rt.offRamp.setBehavior({ mode: "SUCCESS" });
     const recon = await rt.reconciliation.runOnce();
     for (const d of recon.discrepancies) {
@@ -366,6 +386,11 @@ export async function POST(request: Request) {
       }
     }
     await rt.settlement.runOnce();
+    await rt.disclosures.recordAuditAction(
+      DEMO_ACTOR.userId,
+      "RECONCILE_DISCREPANCIES",
+      `checked_${recon.checkedCount}_discrepancies_${recon.discrepancies.length}`,
+    );
     invalidateDashboardSnapshotCache();
     return NextResponse.json({ ok: true, state: await buildDashboardSnapshot(true) });
   }
@@ -407,5 +432,6 @@ async function refreshAuditorGrant(rt: Awaited<ReturnType<typeof getRuntime>>) {
   if (res.ok) {
     rt.defaultGrantId = newGrantId;
     rt.metaStore.set("default_grant_id", newGrantId);
+    await rt.disclosures.recordAuditAction(DEMO_ACTOR.userId, "ROTATE_VIEW_KEY", newGrantId);
   }
 }

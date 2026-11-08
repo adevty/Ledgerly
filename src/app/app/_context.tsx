@@ -57,6 +57,7 @@ export interface DashboardState {
     escrowContractId: string;
     usdcContractId: string;
     explorerBaseUrl: string;
+    enableLiveIntents?: boolean;
   };
   organization: {
     id: string;

@@ -6,3 +6,9 @@ No new dependencies; reuse existing services/gateways. Workers only run on API c
 3. `npm run demo:live` (needs the user's OWN testnet env; refuses to run if env is missing, if the network is not testnet, or without --yes). Same flow against real testnet including claim_refund as the depositor with workers off. Print the accounts it will use before acting. Never print key values.
 
 Common: exit 0 only if all assertions pass; runtime < 3 min; `--dry` prints the plan only; unique ids per run; pure assertion helpers get vitest tests; usage in a header comment.
+
+## Addendum from Phase 2 review
+The local DB was reset in Phase 2; the old on-chain escrows can no longer be decrypted (keys exist only in backups/, never committed). For verify:onchain:
+- `npm run demo:live -- --publish-fixture` (human runs it once, with own testnet env and --yes) registers ONE new escrow whose commitment = sha256(canonicalJSON(payload)||salt) over a clearly FICTIONAL payload, then writes examples/verify-fixture.json {payload, salt, escrowId, commitment, txHashes}.
+- verify:onchain recomputes the commitment from that fixture and compares it with get_escrow on the deployed contract, plus checks the README tx hashes (register, ft_transfer_call, release, anchor), which stay valid regardless of the local DB.
+- The fixture must contain no real data. Never print or commit key values.
