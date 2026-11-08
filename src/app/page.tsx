@@ -123,12 +123,23 @@ export default function LandingPage() {
   const statusLabel = hasPendingInvoices ? "OPEN" : "SETTLED";
   const statusPillClass = hasPendingInvoices ? "status-pill-amber" : "status-pill-emerald";
 
-  const totalSettledUsdc = paymentRequests
-    ? paymentRequests
-        .filter((p) => p.status === "SETTLED")
-        .reduce((acc, p) => acc + Number(p.receivedDecimal || p.amountDecimal), 0)
-        .toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-    : "4,390.00";
+  const settledMerchantUsdc = protocolState?.paymentRequests
+    ? protocolState.paymentRequests
+        .filter((p) => p.status === "SETTLED" || p.status === "PAID")
+        .reduce((sum, p) => sum + Number(p.amountDecimal), 0)
+    : 2040;
+
+  const settledRemittanceUsdc = protocolState?.remittances
+    ? protocolState.remittances
+        .filter((r) => r.status === "SETTLED")
+        .reduce((sum, r) => sum + Number(r.sourceDecimal), 0)
+    : 2350;
+
+  const totalSettledNum = settledMerchantUsdc + settledRemittanceUsdc;
+  const totalSettledUsdc = totalSettledNum.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 
   const activeCommitmentHash =
     paymentRequests?.[0]?.commitment || DEMO_COMMITMENT_HASH;
@@ -307,32 +318,51 @@ export default function LandingPage() {
             {/* Layered 3D Dashboard Preview (or Static Mockup Fallback) */}
             <div className="lp-hero-stage-card">
               <div className="lp-hero-stage-topbar">
-                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.55rem" }}>
                   <span className={`status-pill ${statusPillClass}`}>
                     <span className="status-pill-dot" aria-hidden="true" />
                     <span>{statusLabel}</span>
                   </span>
-                  <span
+                  <Link
+                    href="/app"
                     style={{
-                      fontSize: "0.8rem",
+                      fontSize: "0.82rem",
                       fontWeight: 600,
                       color: "var(--text-primary)",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "0.35rem",
+                      textDecoration: "none",
                     }}
+                    title="Open Ledgerly Workspace Overview"
                   >
-                    Ledgerly Workspace
-                  </span>
+                    <span>Ledgerly Workspace</span>
+                    <span style={{ color: "var(--text-muted)", fontSize: "0.75rem" }}>·</span>
+                    <span className="tabular-nums" style={{ color: "var(--status-settled-fg)", fontWeight: 600 }}>
+                      {totalSettledUsdc} USDC
+                    </span>
+                  </Link>
                 </div>
 
-                <span
+                <a
+                  href={`${explorerBaseUrl}/address/${escrowContractId}`}
+                  target="_blank"
+                  rel="noreferrer"
                   className="tabular-nums"
                   style={{
                     fontFamily: "var(--font-family-mono)",
                     fontSize: "0.75rem",
                     color: "var(--text-muted)",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "0.25rem",
+                    textDecoration: "none",
                   }}
+                  title="View Escrow Contract on Nearblocks"
                 >
-                  {escrowContractId}
-                </span>
+                  <span>{escrowContractId}</span>
+                  <ArrowUpRight className="w-3 h-3 shrink-0" aria-hidden="true" />
+                </a>
               </div>
 
               <div className="lp-hero-stage-viewport">

@@ -134,6 +134,11 @@ function buildBaseDashboardTexture(
   settledBalance: string = SEED_DISPLAY_VALUES.settledBalanceFormatted,
   contractId = "ledgerly-escrow-9e70f9ea.testnet",
   orgTitle = "/  Merchant Workspace",
+  counts: { invoices: string; remittances: string; auditor: string } = {
+    invoices: "4",
+    remittances: "4",
+    auditor: "4",
+  },
 ): THREE.CanvasTexture {
   const width = 1280;
   const height = 800;
@@ -220,9 +225,9 @@ function buildBaseDashboardTexture(
 
   const navItems = [
     { label: "Overview", active: true, count: "" },
-    { label: "Merchant Checkout", active: false, count: "3" },
-    { label: "Remittances", active: false, count: "2" },
-    { label: "Auditor Access", active: false, count: "5" },
+    { label: "Merchant Checkout", active: false, count: counts.invoices },
+    { label: "Remittances", active: false, count: counts.remittances },
+    { label: "Auditor Access", active: false, count: counts.auditor },
   ];
 
   navItems.forEach((item, idx) => {
@@ -594,11 +599,22 @@ function LayeredDashboardPlanes({
   );
 
   const dynamicValues = useMemo(() => {
-    const totalSettledNum = state?.paymentRequests
+    const settledMerchant = state?.paymentRequests
       ? state.paymentRequests
-          .filter((p) => p.status === "SETTLED")
-          .reduce((sum, p) => sum + Number(p.receivedDecimal || p.amountDecimal), 0)
+          .filter((p) => p.status === "SETTLED" || p.status === "PAID")
+          .reduce((sum, p) => sum + Number(p.amountDecimal), 0)
       : null;
+
+    const settledRemittance = state?.remittances
+      ? state.remittances
+          .filter((r) => r.status === "SETTLED")
+          .reduce((sum, r) => sum + Number(r.sourceDecimal), 0)
+      : null;
+
+    const totalSettledNum =
+      settledMerchant !== null || settledRemittance !== null
+        ? (settledMerchant ?? 0) + (settledRemittance ?? 0)
+        : null;
 
     const settledBalance = totalSettledNum !== null
       ? `${totalSettledNum.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDC`
@@ -608,6 +624,12 @@ function LayeredDashboardPlanes({
     const orgTitle = state?.organization?.name
       ? `/  ${state.organization.name}`
       : "/  Merchant Workspace";
+
+    const counts = {
+      invoices: state ? String(state.paymentRequests.length) : "4",
+      remittances: state ? String(state.remittances.length) : "4",
+      auditor: state ? String(state.audit.records.length) : "4",
+    };
 
     const invoices = state?.paymentRequests && state.paymentRequests.length > 0
       ? state.paymentRequests.slice(0, 3).map((p, idx) => ({
@@ -625,7 +647,7 @@ function LayeredDashboardPlanes({
     const commitmentHash = latestPr?.commitment ?? undefined;
     const txHash = latestPr?.latestTxHash ?? undefined;
 
-    return { settledBalance, contractId, orgTitle, invoices, commitmentHash, txHash };
+    return { settledBalance, contractId, orgTitle, counts, invoices, commitmentHash, txHash };
   }, [state]);
 
   const baseTexture = useMemo(
@@ -636,8 +658,16 @@ function LayeredDashboardPlanes({
         dynamicValues.settledBalance,
         dynamicValues.contractId,
         dynamicValues.orgTitle,
+        dynamicValues.counts,
       ),
-    [palette, maxAnisotropy, dynamicValues.settledBalance, dynamicValues.contractId, dynamicValues.orgTitle],
+    [
+      palette,
+      maxAnisotropy,
+      dynamicValues.settledBalance,
+      dynamicValues.contractId,
+      dynamicValues.orgTitle,
+      dynamicValues.counts,
+    ],
   );
   const invoicesTexture = useMemo(
     () =>

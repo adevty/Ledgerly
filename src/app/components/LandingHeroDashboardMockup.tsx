@@ -17,18 +17,29 @@ export function LandingHeroDashboardMockup({ state }: LandingHeroDashboardMockup
   const escrowContractId = state?.network?.escrowContractId ?? "ledgerly-escrow-9e70f9ea.testnet";
   const orgName = state?.organization?.name ?? "Merchant Workspace";
 
-  const totalSettledNum = state?.paymentRequests
+  const settledMerchant = state?.paymentRequests
     ? state.paymentRequests
-        .filter((p) => p.status === "SETTLED")
-        .reduce((sum, p) => sum + Number(p.receivedDecimal || p.amountDecimal), 0)
+        .filter((p) => p.status === "SETTLED" || p.status === "PAID")
+        .reduce((sum, p) => sum + Number(p.amountDecimal), 0)
     : null;
+
+  const settledRemittance = state?.remittances
+    ? state.remittances
+        .filter((r) => r.status === "SETTLED")
+        .reduce((sum, r) => sum + Number(r.sourceDecimal), 0)
+    : null;
+
+  const totalSettledNum =
+    settledMerchant !== null || settledRemittance !== null
+      ? (settledMerchant ?? 0) + (settledRemittance ?? 0)
+      : null;
 
   const settledBalanceFormatted = totalSettledNum !== null
     ? `${totalSettledNum.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDC`
     : SEED_DISPLAY_VALUES.settledBalanceFormatted;
 
   const subtitle = state?.paymentRequests
-    ? `${state.paymentRequests.length} Active Escrow Contracts · Reconciled`
+    ? `${state.paymentRequests.length} Active Invoices · Fully Reconciled`
     : SEED_DISPLAY_VALUES.subtitle;
 
   const defaultRow1 = {
