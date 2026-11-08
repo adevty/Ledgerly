@@ -1,0 +1,19 @@
+{
+  "escrowId": "6f2055acdd2c859e6a083bfb67773a0ee81eca759e31ea20ba9143d6acc83fb9",
+  "payload": {
+    "orderRef": "INV-FICTIONAL-2026-001",
+    "description": "Fictional Ceramic Batch for On-Chain Commitment Verification",
+    "customerEmail": "audit-sample@fictional-domain.example",
+    "amountDecimal": "250.00",
+    "currency": "USDC"
+  },
+  "salt": "a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90",
+  "commitment": "079374937fb7cf5a2a8bccf11fb1efa81768047556e0ff35dd7d2a88c541e5cb",
+  "txHashes": {
+    "deployment": "G4dNE6TLB3ASheZn1dtejQpRdZkL9g5S46CNQDhpL7G7",
+    "register": "8Zk7wGRQFhWUwR6Lv54adty52yVdfxbT1yZHuzmu4NQK",
+    "ft_transfer_call": "48uhApH2ij8eQ4PsDau2J6Zg5qi1ZvJFMK2n1rBJzdFa",
+    "release": "4PDxv1WbzU9XQ9LAMSKAJ4iVuha9SfymWvw1pRTWuhaa",
+    "anchor": "1VQz6TK4ksKVsS7uwucPg3B2y3bnFMDghAdfo1RZNWG"
+  }
+}

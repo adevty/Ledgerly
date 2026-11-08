@@ -559,6 +559,10 @@ export class MockChainGateway implements ChainGateway {
     return { txHash };
   }
 
+  async claimRefund(escrowId: EscrowId): Promise<{ txHash: TxHash }> {
+    return this.simulateUserClaimRefund(escrowId);
+  }
+
   async release(input: {
     escrowId: EscrowId;
     receiver: AccountId;

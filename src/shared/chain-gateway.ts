@@ -65,6 +65,8 @@ export interface ChainGateway {
 
   anchorAuditRoot(logRootHex: string): Promise<{ txHash: TxHash }>;
 
+  claimRefund?(escrowId: EscrowId): Promise<{ txHash: TxHash }>;
+
   getEscrow(escrowId: EscrowId, forceFresh?: boolean): Promise<OnchainEscrowView | null>;
 
   pollEvents(fromBlockHeightExclusive: bigint): Promise<{

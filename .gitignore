@@ -9,6 +9,7 @@ contracts/**/target/
 *.tsbuildinfo
 /.data/
 /backups/
+/out/
 *.sqlite*
 *.db
 
