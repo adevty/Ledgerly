@@ -824,24 +824,32 @@ export class NearRpcChainGateway implements ChainGateway {
     );
 
     // Wait until cross-contract ft_on_transfer receipt is finalized on the escrow contract
+    let confirmedHeld = false;
     for (let i = 0; i < 15; i++) {
       const view = await this.getEscrow(input.escrowId, true);
       if (view && view.heldMinor >= input.amountMinor) {
+        confirmedHeld = true;
         break;
       }
       await new Promise((r) => setTimeout(r, 1000));
     }
 
-    const depositEvent: OnchainEvent = {
-      type: "OnchainDepositDetected",
-      txHash,
-      logIndex: 0,
-      blockHeight: blockHeight || this.latestBlockHeight,
-      escrowId: input.escrowId,
-      depositor: input.depositor,
-      amountMinor: input.amountMinor,
-    };
-    this.recordedEvents.push(depositEvent);
+    if (confirmedHeld) {
+      const depositEvent: OnchainEvent = {
+        type: "OnchainDepositDetected",
+        txHash,
+        logIndex: 0,
+        blockHeight: blockHeight || this.latestBlockHeight,
+        escrowId: input.escrowId,
+        depositor: input.depositor,
+        amountMinor: input.amountMinor,
+      };
+      this.recordedEvents.push(depositEvent);
+    } else {
+      console.warn(
+        `[NearRpcChainGateway] simulateDeposit: escrow ${input.escrowId} held balance did not increase after tx ${txHash}`,
+      );
+    }
     return txHash;
   }
 

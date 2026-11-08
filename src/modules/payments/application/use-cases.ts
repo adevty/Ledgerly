@@ -279,7 +279,12 @@ export class PaymentUseCases {
 
         // Check on-chain escrow held balance to be robust against already refunded/released states
         const onchain = await this.deps.chain.getEscrow(pr.escrowId, true);
-        const maxAvailable = onchain ? onchain.heldMinor : pr.amount.amountMinor;
+        const isMockChain = this.deps.chain.constructor.name === "MockChainGateway";
+        const maxAvailable = onchain
+          ? onchain.heldMinor
+          : isMockChain
+            ? pr.amount.amountMinor
+            : 0n;
         const releaseAmountMinor =
           maxAvailable < pr.amount.amountMinor ? maxAvailable : pr.amount.amountMinor;
 

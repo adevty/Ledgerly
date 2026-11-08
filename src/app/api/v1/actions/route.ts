@@ -160,10 +160,29 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: parsed.error }, { status: 400 });
     }
 
+    // Lookup payment or remittance record to obtain commitment & kind
+    const p = await rt.paymentRepo.findByEscrowId(escrowId);
+    const r = !p ? await rt.remittanceRepo.findByEscrowId(escrowId) : null;
+    const commitment = p?.envelope.commitment ?? r?.envelope.commitment;
+    const kind = p ? "Payment" : "Remittance";
+
+    // Ensure escrow is registered on-chain before attempting deposit
+    const existingEscrow = await rt.chain.getEscrow(escrowId, true);
+    if (!existingEscrow && commitment) {
+      await rt.chain.registerEscrow({
+        escrowId,
+        kind,
+        commitment,
+        refundAfterNs: BigInt(Date.now() + 48 * 3600 * 1000) * 1_000_000n,
+      });
+    }
+
     const txHash = await rt.chain.simulateDeposit({
       escrowId,
       depositor: payer,
       amountMinor: parsed.value.amountMinor,
+      commitment,
+      kind,
     });
     await rt.indexer.runOnce();
     return NextResponse.json({
