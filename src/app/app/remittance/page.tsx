@@ -1176,7 +1176,7 @@ export default function RemittancePage() {
               whiteSpace: "nowrap",
             }}
           >
-            Enterprise Treasury Relayer
+            Automated Settlement Relayer
           </span>
         </div>
       </div>
@@ -1595,8 +1595,8 @@ export default function RemittancePage() {
                   </span>
                 </div>
                 <p style={{ fontSize: "0.78rem", color: "var(--text-muted)", marginBottom: "0.6rem" }}>
-                  Counterparty details stay off-chain encrypted with AES-256-GCM. Only the canonical
-                  SHA-256 commitment was registered to NEAR escrow.
+                  Recipient bank details stay private in your local database. Only an anonymous
+                  verification hash was registered on NEAR escrow.
                 </p>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
                   <HashBadge

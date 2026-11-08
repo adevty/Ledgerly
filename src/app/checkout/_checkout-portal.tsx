@@ -468,13 +468,13 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
       pushToast(
         "success",
         `1Click Deposit Address Generated for ${oneClickAsset.name}`,
-        `Intent created. Use Execute Solver Settlement below to run testnet escrow fulfillment.`,
+        `Payment quote ready. Click Simulate Testnet Settlement below to test payment on NEAR testnet.`,
       );
     } else {
       pushToast(
         "error",
         "Could Not Generate Deposit Address",
-        quote?.error ?? "Solver unavailable, retry",
+        quote?.error ?? "Quote unavailable, retry",
       );
     }
   };
@@ -501,7 +501,7 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
         await loadState(item.status, item.id);
         pushToast(
           "success",
-          "Cross-Chain Intent Settled by Solver",
+          "Cross-Chain Payment Settled (Simulated)",
           `Simulated fulfillment from ${oneClickAsset.name} to NEAR Testnet escrow.`,
         );
       }
@@ -1199,7 +1199,7 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
 
         {/* 4-Cell Unified KPI Strip */}
         {item && (
-          <section className="kpi-strip" aria-label="Invoice Settlement Telemetry">
+          <section className="kpi-strip" aria-label="Invoice Payment Status">
             <div className="kpi-cell">
               <div className="inline-flex items-center justify-between" style={{ width: "100%" }}>
                 <span className="mono-label">Invoice Amount Due</span>
@@ -1436,7 +1436,7 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                   </span>
                   <span className="status-pill status-pill-emerald">
                     <span className="status-pill-dot" aria-hidden="true" />
-                    Live Solver Network
+                    Cross-Chain Payment
                   </span>
                 </div>
 
@@ -1475,11 +1475,11 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                         aria-hidden="true"
                       />
                       <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>
-                        Solver Routing · Evaluation Runtime
+                        Cross-Chain Quote &amp; Demo Environment
                       </span>
                     </div>
                     <span style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>
-                      Solver: Mainnet · Escrow: Testnet
+                      Rates: 1Click API · Escrow: NEAR Testnet
                     </span>
                   </div>
 
@@ -1507,7 +1507,7 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                             marginBottom: "0.15rem",
                           }}
                         >
-                          Solver Oracle Rail
+                          Quote Source
                         </div>
                         <div
                           style={{
@@ -1516,7 +1516,7 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                             color: "var(--text-primary)",
                           }}
                         >
-                          1Click Solver API
+                          1Click API
                         </div>
                       </div>
 
@@ -1572,10 +1572,9 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                         Note
                       </span>
                       <span>
-                        Pricing quotes and deposit addresses query production 1Click solvers in
-                        real-time. Because the escrow contract is on <strong>NEAR Testnet</strong>{" "}
-                        for zero-cost evaluation, use{" "}
-                        <strong>Execute Solver Settlement</strong> below to test atomic settlement.
+                        Exchange rate quotes query the live 1Click API. Because the escrow contract
+                        is on <strong>NEAR Testnet</strong> for evaluation, use{" "}
+                        <strong>Simulate Testnet Settlement</strong> below to complete payment.
                       </span>
                     </div>
                   </div>
@@ -1696,7 +1695,7 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
 
                       {oneClickLoading ? (
                         <span style={{ fontSize: "0.74rem", color: "var(--text-muted)" }}>
-                          Fetching Solver Quote…
+                          Fetching Rate Quote…
                         </span>
                       ) : oneClickError || oneClickQuote?.state === "unavailable" ? (
                         <div className="inline-flex items-center gap-2">
@@ -1707,7 +1706,7 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                               fontWeight: 600,
                             }}
                           >
-                            Solver unavailable, retry
+                            Quote unavailable, retry
                           </span>
                           <button
                             type="button"
@@ -1879,7 +1878,7 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                         }}
                       >
                         <span style={{ color: "var(--text-muted)" }}>
-                          Solver Protocol Fee:
+                          Cross-Chain Network Fee:
                         </span>
                         <div className="inline-flex items-center gap-2">
                           <span className="mono-data tabular-nums" style={{ fontWeight: 600 }}>
@@ -1931,7 +1930,7 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                         }}
                       >
                         <span>
-                          Direct NEP-141 checkout has zero Ledgerly protocol fee. Cross-chain routing via NEAR Intents includes 0.20% solver network fee.
+                          Direct USDC payment on NEAR has zero platform fee. Cross-chain payments include a 0.20% network fee.
                         </span>
                         <a
                           href="https://1click.chaindefuser.com"
@@ -1945,7 +1944,7 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                             fontSize: "0.74rem",
                           }}
                         >
-                          <span>{oneClickQuote?.source === "live" ? "Live Solver API" : "Estimate"}</span>
+                          <span>{oneClickQuote?.source === "live" ? "Live Rate API" : "Estimate"}</span>
                           <ArrowUpRight className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                         </a>
                       </div>
@@ -1967,9 +1966,8 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                       lineHeight: 1.45,
                     }}
                   >
-                    <strong>Fallback estimate (not executable):</strong> Live solver quote is currently
-                    unavailable. Deposit address generation and execution are disabled until a fresh live quote is
-                    retrieved.
+                    <strong>Estimate only (not executable):</strong> Live exchange rate is currently
+                    unavailable. Multi-chain payment is paused until a fresh rate is retrieved.
                   </div>
                 )}
 
@@ -2084,8 +2082,8 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                         lineHeight: 1.45,
                       }}
                     >
-                      Live programmatic solver address. To settle the invoice without real mainnet
-                      capital, execute the automated solver settlement relayer below.
+                      Testnet payment simulation: To settle this invoice without spending real
+                      cryptocurrency, trigger a test payment using testnet USDC below.
                     </div>
 
                     <button
@@ -2105,8 +2103,8 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                       <Zap className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                       <span>
                         {busyKey === "simulate_oneclick"
-                          ? "Relaying Testnet Escrow Settlement…"
-                          : `Execute Solver Settlement on NEAR Testnet (${formatUsdc2(
+                          ? "Simulating Testnet Settlement…"
+                          : `Simulate Testnet Settlement (${formatUsdc2(
                               item.amountDecimal,
                             )} USDC)`}
                       </span>
@@ -2132,7 +2130,7 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                           lineHeight: 1.4,
                         }}
                       >
-                        Live deposit addresses are disabled in this demo
+                        Multi-chain deposit addresses are disabled in this demo (NEAR Testnet only).
                       </div>
                     ) : oneClickQuote?.source === "oracle-fallback" ? (
                       <button
@@ -2163,7 +2161,7 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                             style={{ marginTop: "0.15rem", cursor: "pointer" }}
                           />
                           <span>
-                            mainnet solver address; demo escrow is testnet; do not send real funds
+                            Notice: This demo operates on NEAR testnet. Do not send real mainnet funds.
                           </span>
                         </label>
                         <button
@@ -2635,7 +2633,7 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
             )}
           </div>
 
-          {/* Right Column: Escrow Telemetry & NEP-141 Payload Inspector */}
+          {/* Right Column: Escrow Status & Payment Verification */}
           <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
             <div className="fin-card" style={{ padding: 0, overflow: "hidden" }}>
               <div
@@ -2649,7 +2647,7 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                   flexWrap: "wrap",
                 }}
               >
-                <span className="form-section-title">On-Chain Escrow &amp; Privacy Telemetry</span>
+                <span className="form-section-title">On-Chain Escrow &amp; Privacy Status</span>
                 {(() => {
                   const hasRealTx = Boolean(item?.latestTxHash);
                   const isHeldOrClosed =
@@ -2854,12 +2852,12 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                 </div>
               ) : (
                 <div className="empty-state-box">
-                  <span className="mono-label">Loading settlement telemetry…</span>
+                  <span className="mono-label">Loading settlement status…</span>
                 </div>
               )}
             </div>
 
-            {/* NEP-141 Payload Inspector & External Tx Verifier */}
+            {/* Payment Payload Inspector & Transaction Verifier */}
             <div className="fin-card">
               <div
                 style={{
@@ -2871,7 +2869,7 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                 }}
               >
                 <div>
-                  <div className="form-section-title">NEP-141 Transaction Inspector</div>
+                  <div className="form-section-title">Token Transfer Payload Inspector</div>
                   <div className="field-hint">
                     Verify that no invoice numbers, emails, or business metadata touch NEAR
                     on-chain.

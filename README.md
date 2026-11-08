@@ -9,17 +9,19 @@
 
 ---
 
-## 1. Problem, Value, and NEAR Usage
+## 1. Problem, Value, and What Actually Runs
 
-Most businesses cannot operate stablecoins on public blockchains because public transactions broadcast customer identities, revenue numbers, and supply-chain pricing directly to competitors. Conversely, fully shielded privacy networks prevent compliance teams, tax authorities, and external auditors from verifying corporate accounts. Furthermore, raw token transfers lack invoice context, and irreversible transfers cannot handle real-world commercial exceptions such as overpayments, underpayments, expirations, or failed off-ramp payouts.
+Most businesses cannot use public blockchains for day-to-day payments because public ledgers broadcast customer names, revenue, and invoice amounts to everyone. Conversely, completely dark privacy networks make it impossible to provide verifiable records to accountants, auditors, or tax authorities. In addition, standard token transfers have no invoice context and cannot automatically handle commercial issues like overpayments or expired invoices.
 
-Ledgerly provides an end-to-end commercial payments and treasury platform designed for real companies. Invoices and supplier remittances are encrypted off-chain using AES-256-GCM with ephemeral X25519 key agreements. Only opaque 32-byte cryptographic commitments (`sha256(canonicalJSON(payload) || salt)`) are registered on-chain. When audits occur, merchants grant scoped, time-bound X25519 view keys that decrypt records server-side for verification against immutable on-chain commitments without exposing data to the public. Every transaction automatically posts balanced double-entry debit/credit ledger records (`Σ debits == Σ credits`), exportable directly to ERP-ready CSV.
-
-NEAR Protocol serves as the settlement and verification layer through four concrete mechanisms:
-1. **Smart Escrow (`ledgerly-escrow-9e70f9ea.testnet`)**: Receives NEP-141 USDC deposits via `ft_transfer_call`, enforces registration commitments, handles automated overpayment splits (releasing invoice amounts while auto-refunding excess deposits), and exposes a depositor fail-safe (`claim_refund`) that returns funds after timeout even if backend servers go offline or contracts pause.
-2. **On-Chain Audit Anchoring**: Periodically anchors tamper-evident SHA-256 Merkle audit root hashes to contract storage via the `anchor(log_root)` method, emitting NEP-297 compliant event logs.
-3. **Multi-Chain 1Click Intents (`https://1click.chaindefuser.com`)**: Retrieves live solver quotes enabling buyers to pay across foreign chains (Solana, Base, Ethereum, Arbitrum, Bitcoin), with solver routes delivering settlement on NEAR.
-4. **Relayer & Sponsored Gas**: The backend operator account (`ledgerly-op-a627a4c0.testnet`) uses a restricted function-call key to sponsor gas, register escrows, and execute automated batch settlements.
+Ledgerly provides an audit-ready invoicing and payment system with practical privacy:
+- **Private Off-Chain Storage**: Customer names, emails, and invoice items stay in your local database (stored securely with AES-256-GCM encryption). Only an anonymous 32-byte escrow ID and a SHA-256 verification hash are recorded on NEAR.
+- **NEAR Testnet Smart Escrow (`ledgerly-escrow-9e70f9ea.testnet`)**:
+  - Receives testnet USDC deposits via `ft_transfer_call`.
+  - Automatically splits overpayments: if a customer pays 700 USDC for a 680 USDC invoice, the contract releases 680 USDC to the merchant and automatically refunds the 20 USDC excess to the payer.
+  - Fail-safe emergency exit: if an invoice expires, the payer can call `claim_refund` directly on the contract to reclaim funds, even if the backend is completely offline.
+- **Authorized Auditor Access**: When financial audits or tax reviews occur, merchants can issue a scoped auditor key. The auditor can view decrypted invoice records and confirm that their hashes match the records on NEAR, without exposing customer data to the public.
+- **Balanced Accounting**: Every transaction automatically generates balanced double-entry accounting entries (`total debits == total credits`) ready for CSV export into accounting software like QuickBooks or Xero.
+- **Cross-Chain Quotes & Testnet Simulation**: Fetches real-time exchange rates from the NEAR Intents (1Click API) across chains (Solana, Base, Ethereum, Arbitrum, Bitcoin), with simulated fulfillment on NEAR Testnet so you can test end-to-end without spending real mainnet assets.
 
 ---
 
@@ -116,21 +118,21 @@ npm run demo:live -- --yes
 
 In accordance with our honesty protocol, all features in the UI and documentation derive their status strictly from [`src/lib/capabilities.ts`](src/lib/capabilities.ts):
 
-| Capability | Status | Implementation Details / Honesty Disclosure |
+| Capability | Status | What Actually Runs (Honesty Disclosure) |
 |:---|:---:|:---|
-| **Escrow Registration** | `LIVE` | Calls `register` on `ledgerly-escrow-9e70f9ea.testnet` with SHA-256 commitment and timelock. |
-| **USDC Deposit** | `LIVE` | NEP-141 `ft_transfer_call` transfers into escrow contract on NEAR Testnet. |
-| **Escrow Settlement Release**| `LIVE` | Operator executes `release` on contract; funds transfer to merchant or settlement pool. |
-| **Escrow Auto-Refund** | `LIVE` | Contract automatically refunds excess amounts on overpayment or cancelled orders. |
-| **Audit Root Anchoring** | `LIVE` | Hashes Merkle roots to `anchor(log_root)` on-chain, emitting NEP-297 event logs. |
-| **Payer Direct Refund Claim**| `LIVE` | Payer invokes `claim_refund` on-chain directly after `refund_after` expiry. |
-| **1Click Solver Dry Quote** | `LIVE` | Live quotes queried directly from `https://1click.chaindefuser.com/v0/quote`. |
-| **Cross-Chain Deposit Address** | `DRY-RUN` | Dry-run quote enabled by default; live deposit addresses disabled in demo to prevent unmonitored transfers. |
-| **Multi-Chain Solver Swap** | `SIMULATED` | Sandbox solver simulation; cross-chain solver fulfillment on testnet is simulated via adapter. |
-| **Fiat Off-Ramp Payout** | `MOCK` | Simulated local banking rails (GCash, BDO, BCA); real banking rails are mocked. |
-| **OFAC Sanctions Screening** | `MOCK` | Mock compliance check against an in-memory blocklist port. |
-| **FATF Travel Rule Compliance** | `MOCK` | Compliance metadata is captured and sealed off-chain; inter-VASP network transmission is not implemented. |
-| **Forex Exchange Rates** | `LIVE` | Live real-time forex rates with static fallback. Fees come from the live quote. |
+| **Escrow Registration** | `LIVE` | Registers escrow on `ledgerly-escrow-9e70f9ea.testnet` with invoice hash and refund timeout. |
+| **USDC Deposit** | `LIVE` | Real testnet USDC transfer into escrow via `ft_transfer_call` on NEAR Testnet. |
+| **Escrow Settlement Release**| `LIVE` | Operator executes `release` on contract to pay the merchant upon confirmation. |
+| **Escrow Auto-Refund** | `LIVE` | Contract immediately refunds any extra USDC back to the payer if they pay too much. |
+| **Audit Root Anchoring** | `LIVE` | Records audit hash roots on NEAR testnet contract for proof of tamper resistance. |
+| **Payer Direct Refund Claim**| `LIVE` | Payer can call `claim_refund` directly on the contract to get funds back after timeout. |
+| **1Click Solver Dry Quote** | `LIVE` | Queries real-time exchange rates from NEAR Intents 1Click API (`https://1click.chaindefuser.com`). |
+| **Cross-Chain Deposit Address** | `DRY-RUN` | Rates are live; deposit addresses are disabled in this demo to avoid sending real mainnet assets. |
+| **Multi-Chain Solver Swap** | `SIMULATED` | Simulates payment fulfillment on testnet using testnet USDC without spending real mainnet assets. |
+| **Fiat Off-Ramp Payout** | `MOCK` | Simulated local bank transfers (BCA, GCash, SEPA); banking rails are mocked in this demo. |
+| **OFAC Sanctions Screening** | `MOCK` | Simulated compliance check against an in-memory blocklist. |
+| **FATF Travel Rule Compliance** | `MOCK` | Sender/recipient data is saved securely in the local database; external VASP network is not connected. |
+| **Forex Exchange Rates** | `LIVE` | Live exchange rates for international currencies with static fallback. |
 
 ---
 

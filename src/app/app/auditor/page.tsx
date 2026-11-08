@@ -541,13 +541,10 @@ export default function AuditorVerificationPage() {
               className="tabular-nums"
               style={{ fontWeight: 600, fontSize: "0.98rem", color: "var(--text-primary)" }}
             >
-              Decrypted Records in Scope ({filteredRecords.length})
+              Authorized Invoice &amp; Payment Records ({filteredRecords.length})
             </h2>
             <p style={{ fontSize: "0.78rem", color: "var(--text-muted)", marginTop: "0.1rem" }}>
-              Decrypted server-side within the grant scope; payload hash verified against the on-chain commitment{" "}
-              <code className="mono-data" style={{ fontSize: "0.72rem" }}>
-                sha256(canonicalJSON(payload) || salt)
-              </code>
+              Decrypted securely using your auditor view key and verified against the on-chain hash recorded on NEAR.
             </p>
           </div>
 

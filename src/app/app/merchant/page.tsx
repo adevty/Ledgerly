@@ -165,9 +165,8 @@ export default function MerchantCheckoutPage() {
               lineHeight: 1.55,
             }}
           >
-            Private by default: invoice details and customer contacts stay off-chain encrypted with
-            AES-256-GCM while only a 32-byte escrow ID and SHA-256 commitment hash are registered on
-            NEAR.
+            Private by default: customer details and line items stay stored securely in your private
+            database. Only an anonymous escrow ID and verification hash are recorded on NEAR.
           </p>
         </div>
 
@@ -201,8 +200,8 @@ export default function MerchantCheckoutPage() {
                 Create Payment Request
               </h2>
               <p style={{ fontSize: "0.79rem", color: "var(--text-muted)", marginTop: "0.15rem" }}>
-                Configure settlement terms and keep buyer invoice details off-chain while publishing
-                the commitment on NEAR.
+                Set invoice amount and details. Sensitive customer data stays private in your
+                database; only a verification hash is recorded on NEAR.
               </p>
             </div>
             <StatusBadge status="ACTIVE" label="NEP-141 USDC · 24h Escrow" />
@@ -225,7 +224,7 @@ export default function MerchantCheckoutPage() {
                   <span className="inline-flex items-center gap-1.5">
                     <span>Invoice Reference</span>
                     <span
-                      title="Internal order or ERP reference bound to the idempotency key."
+                      title="Your invoice or order number (e.g. INV-2026-001) to identify this payment and prevent duplicates."
                       style={{ color: "var(--text-muted)", display: "inline-flex", cursor: "help" }}
                     >
                       <Info className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
@@ -247,7 +246,7 @@ export default function MerchantCheckoutPage() {
                   </span>
                 )}
                 <span className="field-hint">
-                  Bound to idempotency key for ERP reconciliation.
+                  Unique reference number to identify this invoice and prevent duplicate payments.
                 </span>
               </div>
 
@@ -256,7 +255,7 @@ export default function MerchantCheckoutPage() {
                   <span className="inline-flex items-center gap-1.5">
                     <span>Expected Amount</span>
                     <span
-                      title="6-decimal NEP-141 USDC. Overpayments auto-refund excess; partial payments remain held in escrow."
+                      title="Expected payment in USDC. Overpayments automatically refund the excess; partial payments remain held in escrow."
                       style={{ color: "var(--text-muted)", display: "inline-flex", cursor: "help" }}
                     >
                       <Info className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
@@ -280,7 +279,7 @@ export default function MerchantCheckoutPage() {
                   </span>
                 )}
                 <span className="field-hint">
-                  Overpayments auto-refund excess; partial deposits remain held in escrow.
+                  Excess amounts are refunded automatically; partial deposits remain held in escrow until completed.
                 </span>
               </div>
             </div>
@@ -301,7 +300,7 @@ export default function MerchantCheckoutPage() {
                   <span className="inline-flex items-center gap-1.5">
                     <span>Customer / Treasury Email</span>
                     <span
-                      title="Encrypted off-chain with AES-256-GCM + X25519; never written to NEAR."
+                      title="Stored securely off-chain in your private database; never written publicly to NEAR."
                       style={{ color: "var(--text-muted)", display: "inline-flex", cursor: "help" }}
                     >
                       <Info className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
@@ -322,7 +321,7 @@ export default function MerchantCheckoutPage() {
                   </span>
                 )}
                 <span className="field-hint">
-                  Private off-chain; visible only to scoped view-key holders.
+                  Stored privately; only visible to you and auditors you explicitly authorize.
                 </span>
               </div>
 
@@ -331,7 +330,7 @@ export default function MerchantCheckoutPage() {
                   <span className="inline-flex items-center gap-1.5">
                     <span>Line Item Description</span>
                     <span
-                      title="Hashed into canonical JSON commitment sha256(payload || salt)."
+                      title="Stored privately off-chain and verified on NEAR via a cryptographic hash."
                       style={{ color: "var(--text-muted)", display: "inline-flex", cursor: "help" }}
                     >
                       <Info className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
@@ -347,7 +346,7 @@ export default function MerchantCheckoutPage() {
                   disabled={busy}
                 />
                 <span className="field-hint">
-                  Anchored to canonical SHA-256 commitment hash.
+                  Kept private off-chain; verified on NEAR via a cryptographic hash.
                 </span>
               </div>
             </div>
@@ -650,7 +649,7 @@ export default function MerchantCheckoutPage() {
             }
             description={
               allRequests.length === 0
-                ? "Create your first invoice above to register an escrow ID and SHA-256 commitment hash on NEAR."
+                ? "Create your first invoice above to set up secure escrow payment on NEAR."
                 : "All payment requests are currently in other lifecycle states. Switch back to view all records or create a new checkout link."
             }
             primaryAction={{
