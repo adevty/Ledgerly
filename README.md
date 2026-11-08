@@ -1,36 +1,155 @@
 # Ledgerly
 
-> **Confidential, audit-ready merchant payments and cross-border remittances on NEAR Protocol.**  
-> *"Bring the boring money onchain"* — payroll, invoicing, remittances, merchant payments, and stablecoin rails for real businesses.
+> **Confidential, audit-ready merchant invoicing, multi-chain checkout, and cross-border remittances on NEAR Protocol.**  
+> **Hackathon Tracks:** `realworld` (Bring the boring money onchain) + `privacy` (Selective disclosure & confidential accounting).
 
-[![NEAR Testnet](https://img.shields.io/badge/NEAR-Testnet%20Live-00EC97?logo=near&logoColor=black)](https://testnet.nearblocks.io/address/ledgerly-escrow-9e70f9ea.testnet)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Rust](https://img.shields.io/badge/Rust-near--sdk%205.5-DEA584?logo=rust&logoColor=black)](https://near-sdk.io/)
-[![Next.js](https://img.shields.io/badge/Next.js-16%20Turbopack-000000?logo=next.js&logoColor=white)](https://nextjs.org/)
-[![Vitest](https://img.shields.io/badge/Tests-59%20Passing-6E9F18?logo=vitest&logoColor=white)](https://vitest.dev/)
-[![Security Audit](https://img.shields.io/badge/Security-0%20Vulnerabilities-brightgreen)](https://docs.npmjs.com/cli/v10/commands/npm-audit)
+[![Node.js](https://img.shields.io/badge/Node.js-%3E%3D22.13.0-green.svg)](https://nodejs.org/)
+[![NEAR Testnet](https://img.shields.io/badge/NEAR-Testnet%20Verified-00EC97.svg?logo=near&logoColor=black)](https://testnet.nearblocks.io/address/ledgerly-escrow-9e70f9ea.testnet)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
 
-## 1. Executive Summary
+## 1. Problem, Value, and NEAR Usage
 
-Companies *can* move stablecoins on public blockchains, but they cannot *operate* them as a proper finance system:
-1. **The Privacy vs. Auditability Paradox**: Public blockchains broadcast suppliers, revenues, prices, and employee addresses to competitors; conversely, fully shielded chains are rejected by tax authorities and external auditors.
-2. **Payment ≠ Accounting Event**: On-chain token transfers lack business context (order references, VAT breakdown, customer identity). Reconciliation becomes a manual operational nightmare.
-3. **No Exception Handling**: Blockchains treat all transactions as final. Underpayments, overpayments, expired quotes, cancelled orders, and failed off-ramp payouts get permanently stuck.
-4. **Last-Mile Fiat Problem**: Overseas suppliers and remittance recipients need local fiat currency in their e-wallet (GCash, GoPay, Dana) or bank account (BCA, BDO), not crypto hex addresses.
+Most businesses cannot operate stablecoins on public blockchains because public transactions broadcast customer identities, revenue numbers, and supply-chain pricing directly to competitors. Conversely, fully shielded privacy networks prevent compliance teams, tax authorities, and external auditors from verifying corporate accounts. Furthermore, raw token transfers lack invoice context, and irreversible transfers cannot handle real-world commercial exceptions such as overpayments, underpayments, expirations, or failed off-ramp payouts.
 
-**Ledgerly solves this**:
-* **Confidential by Default**: Business metadata is encrypted off-chain via AES-256-GCM and ephemeral X25519 key agreements. Only opaque 32-byte commitments (`sha256(canonicalJSON(payload) || salt)`) are registered on-chain.
-* **Audit-Ready Selective Disclosure**: Regulators and external auditors receive scoped, time-bound X25519 view keys to decrypt and verify invoices against immutable on-chain commitments without exposing data to the public.
-* **Automated Exception Handling**: The smart escrow contract automatically refunds excess funds on overpayments, cancels expired invoices, and provides a depositor fail-safe (`claim_refund`) even if the backend is down.
-* **Double-Entry Balanced Accounting**: Every settlement, refund, and fee posts balanced debit/credit legs (`Σ debits == Σ credits`), exportable directly to ERP-ready CSV (Xero / QuickBooks compatible).
+Ledgerly provides an end-to-end commercial payments and treasury platform designed for real companies. Invoices and supplier remittances are encrypted off-chain using AES-256-GCM with ephemeral X25519 key agreements. Only opaque 32-byte cryptographic commitments (`sha256(canonicalJSON(payload) || salt)`) are registered on-chain. When audits occur, merchants grant scoped, time-bound X25519 view keys that decrypt records server-side for verification against immutable on-chain commitments without exposing data to the public. Every transaction automatically posts balanced double-entry debit/credit ledger records (`Σ debits == Σ credits`), exportable directly to ERP-ready CSV.
+
+NEAR Protocol serves as the settlement and verification layer through four concrete mechanisms:
+1. **Smart Escrow (`ledgerly-escrow-9e70f9ea.testnet`)**: Receives NEP-141 USDC deposits via `ft_transfer_call`, enforces registration commitments, handles automated overpayment splits (releasing invoice amounts while auto-refunding excess deposits), and exposes a depositor fail-safe (`claim_refund`) that returns funds after timeout even if backend servers go offline or contracts pause.
+2. **On-Chain Audit Anchoring**: Periodically anchors tamper-evident SHA-256 Merkle audit root hashes to contract storage via the `anchor(log_root)` method, emitting NEP-297 compliant event logs.
+3. **Multi-Chain 1Click Intents (`https://1click.chaindefuser.com`)**: Retrieves live solver quotes enabling buyers to pay across foreign chains (Solana, Base, Ethereum, Arbitrum, Bitcoin), with solver routes delivering settlement on NEAR.
+4. **Relayer & Sponsored Gas**: The backend operator account (`ledgerly-op-a627a4c0.testnet`) uses a restricted function-call key to sponsor gas, register escrows, and execute automated batch settlements.
 
 ---
 
-## 2. Live NEAR Testnet Deployments
+## 2. Judge Quickstart (Under 5 Minutes)
 
-Both the **Escrow Smart Contract** and the **NEP-141 Mock USDC Token** are live and verified on NEAR Testnet:
+Run the verification flow in three progressive tiers:
+
+### Tier 1: Local Sandbox Simulation (No keys or blockchain credentials required)
+
+```bash
+# 1. Use supported Node version & install dependencies
+nvm use || nvm install 24
+npm ci
+
+# 2. Copy environment configuration and seed deterministic demo dataset
+cp .env.example .env
+npm run seed
+
+# 3. Execute the full end-to-end sandbox verification script
+npm run demo
+```
+**Expected output:**
+```
+======================================================
+  SANDBOX: simulated chain
+======================================================
+1. Create invoice INV-DEMO-XXXX (680.00 USDC) with idempotency key ... PASS
+2. Buyer deposit 700.00 USDC (20.00 USDC overpayment) ... PASS
+3. Run indexer (1 events) & settlement workers ... PASS
+4. Assert released=680.00 USDC, refund=20.00 USDC, status=SETTLED ... PASS
+5. Anchor audit log root (XXXX…) on contract ... PASS
+6. Issue view key, decrypt server-side & verify sha256(canonicalJSON||salt) ... PASS
+7. Export CSV to ./out/reconciliation.csv & assert sum(debits)==sum(credits) (12080000000 minor) ... PASS
+======================================================
+  SANDBOX: simulated chain
+======================================================
+✅ All 7 sandbox verification steps passed successfully!
+```
+
+#### Highlight: Depositor Fail-Safe Refund (`--refund-path`)
+Demonstrates depositor emergency fund recovery on contract when backend workers are completely offline:
+```bash
+npm run demo -- --refund-path
+```
+**Expected output:**
+```
+MODE: --refund-path (Depositor fail-safe exit with workers offline)
+1. Create invoice (300.00 USDC, 1s expiry) ... PASS
+2. Buyer deposit 300.00 USDC into escrow ... PASS
+3. Backend workers STOPPED (simulated outage) ... PASS
+4. Depositor invokes emergency claim_refund on contract ... PASS
+5. Assert escrow closed & 300.00 USDC returned to depositor ... PASS
+✅ Sandbox --refund-path verification completed successfully!
+```
+
+---
+
+### Tier 2: Keyless On-Chain Verification (Direct NEAR Testnet queries)
+
+Verifies the deployed smart contract, accounts, view methods, and all 5 README transactions directly against public NEAR testnet RPCs without requiring any private keys:
+
+```bash
+npm run verify:onchain
+```
+**Expected output:**
+- Confirms `ledgerly-escrow-9e70f9ea.testnet` and `ledgerly-usdc-a627a4c0.testnet` are deployed with bytecode.
+- Calls `is_paused()` (`false`) and `get_token()` (`ledgerly-usdc-a627a4c0.testnet`).
+- Asserts success, receiver ID, and method for all 5 verified transactions (`DeployContract`, `register`, `ft_transfer_call`, `release`, `anchor`).
+- Validates anchored audit root `9a28c44f6b7428b931a51854daeef47c33f882999ca60813083d226bb11d8913`.
+- Recomputes SHA-256 commitment from fictional published fixture (`examples/verify-fixture.json`).
+- Prints Nearblocks explorer links and exits `0`.
+
+---
+
+### Tier 3: Interactive UI & Wallet Checkout
+
+```bash
+# Start local development server
+npm run dev
+```
+1. Open [http://localhost:3000/checkout](http://localhost:3000/checkout) in Chrome or Brave with **Meteor Wallet** extension installed (set to Testnet).
+2. Connect wallet and click **"Get 100 test USDC"** to mint tokens from the public testnet faucet (`ledgerly-usdc-a627a4c0.testnet`).
+3. Click **"Sign & Pay"** to submit a live `ft_transfer_call` transaction.
+4. The background indexer detects the on-chain receipt within 3.5 seconds and settles the invoice.
+
+*(Optional)* Run live testnet settlement script with your own operator credentials:
+```bash
+npm run demo:live -- --yes
+```
+
+---
+
+## 3. Real vs. Simulated Capabilities (Registry Truth)
+
+In accordance with our honesty protocol, all features in the UI and documentation derive their status strictly from [`src/lib/capabilities.ts`](src/lib/capabilities.ts):
+
+| Capability | Status | Implementation Details / Honesty Disclosure |
+|:---|:---:|:---|
+| **Escrow Registration** | `LIVE` | Calls `register` on `ledgerly-escrow-9e70f9ea.testnet` with SHA-256 commitment and timelock. |
+| **USDC Deposit** | `LIVE` | NEP-141 `ft_transfer_call` transfers into escrow contract on NEAR Testnet. |
+| **Escrow Settlement Release**| `LIVE` | Operator executes `release` on contract; funds transfer to merchant or settlement pool. |
+| **Escrow Auto-Refund** | `LIVE` | Contract automatically refunds excess amounts on overpayment or cancelled orders. |
+| **Audit Root Anchoring** | `LIVE` | Hashes Merkle roots to `anchor(log_root)` on-chain, emitting NEP-297 event logs. |
+| **Payer Direct Refund Claim**| `LIVE` | Payer invokes `claim_refund` on-chain directly after `refund_after` expiry. |
+| **1Click Solver Dry Quote** | `LIVE` | Live quotes queried directly from `https://1click.chaindefuser.com/v0/quote`. |
+| **Cross-Chain Deposit Address** | `DRY-RUN` | Dry-run quote enabled by default; live deposit addresses disabled in demo to prevent unmonitored transfers. |
+| **Multi-Chain Solver Swap** | `SIMULATED` | Sandbox solver simulation; cross-chain solver fulfillment on testnet is simulated via adapter. |
+| **Fiat Off-Ramp Payout** | `MOCK` | Simulated local banking rails (GCash, BDO, BCA); real banking rails are mocked. |
+| **OFAC Sanctions Screening** | `MOCK` | Mock compliance check against an in-memory blocklist port. |
+| **FATF Travel Rule Compliance** | `MOCK` | Compliance metadata is captured and sealed off-chain; inter-VASP network transmission is not implemented. |
+| **Forex Exchange Rates** | `LIVE` | Live real-time forex rates with static fallback. Fees come from the live quote. |
+
+---
+
+## 4. Hackathon Scope & Provenance
+
+* **Hackathon Window**: October 19, 2026 – November 14, 2026.
+* **First Commit Date**: `2026-11-05T18:38:38+07:00` (commit `547a664`).
+* **Commit Verification**: All 48 commits fall strictly within the official hackathon window (verified via `git log`).
+* **AI Assistance Disclosure**: Developed with AI pair-programming assistance (Claude Opus / Antigravity). All architecture decisions, cryptographic schemes, Rust smart contracts, and test suites were reviewed, validated, and executed in terminal sessions.
+* **Libraries & Core Dependencies**:
+  - **Runtime**: Node.js >= 22.13.0 (Node 24 recommended).
+  - **Frontend & Server**: Next.js 16 (App Router + Turbopack), React 19, Tailwind CSS, Lucide icons, Three.js / React Three Fiber.
+  - **Smart Contract**: Rust `near-sdk 5.5` (compiled to `wasm32-unknown-unknown`).
+  - **Database**: Zero-dependency `node:sqlite` (built into Node.js 22.13+), Write-Ahead Logging (`WAL` mode).
+  - **Testing**: Vitest 5.1.0, Cargo test.
+
+---
+
+## 5. Live Testnet Deployments & Verified Transactions
 
 | Contract / Account | Network Address | Explorer Link |
 |:---|:---|:---|
@@ -48,7 +167,7 @@ Both the **Escrow Smart Contract** and the **NEP-141 Mock USDC Token** are live 
 
 ---
 
-## 3. Architecture & Security Model
+## 6. Architecture & Security Model
 
 ```
  ┌────────────────────────────────────────────────────────────────────────┐
@@ -58,8 +177,8 @@ Both the **Escrow Smart Contract** and the **NEP-141 Mock USDC Token** are live 
                      ▼                                ▼
        ┌───────────────────────────┐    ┌───────────────────────────┐
        │   Meteor Wallet (Ext)     │    │   External Auditor Key    │
-       │   - Native MeteorCom SDK  │    │   - Scoped View Key Decrypt
-       │   - Unsigned Borsh Tx     │    │   - On-Chain Root Check   │
+       │   - Native MeteorCom SDK  │    │   - Scoped View Key Grant │
+       │   - Unsigned Borsh Tx     │    │   - Server-Side Decrypt   │
        └─────────────┬─────────────┘    └─────────────▲─────────────┘
                      │ ft_transfer_call()             │
                      ▼                                │
@@ -94,95 +213,42 @@ Both the **Escrow Smart Contract** and the **NEP-141 Mock USDC Token** are live 
  └────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Key Technical Innovations
-
-1. **NEAR Intents 1Click Multichain Rail**:
-   Direct integration with `https://1click.chaindefuser.com` solver network. Allows clients to pay invoices from any blockchain (Solana, Base, Ethereum, Arbitrum, Bitcoin) while solvers automatically execute cross-chain settlement and deliver exact USDC to the merchant on NEAR.
-2. **Native Meteor PostMessenger Extension Bridge**:
-   Direct integration with `window.meteorCom` without vulnerable third-party wrapper libraries. Constructs browser-safe unsigned Borsh transactions with LE integer encoding, serialized to comma-joined Base64 format matching `@meteorwallet/sdk`.
-3. **Zero-Dependency SQLite Persistence (`node:sqlite`)**:
-   Runs native ACID WAL persistence in Node.js v24. Invoices, remittances, view key grants, double-entry ledger journals, and X25519 keypairs survive server restarts without external database setup.
-4. **Fail-Safe Depositor Refund (`claim_refund`)**:
-   Guarantees that funds are never locked permanently. If an invoice expires or the backend goes completely offline, the depositor can call `claim_refund` directly on the smart contract to retrieve their funds.
-5. **FATF Travel Rule & Sanctions Screening**:
-   Automated threshold checks on remittances $\ge \$1,000$ USDC to enforce Travel Rule metadata capture, and sanctions screening integration with automatic aggregate blocking.
+### Security & Threat Model Summary
+Per our detailed [Threat Model](docs/THREAT_MODEL.md):
+- **Server-Side Decryption**: Auditor view keys are processed server-side within the active view-key grant scope. Decrypted payloads are verified against the on-chain SHA-256 commitment and transmitted over HTTPS to the authorized auditor session.
+- **Custody Boundary**: The host maintains custody of organization and auditor X25519 keys stored in `runtime_meta`. Privacy is enforced against public observers, counterparties, and blockchain crawlers.
+- **Fail-Safe Mechanism**: The smart contract guarantees that depositors can always call `claim_refund` directly after the timeout expires, bypassing the backend server completely.
 
 ---
 
-## 4. Application Modules & Routes
+## 7. Testing & Quality Verification
 
-* **`/` — Ambient Landing Page**: Features `PaymentWaveRails` (calm particle rails flowing across 4 scroll-choreographed states) and fintech copy explaining the value proposition.
-* **`/checkout` & `/checkout/[id]` — Buyer Checkout Portal**: Clean invoice payment UI with instant Meteor Wallet connection, 1-click testnet USDC faucet, QR codes, overpayment auto-split preview, and 3.5s real-time auto-sync to `SETTLED`.
-* **`/app/merchant` — Merchant Workspace**: Invoice generation, real-time status transitions (`OPEN` $\to$ `PAID` $\to$ `SETTLED`), manual settlement simulation, and direct links to on-chain receipts.
-* **`/app/remittance` — Cross-Border Remittance**: Live rate-locking across corridors (USD $\to$ PHP, USD $\to$ IDR), transparent fee calculation, Travel Rule modal, and automated off-ramp retry queue.
-* **`/app/auditor` — Auditor Selective Disclosure**: One-click decryption of scoped business envelopes, cryptographic verification of SHA-256 commitments against the NEAR contract, audit log root inspection, and ERP-compliant CSV export.
-
----
-
-## 5. Getting Started
-
-### Prerequisites
-* **Node.js**: v22.0.0 or higher (v24.x recommended for native `node:sqlite`).
-* **Rust & Cargo**: (Only if modifying smart contracts) with `wasm32-unknown-unknown` target.
-
-### Installation & Verification
+Run the full automated test suites:
 
 ```bash
-# Clone the repository
-git clone https://github.com/adevty/Ledgerly.git
-cd Ledgerly
-
-# Install dependencies (0 vulnerabilities)
-npm install
-
-# Run static TypeScript typecheck
-npm run typecheck
-
-# Run the complete test suite (49 unit & integration tests)
+# TypeScript Domain & Integration Test Suite (121 tests, 18 test files)
 npm test
 
-# Run Rust smart contract unit tests
+# Rust Smart Contract Test Suite (6 unit tests)
 npm run contract:test
 
-# Build the Next.js production bundle
+# Static Type Checking
+npm run typecheck
+
+# Production Next.js Build
 npm run build
 ```
 
-### Running Locally
+---
 
-```bash
-# Start the development server
-npm run dev
-```
+## 8. Demo Links & Submission
 
-Open [http://localhost:3000](http://localhost:3000) in your browser:
-* Landing Page: `http://localhost:3000/`
-* Merchant Portal: `http://localhost:3000/app/merchant`
-* Buyer Checkout: `http://localhost:3000/checkout`
-* Remittance App: `http://localhost:3000/app/remittance`
-* Auditor Console: `http://localhost:3000/app/auditor`
+* **Hosted Web Application**: `TODO: [Paste hosted demo URL here]`
+* **60–90 Second Video Walkthrough**: `TODO: [Paste YouTube / Loom link here]`
+* **X / Twitter Announcement Post**: `TODO: [Paste X post link here]`
 
 ---
 
-## 6. Testing Checkout Payment Rails
+## 9. License
 
-### Option A: Native NEAR Testnet with Meteor Wallet
-1. Open **`http://localhost:3000/checkout`** in Chrome/Brave with the **Meteor Wallet Extension** installed.
-2. Ensure your Meteor Wallet is toggled to **Testnet**.
-3. Click **"Connect Meteor"** — the extension will link your testnet account.
-4. Click **"Get 100 test USDC"** — the live faucet on contract `ledgerly-usdc-a627a4c0.testnet` will mint tokens to your wallet.
-5. Click **"Sign & Pay"** — approve the `ft_transfer_call` transaction in the Meteor Wallet popup.
-6. The page will automatically detect the on-chain confirmation within 3.5 seconds and transition to **SETTLED**!
-
-### Option B: Cross-Chain Settlement with NEAR Intents (1Click)
-1. On **`http://localhost:3000/checkout`**, click the **"⚡ Pay Any Chain (NEAR Intents)"** rail tab.
-2. Select your origin token/chain: **Solana (SOL)**, **Base (ETH)**, **Arbitrum (USDC)**, **Ethereum (ETH)**, or **Bitcoin (BTC)**.
-3. Observe the live quote retrieved directly from `https://1click.chaindefuser.com/v0/quote` displaying exact input requirements, estimated fulfillment time, and zero protocol fees.
-4. Click **"Generate 1Click Deposit Address"** to obtain an authentic single-use cross-chain deposit address.
-5. Click **"Simulate Solver Settlement (Testnet)"** to immediately simulate intent fulfillment on testnet and watch the invoice settle!
-
----
-
-## 7. License
-
-MIT License. Built for the NEAR Protocol *"Bring the boring money onchain"* Hackathon.
+MIT License. Copyright (c) 2026 Ledgerly Contributors.

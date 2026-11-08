@@ -109,4 +109,17 @@ describe("Task C: Capability Registry & Honesty Layer", () => {
       expect(badge.label).toMatch(/MOCK|SIMULATED/);
     }
   });
+
+  it("verifies README.md capabilities table remains in sync with capability registry", async () => {
+    const { readFileSync, existsSync } = await import("node:fs");
+    const { resolve } = await import("node:path");
+    const readmePath = resolve(process.cwd(), "README.md");
+    expect(existsSync(readmePath)).toBe(true);
+    const content = readFileSync(readmePath, "utf8");
+
+    for (const id of allCapabilityIds) {
+      const cap = CAPABILITIES[id];
+      expect(content).toContain(cap.label);
+    }
+  });
 });
