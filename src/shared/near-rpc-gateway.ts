@@ -823,6 +823,15 @@ export class NearRpcChainGateway implements ChainGateway {
       1n,
     );
 
+    // Wait until cross-contract ft_on_transfer receipt is finalized on the escrow contract
+    for (let i = 0; i < 15; i++) {
+      const view = await this.getEscrow(input.escrowId, true);
+      if (view && view.heldMinor >= input.amountMinor) {
+        break;
+      }
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+
     const depositEvent: OnchainEvent = {
       type: "OnchainDepositDetected",
       txHash,

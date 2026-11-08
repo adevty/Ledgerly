@@ -170,13 +170,20 @@ async function createSeededRuntime(): Promise<LedgerlyRuntime> {
   const remittanceRepo = new SqliteRemittanceRepository(db, outbox);
   const grantRepo = new SqliteViewKeyGrantRepository(db, outbox);
 
+  const defaultMerchantAccount = (
+    useLiveNearRpc && operatorAccountId ? operatorAccountId : "atelier-sari.ledgerly.testnet"
+  ) as AccountId;
+  const defaultOffRampAccount = (
+    useLiveNearRpc && operatorAccountId ? operatorAccountId : "offramp-pool.ledgerly.testnet"
+  ) as AccountId;
+
   const payments = new PaymentUseCases({
     repo: paymentRepo,
     chain,
     ledger,
     idempotency,
     clock: systemClock,
-    merchantNearAccounts: new Map([[DEMO_ORG_ID, "atelier-sari.ledgerly.testnet" as AccountId]]),
+    merchantNearAccounts: new Map([[DEMO_ORG_ID, defaultMerchantAccount]]),
   });
 
   const remittances = new RemittanceUseCases({
@@ -188,7 +195,7 @@ async function createSeededRuntime(): Promise<LedgerlyRuntime> {
     ledger,
     idempotency,
     clock: systemClock,
-    offRampSettlementAccount: "offramp-pool.ledgerly.testnet" as AccountId,
+    offRampSettlementAccount: defaultOffRampAccount,
   });
 
   const initialAuditLog = metaStore.loadAuditLog();
