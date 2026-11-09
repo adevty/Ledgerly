@@ -700,124 +700,85 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
     });
 
   return (
-    <div style={{ minHeight: "100dvh", background: "var(--surface-canvas)", color: "var(--text-primary)" }}>
-      {/* Top Navigation Bar */}
-      <header className="app-topbar sticky top-0 z-50">
-        <div
-          style={{
-            maxWidth: 1240,
-            margin: "0 auto",
-            padding: "0.78rem 1.5rem",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: "1rem",
-            flexWrap: "wrap",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "0.65rem" }}>
-            <Link
-              href="/"
-              style={{
-                textDecoration: "none",
-                color: "var(--text-primary)",
-                fontWeight: 700,
-                fontSize: "1.02rem",
-                letterSpacing: "-0.025em",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "0.5rem",
-              }}
-            >
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <rect width="24" height="24" rx="6" fill="var(--accent-primary)" />
-                <path
-                  d="M8 7.5V16.5H16"
-                  stroke="var(--text-on-accent)"
-                  strokeWidth="2.4"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-              <span>Ledgerly</span>
-            </Link>
-            <span style={{ color: "var(--border-default)" }} aria-hidden="true">
-              /
-            </span>
-            <span style={{ color: "var(--text-secondary)", fontSize: "0.86rem", fontWeight: 600 }}>
-              Buyer Checkout
-            </span>
+    <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+      {/* Page Header */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-end",
+          gap: "1rem",
+          flexWrap: "wrap",
+          marginBottom: "0.5rem",
+        }}
+      >
+        <div>
+          <div className="eyebrow" style={{ marginBottom: "0.35rem" }}>
+            NEAR Smart Escrow · Multi-Chain Intent Settlement
           </div>
-
-          <div
-            className="ml-auto"
+          <h1
             style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.55rem",
-              flexWrap: "wrap",
-              marginLeft: "auto",
+              fontSize: "1.75rem",
+              fontWeight: 650,
+              letterSpacing: "-0.03em",
+              marginBottom: "0.35rem",
+              color: "var(--text-primary)",
             }}
           >
+            Buyer Checkout &amp; Escrow Matching
+          </h1>
+          <p
+            style={{
+              fontSize: "0.86rem",
+              color: "var(--text-muted)",
+              maxWidth: 680,
+              lineHeight: 1.55,
+            }}
+          >
+            Deposit mock USDC on NEAR Testnet or settle across chains via 1Click Intents with automated overpayment refund.
+          </p>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap" }}>
+          {wallet ? (
             <span
-              className={
-                network?.mode === "NEAR_TESTNET_RPC"
-                  ? "status-pill status-pill-emerald"
-                  : "status-pill status-pill-amber"
-              }
+              className="status-pill status-pill-emerald"
+              title={`Connected NEAR Account: ${wallet.accountId} (${wallet.provider})`}
+              style={{ cursor: "default" }}
             >
-              <span className="status-pill-dot status-pill-dot-pulse" aria-hidden="true" />
-              {network?.mode === "NEAR_TESTNET_RPC"
-                ? "NEAR Testnet · Live RPC"
-                : "NEAR Testnet · Sandbox"}
-            </span>
-
-            {wallet ? (
-              <span
-                className="status-pill status-pill-emerald"
-                title={`Connected NEAR Account: ${wallet.accountId} (${wallet.provider})`}
-                style={{ cursor: "default" }}
-              >
-                <span className="status-pill-dot" aria-hidden="true" />
-                <span className="mono-data tabular-nums" style={{ fontWeight: 500 }}>
-                  {wallet.accountId}
-                </span>
+              <span className="status-pill-dot" aria-hidden="true" />
+              <span className="mono-data tabular-nums" style={{ fontWeight: 500 }}>
+                {wallet.accountId}
               </span>
-            ) : (
-              <button
-                type="button"
-                className="btn-secondary inline-flex items-center gap-1.5 whitespace-nowrap"
-                style={{ padding: "0.32rem 0.68rem", fontSize: "0.76rem", textDecoration: "none" }}
-                disabled={busyKey === "connect_meteor"}
-                onClick={() => void handleConnectMeteor()}
-              >
-                <Wallet className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                <span>{busyKey === "connect_meteor" ? "Connecting…" : "Connect Wallet"}</span>
-              </button>
-            )}
-
-            <Link
-              href="/app/merchant"
-              className="btn-quiet inline-flex items-center gap-1 whitespace-nowrap"
-              style={{ textDecoration: "none" }}
+            </span>
+          ) : (
+            <button
+              type="button"
+              className="btn-secondary inline-flex items-center gap-1.5 whitespace-nowrap"
+              style={{ padding: "0.42rem 0.85rem", fontSize: "0.79rem", textDecoration: "none" }}
+              disabled={busyKey === "connect_meteor"}
+              onClick={() => void handleConnectMeteor()}
             >
-              <ArrowLeft className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-              <span>Merchant Console</span>
-            </Link>
-          </div>
-        </div>
-        <div className="header-rail-track" aria-hidden="true">
-          <div className={busyKey ? "header-rail-line-busy" : "header-rail-line"} />
-        </div>
-      </header>
+              <Wallet className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+              <span>{busyKey === "connect_meteor" ? "Connecting…" : "Connect Wallet"}</span>
+            </button>
+          )}
 
-      {/* Main Content Container */}
-      <main
+          <Link
+            href="/app/merchant"
+            className="btn-quiet inline-flex items-center gap-1.5 whitespace-nowrap"
+            style={{ padding: "0.42rem 0.75rem", fontSize: "0.79rem", textDecoration: "none" }}
+          >
+            <ArrowLeft className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+            <span>Merchant Console</span>
+          </Link>
+        </div>
+      </div>
+
+      {/* Main Content Body */}
+      <div
         className="page-transition-enter"
         style={{
-          maxWidth: 1240,
-          margin: "0 auto",
-          padding: "1.65rem 1.5rem 3.5rem",
           display: "flex",
           flexDirection: "column",
           gap: "1.25rem",
@@ -2937,7 +2898,7 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
             </div>
           </div>
         </div>
-      </main>
+      </div>
 
       {/* Non-blocking Toast Notifications */}
       {toasts.length > 0 && (

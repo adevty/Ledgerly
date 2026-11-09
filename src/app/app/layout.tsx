@@ -141,7 +141,9 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
       ? "Global Remittances"
       : pathname.startsWith("/app/auditor")
         ? "Auditor Access"
-        : "Overview";
+        : pathname.startsWith("/checkout")
+          ? "Buyer Checkout"
+          : "Overview";
 
   const orgInitials = state?.organization.name
     ? state.organization.name
