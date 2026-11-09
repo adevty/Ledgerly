@@ -278,12 +278,12 @@ export default function LandingPage() {
               </div>
 
               <h1 className="lp-hero-title">
-                Private stablecoin invoicing and accounting.
+                Private Financial Infrastructure for Onchain Businesses
               </h1>
 
               <p className="lp-hero-lead">
-                Accept USDC and cross-chain payments without exposing customer or invoice data.
-                Settle via smart escrow, share scoped auditor access, and export balanced books.
+                A privacy-first financial infrastructure that enables businesses to execute stablecoin payments,
+                manage escrow, and maintain verifiable financial records without exposing sensitive business data on public blockchains.
               </p>
 
               <div className="lp-cta-row">
@@ -380,8 +380,12 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* 4 Plain-Language Product Pillars */}
-          <div id="pillars" className="lp-pillars-grid">
+          {/* Core Proposition Grid */}
+          <div
+            id="pillars"
+            className="lp-pillars-grid"
+            style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}
+          >
             <article className="lp-pillar-card">
               <h2 className="lp-pillar-title">
                 <CheckCircle2
@@ -389,10 +393,10 @@ export default function LandingPage() {
                   style={{ color: "var(--status-settled-fg)" }}
                   aria-hidden="true"
                 />
-                <span>Private by default</span>
+                <span>Private financial records</span>
               </h2>
               <p className="lp-pillar-body">
-                Customer contacts, line items, and bank details stay encrypted off-chain.
+                Customer contacts, pricing terms, and line items stay encrypted off-chain via AES-256-GCM.
               </p>
             </article>
 
@@ -403,10 +407,10 @@ export default function LandingPage() {
                   style={{ color: "var(--status-settled-fg)" }}
                   aria-hidden="true"
                 />
-                <span>Verified on NEAR</span>
+                <span>Programmable escrow</span>
               </h2>
               <p className="lp-pillar-body">
-                Every invoice anchors a cryptographic commitment hash on-chain for proof of payment.
+                Autonomous smart escrow on NEAR with automated overpayment split &amp; timeout refund exit.
               </p>
             </article>
 
@@ -417,10 +421,10 @@ export default function LandingPage() {
                   style={{ color: "var(--status-pending-fg)" }}
                   aria-hidden="true"
                 />
-                <span>Auditor access</span>
+                <span>Selective disclosure</span>
               </h2>
               <p className="lp-pillar-body">
-                Share time-bound view keys so external auditors can verify records without public leaks.
+                Share scoped view keys so certified auditors can verify records without public data leaks.
               </p>
             </article>
 
@@ -431,10 +435,24 @@ export default function LandingPage() {
                   style={{ color: "var(--status-settled-fg)" }}
                   aria-hidden="true"
                 />
-                <span>Balanced books</span>
+                <span>Verifiable accounting</span>
               </h2>
               <p className="lp-pillar-body">
-                Every settlement generates balanced double-entry journals ready for CSV export.
+                Balanced double-entry records with zero variance anchored directly on NEAR.
+              </p>
+            </article>
+
+            <article className="lp-pillar-card">
+              <h2 className="lp-pillar-title">
+                <CheckCircle2
+                  className="w-4 h-4 shrink-0"
+                  style={{ color: "var(--status-settled-fg)" }}
+                  aria-hidden="true"
+                />
+                <span>Cross-chain rails</span>
+              </h2>
+              <p className="lp-pillar-body">
+                Multi-chain settlement via NEAR Intents across Solana, Ethereum, Base, and Arbitrum.
               </p>
             </article>
           </div>
@@ -944,7 +962,7 @@ export default function LandingPage() {
               Ledgerly
             </span>
             <span style={{ fontSize: "0.82rem", color: "var(--text-muted)" }}>
-              · Private stablecoin payments &amp; balanced accounting on NEAR
+              · Private Financial Infrastructure for Onchain Businesses on NEAR
             </span>
           </div>
 

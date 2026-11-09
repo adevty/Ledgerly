@@ -1,7 +1,8 @@
 # Ledgerly
 
-> **Confidential, audit-ready merchant invoicing, multi-chain checkout, and cross-border remittances on NEAR Protocol.**  
-> **Hackathon Tracks:** `realworld` (Bring the boring money onchain) + `privacy` (Selective disclosure & confidential accounting).
+> **Private Financial Infrastructure for Onchain Businesses**  
+> A privacy-first financial infrastructure that enables businesses to execute stablecoin payments, manage escrow, and maintain verifiable financial records without exposing sensitive business data on public blockchains.  
+> **Hackathon Tracks:** `realworld` (Bring the boring money onchain) + `privacy` (Selective disclosure & confidential onchain financial infrastructure).
 
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D22.13.0-green.svg)](https://nodejs.org/)
 [![NEAR Testnet](https://img.shields.io/badge/NEAR-Testnet%20Verified-00EC97.svg?logo=near&logoColor=black)](https://testnet.nearblocks.io/address/ledgerly-escrow-9e70f9ea.testnet)
@@ -9,19 +10,28 @@
 
 ---
 
+### Core Proposition
+- **Private financial records**: Customer contacts, pricing terms, and line items stay encrypted off-chain via AES-256-GCM + X25519; zero raw commercial metadata leaks to public block explorers.
+- **Programmable stablecoin escrow**: Autonomous smart contract on NEAR (`ledgerly-escrow-9e70f9ea.testnet`) with automated overpayment splits and fail-safe timeout refund exits.
+- **Selective disclosure for auditors**: Scoped cryptographic view keys allowing certified auditors to decrypt records and verify SHA-256 commitments without public leaks.
+- **Verifiable onchain accounting**: Mathematical double-entry ledger entries ($0.00 net variance invariant) with tamper-evident roots anchored on NEAR.
+- **Cross-chain payment infrastructure**: Multi-chain settlement via NEAR Intents (1Click API) across Solana, Ethereum, Base, Arbitrum, and Bitcoin.
+
+---
+
 ## 1. Problem, Value, and What Actually Runs
 
 Most businesses cannot use public blockchains for day-to-day payments because public ledgers broadcast customer names, revenue, and invoice amounts to everyone. Conversely, completely dark privacy networks make it impossible to provide verifiable records to accountants, auditors, or tax authorities. In addition, standard token transfers have no invoice context and cannot automatically handle commercial issues like overpayments or expired invoices.
 
-Ledgerly provides an audit-ready invoicing and payment system with practical privacy:
+Ledgerly provides private financial infrastructure with verifiable onchain trust:
 - **Private Off-Chain Storage**: Customer names, emails, and invoice items stay in your local database (stored securely with AES-256-GCM encryption). Only an anonymous 32-byte escrow ID and a SHA-256 verification hash are recorded on NEAR.
 - **NEAR Testnet Smart Escrow (`ledgerly-escrow-9e70f9ea.testnet`)**:
   - Receives testnet USDC deposits via `ft_transfer_call`.
   - Automatically splits overpayments: if a customer pays 700 USDC for a 680 USDC invoice, the contract releases 680 USDC to the merchant and automatically refunds the 20 USDC excess to the payer.
   - Fail-safe emergency exit: if an invoice expires, the payer can call `claim_refund` directly on the contract to reclaim funds, even if the backend is completely offline.
 - **Authorized Auditor Access**: When financial audits or tax reviews occur, merchants can issue a scoped auditor key. The auditor can view decrypted invoice records and confirm that their hashes match the records on NEAR, without exposing customer data to the public.
-- **Balanced Accounting**: Every transaction automatically generates balanced double-entry accounting entries (`total debits == total credits`) ready for CSV export into accounting software like QuickBooks or Xero.
-- **Cross-Chain Quotes & Testnet Simulation**: Fetches real-time exchange rates from the NEAR Intents (1Click API) across chains (Solana, Base, Ethereum, Arbitrum, Bitcoin), with simulated fulfillment on NEAR Testnet so you can test end-to-end without spending real mainnet assets.
+- **Verifiable Financial Records**: Every transaction automatically generates balanced double-entry accounting entries (`total debits == total credits`) ready for CSV export into standard financial software like QuickBooks or Xero.
+- **Cross-Chain Payment Infrastructure**: Fetches real-time exchange rates from the NEAR Intents (1Click API) across chains (Solana, Base, Ethereum, Arbitrum, Bitcoin), with simulated fulfillment on NEAR Testnet so you can test end-to-end without spending real mainnet assets.
 
 ---
 

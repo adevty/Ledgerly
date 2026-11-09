@@ -2,7 +2,7 @@
   "name": "ledgerly",
   "version": "0.1.0",
   "private": true,
-  "description": "Confidential, audit-ready merchant payments & remittance on NEAR",
+  "description": "Private Financial Infrastructure for Onchain Businesses on NEAR Protocol",
   "engines": {
     "node": ">=22.13.0"
   },

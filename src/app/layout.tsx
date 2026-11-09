@@ -17,9 +17,9 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Ledgerly — Business Payments & Remittances on NEAR",
+  title: "Ledgerly — Private Financial Infrastructure for Onchain Businesses",
   description:
-    "Private-by-default merchant invoicing, multi-chain USDC checkout, cross-border payouts, and auditor-ready accounting on NEAR Protocol.",
+    "A privacy-first financial infrastructure that enables businesses to execute stablecoin payments, manage escrow, and maintain verifiable financial records without exposing sensitive business data on public blockchains.",
 };
 
 export default function RootLayout({
