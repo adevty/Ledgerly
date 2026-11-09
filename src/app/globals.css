@@ -2356,10 +2356,10 @@ button:focus-visible {
 }
 
 .lp-hero {
-  padding: 3.5rem 0 2.75rem;
+  padding: 4.5rem 0 3.75rem;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
-  gap: 2.75rem;
+  gap: 3.5rem;
   align-items: center;
 }
 
@@ -2425,6 +2425,13 @@ button:focus-visible {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  box-shadow: 0 12px 36px -8px rgba(0, 0, 0, 0.22);
+  transition: box-shadow 300ms ease, border-color 300ms ease;
+}
+
+.lp-hero-stage-card:hover {
+  border-color: var(--primitive-fg-alpha-12);
+  box-shadow: 0 16px 44px -8px rgba(0, 0, 0, 0.28);
 }
 
 .lp-hero-stage-topbar {
@@ -2458,20 +2465,29 @@ button:focus-visible {
 }
 
 .lp-pillars-grid {
-  margin: 1.25rem 0 3.75rem;
+  margin: 4.5rem 0 6.5rem;
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.75rem;
+  scroll-margin-top: 6rem;
 }
 
 .lp-pillar-card {
   background-color: var(--surface-1);
   border: 1px solid var(--border-default);
   border-radius: var(--panel-radius);
-  padding: 1.35rem;
+  padding: 1.75rem 1.6rem;
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
+  gap: 0.85rem;
+  box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.04);
+  transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 300ms cubic-bezier(0.16, 1, 0.3, 1), border-color 300ms ease;
+}
+
+.lp-pillar-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--primitive-fg-alpha-12);
+  box-shadow: 0 12px 28px -6px rgba(0, 0, 0, 0.12);
 }
 
 .lp-pillar-title {
@@ -2490,22 +2506,34 @@ button:focus-visible {
   color: var(--text-secondary);
 }
 
+.lp-workflow-section-container {
+  padding: 2.5rem 0 6rem;
+  scroll-margin-top: 5rem;
+}
+
 .lp-workflow-stack {
   display: flex;
   flex-direction: column;
-  gap: 1.75rem;
-  padding-bottom: 4rem;
+  gap: 4.5rem;
+  padding: 1rem 0 3rem;
 }
 
 .lp-workflow-section {
   background-color: var(--surface-1);
   border: 1px solid var(--border-default);
   border-radius: var(--section-radius);
-  padding: 2.25rem;
+  padding: 3.25rem 3rem;
   display: grid;
   grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
-  gap: 2.25rem;
+  gap: 3.5rem;
   align-items: center;
+  box-shadow: 0 6px 24px -2px rgba(0, 0, 0, 0.05);
+  transition: border-color 300ms ease, box-shadow 300ms ease, transform 300ms ease;
+}
+
+.lp-workflow-section:hover {
+  border-color: var(--primitive-fg-alpha-12);
+  box-shadow: 0 16px 36px -4px rgba(0, 0, 0, 0.1);
 }
 
 .lp-step-pill {
@@ -2609,14 +2637,65 @@ button:focus-visible {
   flex-wrap: wrap;
 }
 
+/* ----------------------------------------------------------------------------
+   DEPLOYED TESTNET CONTRACTS SECTION & CARDS
+   ---------------------------------------------------------------------------- */
+.lp-contracts-section {
+  padding: 4.5rem 0 7rem;
+  scroll-margin-top: 5rem;
+}
+
+.lp-contracts-card {
+  background-color: var(--surface-1);
+  border: 1px solid var(--border-default);
+  border-radius: var(--section-radius);
+  padding: 2.75rem 2.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  box-shadow: 0 6px 24px -2px rgba(0, 0, 0, 0.05);
+  transition: border-color 300ms ease, box-shadow 300ms ease;
+}
+
+.lp-contracts-card:hover {
+  border-color: var(--primitive-fg-alpha-12);
+  box-shadow: 0 16px 36px -4px rgba(0, 0, 0, 0.1);
+}
+
+.lp-contracts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+
+.lp-contract-item-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.15rem 1.35rem;
+  border-radius: var(--panel-radius);
+  background-color: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  transition: all 250ms ease;
+}
+
+.lp-contract-item-card:hover {
+  border-color: var(--border-default);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px -4px rgba(0, 0, 0, 0.08);
+}
+
 @media (max-width: 1024px) {
   .lp-hero,
   .lp-workflow-section {
     grid-template-columns: 1fr;
+    gap: 2.5rem;
   }
 
   .lp-pillars-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.35rem;
   }
 }
 
@@ -2636,12 +2715,39 @@ button:focus-visible {
     display: none !important;
   }
 
+  .lp-hero {
+    padding: 3rem 0 2.5rem;
+    gap: 2.5rem;
+  }
+
   .lp-pillars-grid {
     grid-template-columns: 1fr;
+    gap: 1.25rem;
+    margin: 3rem 0 4.5rem;
+  }
+
+  .lp-workflow-stack {
+    gap: 2.75rem;
+    padding-bottom: 2rem;
   }
 
   .lp-workflow-section {
-    padding: 1.35rem;
+    padding: 1.85rem 1.4rem;
+    gap: 2rem;
+  }
+
+  .lp-contracts-section {
+    padding: 3.5rem 0 5rem;
+  }
+
+  .lp-contracts-card {
+    padding: 1.85rem 1.4rem;
+    gap: 1.5rem;
+  }
+
+  .lp-contracts-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
   }
 
   .lp-hero-stage-viewport {
@@ -2655,19 +2761,19 @@ button:focus-visible {
 ----------------------------------------------------------------------------- */
 [data-aos] {
   opacity: 0;
-  transform: translateY(22px);
+  transform: translateY(28px);
   transition-property: opacity, transform;
-  transition-duration: 600ms;
+  transition-duration: 950ms;
   transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
   will-change: opacity, transform;
 }
 
 [data-aos="fade-up"] {
-  transform: translateY(24px);
+  transform: translateY(28px);
 }
 
 [data-aos="fade-down"] {
-  transform: translateY(-24px);
+  transform: translateY(-28px);
 }
 
 [data-aos="fade-in"] {
@@ -2675,15 +2781,15 @@ button:focus-visible {
 }
 
 [data-aos="fade-right"] {
-  transform: translateX(-24px);
+  transform: translateX(-30px);
 }
 
 [data-aos="fade-left"] {
-  transform: translateX(24px);
+  transform: translateX(30px);
 }
 
 [data-aos="zoom-in"] {
-  transform: scale(0.97);
+  transform: scale(0.96);
 }
 
 /* Active animated state */
@@ -2692,20 +2798,24 @@ button:focus-visible {
   transform: translate(0, 0) scale(1);
 }
 
-/* Stagger delay variants */
-[data-aos-delay="50"] { transition-delay: 50ms; }
-[data-aos-delay="100"] { transition-delay: 100ms; }
-[data-aos-delay="150"] { transition-delay: 150ms; }
-[data-aos-delay="200"] { transition-delay: 200ms; }
-[data-aos-delay="250"] { transition-delay: 250ms; }
-[data-aos-delay="300"] { transition-delay: 300ms; }
-[data-aos-delay="350"] { transition-delay: 350ms; }
-[data-aos-delay="400"] { transition-delay: 400ms; }
-[data-aos-delay="500"] { transition-delay: 500ms; }
+/* Stagger delay variants - gentle, elegant pacing */
+[data-aos-delay="50"] { transition-delay: 90ms; }
+[data-aos-delay="100"] { transition-delay: 180ms; }
+[data-aos-delay="150"] { transition-delay: 270ms; }
+[data-aos-delay="200"] { transition-delay: 360ms; }
+[data-aos-delay="250"] { transition-delay: 450ms; }
+[data-aos-delay="300"] { transition-delay: 540ms; }
+[data-aos-delay="350"] { transition-delay: 630ms; }
+[data-aos-delay="400"] { transition-delay: 720ms; }
+[data-aos-delay="500"] { transition-delay: 850ms; }
 
 /* Duration overrides */
-[data-aos-duration="400"] { transition-duration: 400ms; }
+[data-aos-duration="slow"],
+[data-aos-duration="1200"] { transition-duration: 1200ms; }
+[data-aos-duration="1000"] { transition-duration: 1000ms; }
 [data-aos-duration="800"] { transition-duration: 800ms; }
+[data-aos-duration="600"] { transition-duration: 600ms; }
+[data-aos-duration="400"] { transition-duration: 400ms; }
 
 /* Accessibility & Print Fallbacks */
 @media (prefers-reduced-motion: reduce), print {

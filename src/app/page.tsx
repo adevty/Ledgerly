@@ -172,8 +172,8 @@ export default function LandingPage() {
         });
       },
       {
-        rootMargin: "0px 0px -40px 0px",
-        threshold: 0.1,
+        rootMargin: "0px 0px -50px 0px",
+        threshold: 0.08,
       }
     );
 
@@ -580,7 +580,6 @@ export default function LandingPage() {
           <div
             id="pillars"
             className="lp-pillars-grid"
-            style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}
           >
             <article className="lp-pillar-card" data-aos="fade-up" data-aos-delay="50">
               <h2 className="lp-pillar-title">
@@ -655,7 +654,7 @@ export default function LandingPage() {
         </section>
 
         {/* Below Hero: 3 Clean Workflow Sections with Real UI Snippets */}
-        <section id="workflow" className="lp-container">
+        <section id="workflow" className="lp-container lp-workflow-section-container">
           <div className="lp-workflow-stack">
             {/* Section 1: Create invoice */}
             <article className="lp-workflow-section" data-aos="fade-up">
@@ -1066,31 +1065,21 @@ export default function LandingPage() {
         </section>
 
         {/* Live Deployed NEAR Testnet Contracts Strip */}
-        <section id="contracts" className="lp-container" style={{ paddingBottom: "4rem" }} data-aos="fade-up">
-          <div
-            style={{
-              backgroundColor: "var(--surface-1)",
-              border: "1px solid var(--border-default)",
-              borderRadius: "var(--section-radius)",
-              padding: "1.75rem 2rem",
-              display: "flex",
-              flexDirection: "column",
-              gap: "1.25rem",
-            }}
-          >
+        <section id="contracts" className="lp-container lp-contracts-section" data-aos="fade-up">
+          <div className="lp-contracts-card">
             <div
               style={{
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
-                gap: "1rem",
+                gap: "1.25rem",
                 flexWrap: "wrap",
               }}
             >
               <div>
                 <h2
                   style={{
-                    fontSize: "1.12rem",
+                    fontSize: "1.2rem",
                     fontWeight: 650,
                     letterSpacing: "-0.02em",
                     color: "var(--text-primary)",
@@ -1098,25 +1087,19 @@ export default function LandingPage() {
                 >
                   Deployed NEAR Testnet Accounts
                 </h2>
-                <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginTop: "0.2rem" }}>
+                <p style={{ fontSize: "0.88rem", color: "var(--text-secondary)", marginTop: "0.3rem" }}>
                   View live contract state, token transfers, and audit roots on NEAR Testnet.
                 </p>
               </div>
-              <Link href="/app" className="btn-primary">
+              <Link href="/app" className="lp-btn-primary">
                 <span>Launch Workspace</span>
                 <ArrowRight className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
               </Link>
             </div>
 
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-                gap: "0.85rem",
-              }}
-            >
-              <div className="lp-ui-row">
-                <span style={{ fontSize: "0.8rem", fontWeight: 500, color: "var(--text-secondary)" }}>
+            <div className="lp-contracts-grid">
+              <div className="lp-contract-item-card">
+                <span style={{ fontSize: "0.84rem", fontWeight: 550, color: "var(--text-secondary)" }}>
                   Escrow Contract
                 </span>
                 <HashBadge
@@ -1125,8 +1108,8 @@ export default function LandingPage() {
                 />
               </div>
 
-              <div className="lp-ui-row">
-                <span style={{ fontSize: "0.8rem", fontWeight: 500, color: "var(--text-secondary)" }}>
+              <div className="lp-contract-item-card">
+                <span style={{ fontSize: "0.84rem", fontWeight: 550, color: "var(--text-secondary)" }}>
                   Mock USDC (NEP-141)
                 </span>
                 <HashBadge
@@ -1135,8 +1118,8 @@ export default function LandingPage() {
                 />
               </div>
 
-              <div className="lp-ui-row">
-                <span style={{ fontSize: "0.8rem", fontWeight: 500, color: "var(--text-secondary)" }}>
+              <div className="lp-contract-item-card">
+                <span style={{ fontSize: "0.84rem", fontWeight: 550, color: "var(--text-secondary)" }}>
                   Operator / Relayer
                 </span>
                 <HashBadge
