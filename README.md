@@ -181,49 +181,103 @@ In accordance with our honesty protocol, all features in the UI and documentatio
 
 ## 6. Architecture & Security Model
 
+```mermaid
+flowchart TD
+    subgraph Clients["1. Client & Role Interfaces"]
+        Merchant["Merchant<br/>(Create Invoices & Manage Receivables)"]
+        Buyer["Buyer / Payer<br/>(Meteor Wallet / Testnet Signer)"]
+        Auditor["Auditor / Regulatory Observer<br/>(Holds Scoped View Key: ld_vk_...)"]
+    end
+
+    subgraph OffChain["2. Off-Chain Confidential Layer (Next.js 16 + SQLite WAL)"]
+        direction TB
+        subgraph PrivacyEngine["Privacy & Envelope Encryption"]
+            AES["Envelope Encryption<br/>(AES-256-GCM + X25519)"]
+            CommitGen["Commitment Hash Engine<br/>sha256(canonicalJSON || salt)"]
+            SQLite[("SQLite Local Storage (WAL Mode)<br/>- Encrypted Commercial Invoices<br/>- Balanced Double-Entry Ledger<br/>- Scoped View Key Grants")]
+        end
+
+        subgraph Workers["Autonomous Background Workers"]
+            Indexer["ChainIndexerWorker<br/>(Polls Nearblocks RPC receipts)"]
+            SettlementW["SettlementWorker<br/>(State: OPEN ➔ PAID ➔ SETTLED)"]
+            ReconcileW["ReconciliationWorker<br/>(Enforces Σ Debits == Σ Credits)"]
+            ExpiryW["ExpiryWorker<br/>(Monitors invoice timeouts)"]
+        end
+    end
+
+    subgraph ExternalHonesty["3. External Gateways (Honesty Layer Derived from capabilities.ts)"]
+        OneClickAPI["NEAR Intents 1Click API<br/>(LIVE dry quotes / SIMULATED swap fulfillment)"]
+        ForexAPI["Forex & Banking Gateway<br/>(LIVE exchange rates / MOCKED fiat rails BCA, GCash, SEPA)"]
+    end
+
+    subgraph OnChain["4. On-Chain Settlement Layer (NEAR Protocol Testnet)"]
+        direction TB
+        Relayer["Operator / Relayer Account<br/>ledgerly-op-a627a4c0.testnet<br/>(Sponsored Gas & Auto-Settlement)"]
+        
+        subgraph EscrowContract["Smart Escrow Contract (Rust near-sdk 5.5)<br/>ledgerly-escrow-9e70f9ea.testnet"]
+            FnRegister["register()<br/>Anchors commitment & refund timeout"]
+            FnDeposit["ft_on_transfer()<br/>Auto-splits overpayment back to buyer"]
+            FnRelease["release()<br/>Pays merchant upon confirmation"]
+            FnRefund["claim_refund()<br/>Fail-Safe Exit after timeout (offline-safe)"]
+            FnAnchor["anchor()<br/>Records tamper-evident audit roots"]
+        end
+
+        USDCContract["Mock USDC Contract (NEP-141)<br/>ledgerly-usdc-a627a4c0.testnet<br/>(6 Decimals · Faucet Mintable)"]
+    end
+
+    %% Interactions
+    Merchant -->|"1. Input commercial data"| AES
+    AES -->|"Save encrypted payload"| SQLite
+    AES -->|"Derive 32-byte commitment"| CommitGen
+    CommitGen -->|"2. Register escrow"| FnRegister
+    
+    Buyer -->|"3a. Native deposit: ft_transfer_call()"| USDCContract
+    USDCContract -->|"Transfer with invoice escrowId"| FnDeposit
+    Buyer -.->|"3b. Cross-chain intent query"| OneClickAPI
+    
+    FnDeposit -->|"Exact payment ➔ Locked in escrow"| EscrowContract
+    FnDeposit -->|"Overpayment excess ➔ Auto-refunds buyer"| USDCContract
+    
+    Indexer -->|"4. Detect receipts (14 TGas)"| SQLite
+    SettlementW -->|"5. Trigger release via operator key"| Relayer
+    Relayer -->|"release()"| FnRelease
+    FnRelease -->|"Transfer settled funds"| Merchant
+
+    Buyer -->|"Emergency Exit: claim_refund() [if expired]"| FnRefund
+    FnRefund -->|"Return funds even if backend offline"| Buyer
+
+    ReconcileW -->|"6. Audit log root"| FnAnchor
+    
+    Auditor -->|"7. Submit View Key (ld_vk_...)"| OffChain
+    OffChain -->|"Server-side decrypt & verify sha256"| Auditor
 ```
- ┌────────────────────────────────────────────────────────────────────────┐
- │                      Buyer / Merchant / Auditor                        │
- └───────────────────┬────────────────────────────────┬───────────────────┘
-                     │ Browser Checkout               │ Auditor View
-                     ▼                                ▼
-       ┌───────────────────────────┐    ┌───────────────────────────┐
-       │   Meteor Wallet (Ext)     │    │   External Auditor Key    │
-       │   - Native MeteorCom SDK  │    │   - Scoped View Key Grant │
-       │   - Unsigned Borsh Tx     │    │   - Server-Side Decrypt   │
-       └─────────────┬─────────────┘    └─────────────▲─────────────┘
-                     │ ft_transfer_call()             │
-                     ▼                                │
- ┌────────────────────────────────────────────────────┴───────────────────┐
- │                      NEAR Protocol (Testnet)                           │
- │                                                                        │
- │   ┌──────────────────────────┐      ┌──────────────────────────────┐   │
- │   │  ledgerly-usdc (NEP-141) │ ---> │   ledgerly-escrow Contract   │   │
- │   │  - 6 Decimals            │      │   - register()               │   │
- │   │  - Public Faucet Mint    │      │   - ft_on_transfer()         │   │
- │   └──────────────────────────┘      │   - release() / refund()     │   │
- │                                     │   - claim_refund() [timeout] │   │
- │                                     │   - anchor(log_root)         │   │
- │                                     └──────────────┬───────────────┘   │
- └────────────────────────────────────────────────────┼───────────────────┘
-                                                      │ Events & RPC Polling
-                                                      ▼
- ┌────────────────────────────────────────────────────────────────────────┐
- │                   Ledgerly Monolith (Next.js 16)                       │
- │                                                                        │
- │   ┌─────────────────────┐  ┌────────────────────┐  ┌───────────────┐   │
- │   │ ChainIndexerWorker  │  │ SettlementWorker   │  │ ExpiryWorker  │   │
- │   └──────────┬──────────┘  └─────────┬──────────┘  └───────┬───────┘   │
- │              │                       │                     │           │
- │              ▼                       ▼                     ▼           │
- │   ┌────────────────────────────────────────────────────────────────┐   │
- │   │                SQLite Local Persistence Layer                  │   │
- │   │   - WAL Mode (Zero npm dependencies via Node `node:sqlite`)    │   │
- │   │   - PaymentRequests, Remittances, Grants, Double-Entry Ledger  │   │
- │   │   - Idempotency & Tamper-Evident SHA-256 Audit Chain           │   │
- │   └────────────────────────────────────────────────────────────────┘   │
- └────────────────────────────────────────────────────────────────────────┘
-```
+
+### Comprehensive Protocol Flow & Truthful Architecture Breakdown
+
+The protocol operates across four distinct tiers, maintaining commercial confidentiality off-chain while anchoring verifiable trust and settlement on NEAR Testnet:
+
+1. **Client & Role Interfaces**:
+   - **Merchant**: Creates payment requests without revealing customer identity or pricing terms to the public network.
+   - **Buyer / Payer**: Connects via Meteor Wallet or embedded testnet signer to execute NEP-141 token deposits, or queries 1Click intent exchange rates.
+   - **Auditor / Regulator**: Submits a scoped cryptographic view key (`ld_vk_...`) issued by the merchant to inspect decrypted line items and verify them against on-chain roots.
+
+2. **Off-Chain Confidential Layer (`Next.js 16` + `node:sqlite` WAL)**:
+   - **Envelope Encryption**: Private business terms (customer email, itemized services, VAT tax notes) are encrypted server-side with AES-256-GCM + ephemeral X25519 key derivation.
+   - **Commitment Generation**: Computes `sha256(canonicalJSON(payload) || salt)`. Only this 32-byte hash and an opaque escrow ID are sent on-chain.
+   - **Background Workers**: `ChainIndexerWorker` polls RPC receipts, `SettlementWorker` coordinates state transitions, `ExpiryWorker` handles expirations, and `ReconciliationWorker` maintains strict balance invariants ($\sum \text{debits} == \sum \text{credits}$ with $0.00$ variance).
+
+3. **External Gateways & Honesty Boundaries (Truth in Code)**:
+   - *In strict accordance with our capability registry ([`src/lib/capabilities.ts`](src/lib/capabilities.ts))*:
+     - **NEAR Intents 1Click API**: Real-time cross-chain exchange rates are fetched **LIVE** from `https://1click.chaindefuser.com`. Multi-chain solver swap fulfillment is **SIMULATED** on testnet to protect user capital.
+     - **Forex & Banking Rails**: Forex market rates are **LIVE**. Off-ramp fiat payouts (BCA, GCash, SEPA) and OFAC sanctions screening are **MOCKED/SIMULATED** in this testnet evaluation environment.
+
+4. **On-Chain Settlement Layer (NEAR Protocol Testnet)**:
+   - **NEP-141 USDC Token** (`ledgerly-usdc-a627a4c0.testnet`): 6-decimal fungible token with public faucet minting.
+   - **Smart Escrow Contract** (`ledgerly-escrow-9e70f9ea.testnet`):
+     - `ft_on_transfer()`: Receives funds and performs **Atomic Overpayment Split**. If a customer overpays, the contract instantly refunds the difference back to the payer within the very same transaction.
+     - `claim_refund()`: **Fail-Safe Exit**. Depositors can withdraw their escrowed funds after invoice expiry even if the Ledgerly backend server is completely offline or destroyed.
+     - `anchor()`: Anchors SHA-256 audit log roots on-chain to prevent historical record tampering.
+   - **Operator Relayer** (`ledgerly-op-a627a4c0.testnet`): Sponsored gas and auto-release settlement executor.
 
 ### Security & Threat Model Summary
 Per our detailed [Threat Model](docs/THREAT_MODEL.md):
