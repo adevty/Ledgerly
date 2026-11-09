@@ -18,21 +18,7 @@ import {
 } from "lucide-react";
 import { LedgerlyDashboardProvider, StatusBadge, useLedgerlyDashboard } from "./_context";
 import { HashBadge } from "../components/HashBadge";
-
-function LedgerlyBrandMark() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <rect width="24" height="24" rx="6" fill="var(--accent-primary)" />
-      <path
-        d="M8 7.5V16.5H16"
-        stroke="var(--text-on-accent)"
-        strokeWidth="2.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
+import { LedgerlyBrandMark } from "../components/LedgerlyBrandMark";
 
 function NavIcon({
   kind,
@@ -220,19 +206,14 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
             <button
               type="button"
               onClick={toggleTheme}
-              className="btn-quiet"
-              style={{ padding: "0.42rem 0.65rem", fontSize: "0.79rem" }}
+              className="lp-theme-toggle"
+              aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+              title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
             >
               {theme === "dark" ? (
-                <>
-                  <Sun className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                  <span>Light</span>
-                </>
+                <Sun className="w-4 h-4 text-amber-400" aria-hidden="true" />
               ) : (
-                <>
-                  <Moon className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                  <span>Dark</span>
-                </>
+                <Moon className="w-4 h-4 text-slate-700" aria-hidden="true" />
               )}
             </button>
 

@@ -13,12 +13,18 @@ import {
   Clock,
   Copy,
   Download,
+  Menu,
   Moon,
+  ShieldCheck,
+  Sparkles,
   Sun,
+  X,
+  Zap,
 } from "lucide-react";
 import { CryptoTokenIcon } from "./components/CryptoTokenIcon";
 import { HashBadge } from "./components/HashBadge";
 import { LandingHeroDashboardMockup } from "./components/LandingHeroDashboardMockup";
+import { LedgerlyBrandMark } from "./components/LedgerlyBrandMark";
 import type { DashboardState } from "./app/_context";
 
 const LandingHeroDashboard3D = dynamic(() => import("./components/LandingHeroDashboard3D"), {
@@ -44,21 +50,6 @@ function detectWebGLSupport(): boolean {
   } catch {
     return false;
   }
-}
-
-function LedgerlyBrandMark() {
-  return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <rect width="24" height="24" rx="6" fill="var(--accent-primary)" />
-      <path
-        d="M8 7.5V16.5H16"
-        stroke="var(--text-on-accent)"
-        strokeWidth="2.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
 }
 
 function GitHubIcon({ className = "w-4 h-4" }: { className?: string }) {
@@ -92,11 +83,50 @@ export default function LandingPage() {
   const [copiedHeroHash, setCopiedHeroHash] = useState(false);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [protocolState, setProtocolState] = useState<DashboardState | null>(null);
+  const [scrolled, setScrolled] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState<string>("");
 
   const { scrollYProgress } = useScroll({
     target: heroRef,
     offset: ["start start", "end start"],
   });
+
+  // Track scroll for sticky glass elevation & active section spy
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 16);
+
+      const sectionIds = ["pillars", "workflow", "contracts"];
+      let found = "";
+      for (const id of sectionIds) {
+        const el = document.getElementById(id);
+        if (el) {
+          const rect = el.getBoundingClientRect();
+          if (rect.top <= 180 && rect.bottom >= 180) {
+            found = id;
+            break;
+          }
+        }
+      }
+      setActiveSection(found);
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    handleScroll();
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  // Close mobile menu on resize to desktop
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth > 820) {
+        setMobileMenuOpen(false);
+      }
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -119,6 +149,38 @@ export default function LandingPage() {
       mounted = false;
       clearInterval(interval);
     };
+  }, []);
+
+  // Animate-On-Scroll (AOS) Observer
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      document.querySelectorAll("[data-aos]").forEach((el) => {
+        el.classList.add("aos-animate");
+      });
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("aos-animate");
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      {
+        rootMargin: "0px 0px -40px 0px",
+        threshold: 0.1,
+      }
+    );
+
+    const elements = document.querySelectorAll("[data-aos]");
+    elements.forEach((el) => observer.observe(el));
+
+    return () => observer.disconnect();
   }, []);
 
   const escrowContractId = protocolState?.network?.escrowContractId || ESCROW_CONTRACT_ID;
@@ -204,71 +266,191 @@ export default function LandingPage() {
         color: "var(--text-primary)",
       }}
     >
-      {/* Top Navigation */}
-      <header className="lp-header">
+      {/* Modern Ultra-Responsive Top Navigation Header */}
+      <header className={`lp-header ${scrolled ? "lp-header-scrolled" : ""}`}>
         <div className="lp-header-inner">
-          <Link href="/" className="lp-brand">
-            <LedgerlyBrandMark />
-            <span>Ledgerly</span>
-          </Link>
+          <div className="lp-brand-group">
+            <Link href="/" className="lp-brand" aria-label="Ledgerly Home">
+              <LedgerlyBrandMark size={28} />
+              <span>Ledgerly</span>
+            </Link>
 
-          <nav className="lp-nav" aria-label="Primary">
-            <a href="#pillars" className="lp-nav-link">
+            {/* Live NEAR Testnet Protocol Indicator */}
+            <div
+              className="lp-network-pill lp-hide-mobile"
+              title={`Connected to NEAR Testnet · Escrow: ${escrowContractId}`}
+            >
+              <span className="lp-pulse-dot" aria-hidden="true">
+                <span className="lp-pulse-dot-ping" />
+                <span className="lp-pulse-dot-core" />
+              </span>
+              <span>NEAR Testnet</span>
+            </div>
+          </div>
+
+          {/* Desktop Floating Pill Navigation */}
+          <nav className="lp-nav" aria-label="Primary navigation">
+            <a
+              href="#pillars"
+              className={`lp-nav-link ${activeSection === "pillars" ? "lp-nav-link-active" : ""}`}
+            >
               Capabilities
             </a>
-            <a href="#workflow" className="lp-nav-link">
+            <a
+              href="#workflow"
+              className={`lp-nav-link ${activeSection === "workflow" ? "lp-nav-link-active" : ""}`}
+            >
               Workflow
             </a>
-            <a href="#contracts" className="lp-nav-link">
+            <a
+              href="#contracts"
+              className={`lp-nav-link ${activeSection === "contracts" ? "lp-nav-link-active" : ""}`}
+            >
               NEAR Testnet
             </a>
           </nav>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+          {/* Header Action Controls */}
+          <div className="lp-header-actions">
+            {/* Theme Toggle Button */}
             <button
               type="button"
               onClick={toggleTheme}
-              className="btn-quiet"
-              style={{ padding: "0.42rem 0.7rem", fontSize: "0.8rem" }}
+              className="lp-theme-toggle"
+              aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+              title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
             >
               {theme === "dark" ? (
-                <>
-                  <Sun className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                  <span className="lp-hide-mobile">Light</span>
-                </>
+                <Sun className="w-4 h-4 text-amber-400" aria-hidden="true" />
               ) : (
-                <>
-                  <Moon className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                  <span className="lp-hide-mobile">Dark</span>
-                </>
+                <Moon className="w-4 h-4 text-slate-700" aria-hidden="true" />
               )}
             </button>
 
+            {/* Buyer Checkout Quick Link */}
             <Link
               href="/checkout"
-              className="btn-secondary lp-hide-mobile"
-              style={{ padding: "0.45rem 0.9rem", fontSize: "0.84rem" }}
+              className="lp-btn-secondary lp-hide-tablet"
             >
               Buyer Checkout
             </Link>
 
+            {/* Open App / Launch Console CTA */}
             <Link
               href="/app"
-              className="btn-primary"
-              style={{ padding: "0.46rem 1rem", fontSize: "0.85rem" }}
+              className="lp-btn-primary"
             >
               <span>Open App</span>
               <ArrowRight className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
             </Link>
+
+            {/* Mobile Hamburger Toggle Button */}
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen((prev) => !prev)}
+              className="lp-mobile-toggle"
+              aria-expanded={mobileMenuOpen}
+              aria-controls="lp-mobile-dropdown"
+              aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
+            >
+              {mobileMenuOpen ? (
+                <X className="w-4 h-4" aria-hidden="true" />
+              ) : (
+                <Menu className="w-4 h-4" aria-hidden="true" />
+              )}
+            </button>
           </div>
         </div>
+
+        {/* Mobile Dropdown Navigation Sheet */}
+        {mobileMenuOpen && (
+          <div
+            id="lp-mobile-dropdown"
+            className="lp-mobile-menu"
+            role="region"
+            aria-label="Mobile Navigation"
+          >
+            <div className="lp-mobile-menu-inner">
+              <div className="lp-mobile-nav-list">
+                <a
+                  href="#pillars"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="lp-mobile-nav-item"
+                >
+                  <div className="lp-mobile-nav-icon">
+                    <CheckCircle2 className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="lp-mobile-nav-label">Capabilities</div>
+                    <div className="lp-mobile-nav-desc">
+                      Multi-token escrow, automated split &amp; fail-safe refund
+                    </div>
+                  </div>
+                </a>
+
+                <a
+                  href="#workflow"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="lp-mobile-nav-item"
+                >
+                  <div className="lp-mobile-nav-icon">
+                    <Clock className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="lp-mobile-nav-label">Workflow</div>
+                    <div className="lp-mobile-nav-desc">
+                      3-step lifecycle: invoice, NEAR settlement, audit log
+                    </div>
+                  </div>
+                </a>
+
+                <a
+                  href="#contracts"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="lp-mobile-nav-item"
+                >
+                  <div className="lp-mobile-nav-icon">
+                    <AlertCircle className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="lp-mobile-nav-label">NEAR Testnet</div>
+                    <div className="lp-mobile-nav-desc">
+                      On-chain escrow &amp; relayer smart contracts
+                    </div>
+                  </div>
+                </a>
+              </div>
+
+              {/* Mobile Actions */}
+              <div className="lp-mobile-actions-row">
+                <Link
+                  href="/checkout"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="lp-btn-secondary"
+                  style={{ justifyContent: "center" }}
+                >
+                  Buyer Checkout
+                </Link>
+                <Link
+                  href="/app"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="lp-btn-primary"
+                  style={{ justifyContent: "center" }}
+                >
+                  <span>Open App</span>
+                  <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
       </header>
 
       <main>
         {/* Hero Section */}
         <section ref={heroRef} className="lp-container">
           <div className="lp-hero">
-            <div>
+            <div data-aos="fade-up">
               <div
                 style={{
                   display: "inline-flex",
@@ -330,7 +512,7 @@ export default function LandingPage() {
             </div>
 
             {/* Layered 3D Dashboard Preview (or Static Mockup Fallback) */}
-            <div className="lp-hero-stage-card">
+            <div className="lp-hero-stage-card" data-aos="fade-left" data-aos-delay="100">
               <div className="lp-hero-stage-topbar">
                 <div style={{ display: "flex", alignItems: "center", gap: "0.55rem" }}>
                   <span className={`status-pill ${statusPillClass}`}>
@@ -400,7 +582,7 @@ export default function LandingPage() {
             className="lp-pillars-grid"
             style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}
           >
-            <article className="lp-pillar-card">
+            <article className="lp-pillar-card" data-aos="fade-up" data-aos-delay="50">
               <h2 className="lp-pillar-title">
                 <CheckCircle2
                   className="w-4 h-4 shrink-0"
@@ -414,7 +596,7 @@ export default function LandingPage() {
               </p>
             </article>
 
-            <article className="lp-pillar-card">
+            <article className="lp-pillar-card" data-aos="fade-up" data-aos-delay="100">
               <h2 className="lp-pillar-title">
                 <CheckCircle2
                   className="w-4 h-4 shrink-0"
@@ -428,7 +610,7 @@ export default function LandingPage() {
               </p>
             </article>
 
-            <article className="lp-pillar-card">
+            <article className="lp-pillar-card" data-aos="fade-up" data-aos-delay="150">
               <h2 className="lp-pillar-title">
                 <Clock
                   className="w-4 h-4 shrink-0"
@@ -442,7 +624,7 @@ export default function LandingPage() {
               </p>
             </article>
 
-            <article className="lp-pillar-card">
+            <article className="lp-pillar-card" data-aos="fade-up" data-aos-delay="200">
               <h2 className="lp-pillar-title">
                 <CheckCircle2
                   className="w-4 h-4 shrink-0"
@@ -456,7 +638,7 @@ export default function LandingPage() {
               </p>
             </article>
 
-            <article className="lp-pillar-card">
+            <article className="lp-pillar-card" data-aos="fade-up" data-aos-delay="250">
               <h2 className="lp-pillar-title">
                 <CheckCircle2
                   className="w-4 h-4 shrink-0"
@@ -476,7 +658,7 @@ export default function LandingPage() {
         <section id="workflow" className="lp-container">
           <div className="lp-workflow-stack">
             {/* Section 1: Create invoice */}
-            <article className="lp-workflow-section">
+            <article className="lp-workflow-section" data-aos="fade-up">
               <div>
                 <span className="lp-step-pill">1 · Create invoice</span>
                 <h2 className="lp-section-title">
@@ -620,7 +802,7 @@ export default function LandingPage() {
             </article>
 
             {/* Section 2: Settle on NEAR */}
-            <article className="lp-workflow-section">
+            <article className="lp-workflow-section" data-aos="fade-up">
               <div>
                 <span className="lp-step-pill">2 · Settle on NEAR</span>
                 <h2 className="lp-section-title">
@@ -747,7 +929,7 @@ export default function LandingPage() {
             </article>
 
             {/* Section 3: Audit & export */}
-            <article className="lp-workflow-section">
+            <article className="lp-workflow-section" data-aos="fade-up">
               <div>
                 <span className="lp-step-pill">3 · Audit &amp; export</span>
                 <h2 className="lp-section-title">
@@ -884,7 +1066,7 @@ export default function LandingPage() {
         </section>
 
         {/* Live Deployed NEAR Testnet Contracts Strip */}
-        <section id="contracts" className="lp-container" style={{ paddingBottom: "4rem" }}>
+        <section id="contracts" className="lp-container" style={{ paddingBottom: "4rem" }} data-aos="fade-up">
           <div
             style={{
               backgroundColor: "var(--surface-1)",
@@ -968,7 +1150,7 @@ export default function LandingPage() {
       </main>
 
       {/* Footer */}
-      <footer className="lp-footer">
+      <footer className="lp-footer" data-aos="fade-in">
         <div className="lp-footer-inner">
           <div style={{ display: "flex", alignItems: "center", gap: "0.65rem" }}>
             <LedgerlyBrandMark />
