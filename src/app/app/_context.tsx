@@ -646,17 +646,17 @@ export function InlineErrorBanner({ scope }: { scope: string }) {
 
   return (
     <div className="inline-error-banner" role="alert" style={{ marginBottom: "1rem" }}>
-      <div style={{ display: "flex", alignItems: "flex-start", gap: "0.6rem" }}>
-        <AlertCircle
-          className="w-4 h-4 shrink-0"
-          style={{ marginTop: "0.12rem" }}
-          aria-hidden="true"
-        />
+      <div style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem" }}>
+        <div className="toast-icon-badge toast-icon-badge-error" aria-hidden="true">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+        </div>
         <div>
-          <div style={{ fontWeight: 600, fontSize: "0.84rem", marginBottom: "0.15rem" }}>
-            {inlineError.code}
+          <div>
+            <span className="toast-status-chip toast-status-chip-error">
+              {inlineError.code || "ACTION FAILED"}
+            </span>
           </div>
-          <div style={{ fontSize: "0.83rem", opacity: 0.92, lineHeight: 1.45 }}>
+          <div style={{ fontSize: "0.82rem", opacity: 0.95, lineHeight: 1.45 }}>
             {inlineError.message}
           </div>
         </div>
@@ -664,14 +664,15 @@ export function InlineErrorBanner({ scope }: { scope: string }) {
       <button
         type="button"
         onClick={clearInlineError}
+        className="btn-quiet"
         style={{
-          background: "transparent",
-          border: "none",
           color: "var(--status-failed-fg)",
           fontSize: "0.76rem",
-          fontWeight: 500,
+          fontWeight: 600,
           cursor: "pointer",
-          padding: "0.2rem 0.4rem",
+          padding: "0.25rem 0.55rem",
+          borderRadius: "4px",
+          border: "1px solid rgba(239, 68, 68, 0.3)",
           flexShrink: 0,
         }}
       >

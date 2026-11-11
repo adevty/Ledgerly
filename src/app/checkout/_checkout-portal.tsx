@@ -70,6 +70,51 @@ interface ToastMsg {
   detail?: string;
 }
 
+function getCheckoutBusyLabel(key: string | null): { title: string; desc: string } {
+  switch (key) {
+    case "pay_custom":
+      return {
+        title: "Signing & Depositing to Escrow",
+        desc: "Calling ft_transfer_call on testnet USDC with escrow payload...",
+      };
+    case "pay_overpay":
+      return {
+        title: "Simulating Overpayment Deposit",
+        desc: "Broadcasting deposit with excess amount to test automated split...",
+      };
+    case "simulate_oneclick":
+      return {
+        title: "Executing 1-Click Relayer Intent",
+        desc: "Broadcasting solver execution to settle escrow on testnet...",
+      };
+    case "faucet":
+      return {
+        title: "Requesting Testnet USDC Faucet",
+        desc: "Minting 100 testnet USDC to your connected wallet...",
+      };
+    case "verify_tx":
+      return {
+        title: "Verifying External Transaction",
+        desc: "Querying NEAR RPC for receipt execution outcome...",
+      };
+    case "connect_meteor":
+      return {
+        title: "Connecting Meteor Wallet",
+        desc: "Awaiting approval from browser wallet bridge...",
+      };
+    case "connect_embedded":
+      return {
+        title: "Initializing Embedded Wallet",
+        desc: "Setting up testnet keypair for gasless testing...",
+      };
+    default:
+      return {
+        title: "Processing Transaction",
+        desc: "Broadcasting cryptographic state to NEAR testnet...",
+      };
+  }
+}
+
 function formatCryptoQuoteAmount(raw?: string | null): string {
   if (!raw || raw === "—") return "—";
   const num = Number(raw);
@@ -1165,7 +1210,11 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
               disabled={busyKey === "connect_meteor"}
               onClick={() => void handleConnectMeteor()}
             >
-              <Wallet className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+              {busyKey === "connect_meteor" ? (
+                <span className="btn-spinner" aria-hidden="true" />
+              ) : (
+                <Wallet className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+              )}
               <span>{busyKey === "connect_meteor" ? "Connecting…" : "Connect Wallet"}</span>
             </button>
           )}
@@ -1377,14 +1426,32 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
 
         {errorBanner && (
           <div className="inline-error-banner" role="alert" style={{ marginTop: 0 }}>
-            <span className="inline-flex items-center gap-1.5">
-              <AlertCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
-              <span>{errorBanner}</span>
-            </span>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem" }}>
+              <div className="toast-icon-badge toast-icon-badge-error" aria-hidden="true">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+              </div>
+              <div>
+                <div>
+                  <span className="toast-status-chip toast-status-chip-error">
+                    Payment Issue
+                  </span>
+                </div>
+                <div style={{ fontSize: "0.82rem", opacity: 0.95, lineHeight: 1.45 }}>
+                  {errorBanner}
+                </div>
+              </div>
+            </div>
             <button
               type="button"
               className="btn-quiet"
-              style={{ color: "var(--status-failed-fg)", padding: "0.2rem 0.5rem" }}
+              style={{
+                color: "var(--status-failed-fg)",
+                padding: "0.25rem 0.55rem",
+                borderRadius: "4px",
+                border: "1px solid rgba(239, 68, 68, 0.3)",
+                fontWeight: 600,
+                fontSize: "0.76rem",
+              }}
               onClick={() => setErrorBanner(null)}
             >
               Dismiss
@@ -2133,7 +2200,11 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                       }
                       onClick={handleSimulateOneClickFulfillment}
                     >
-                      <Zap className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                      {busyKey === "simulate_oneclick" ? (
+                        <span className="btn-spinner" aria-hidden="true" />
+                      ) : (
+                        <Zap className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                      )}
                       <span>
                         {busyKey === "simulate_oneclick"
                           ? "Simulating Testnet Settlement…"
@@ -2491,11 +2562,18 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
 
                         <button
                           type="button"
-                          className="btn-secondary tabular-nums"
+                          className="btn-secondary tabular-nums inline-flex items-center justify-center gap-1.5"
                           disabled={Boolean(busyKey) || !wallet}
                           onClick={() => void requestFaucet()}
                         >
-                          {busyKey === "faucet" ? "Minting…" : "Get 100 test USDC"}
+                          {busyKey === "faucet" ? (
+                            <>
+                              <span className="btn-spinner" aria-hidden="true" />
+                              <span>Minting 100 USDC…</span>
+                            </>
+                          ) : (
+                            <span>Get 100 test USDC</span>
+                          )}
                         </button>
 
                         <button
@@ -2819,11 +2897,18 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                   />
                   <button
                     type="button"
-                    className="btn-secondary whitespace-nowrap"
+                    className="btn-secondary whitespace-nowrap inline-flex items-center gap-1.5"
                     disabled={Boolean(busyKey) || !externalTxInput.trim()}
                     onClick={() => verifyExternalTxHash(externalTxInput, wallet?.accountId)}
                   >
-                    {busyKey === "verify_tx" ? "Verifying…" : "Verify Tx"}
+                    {busyKey === "verify_tx" ? (
+                      <>
+                        <span className="btn-spinner" aria-hidden="true" />
+                        <span>Verifying…</span>
+                      </>
+                    ) : (
+                      <span>Verify Tx</span>
+                    )}
                   </button>
                 </div>
               </div>
@@ -2832,40 +2917,74 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
         </div>
       </div>
 
+      {/* Floating In-Flight Transaction / Action Processing HUD */}
+      {busyKey && (
+        <aside
+          className="tx-processing-hud"
+          role="status"
+          aria-live="assertive"
+          aria-label="Transaction in progress"
+        >
+          <div className="tx-hud-card">
+            <div className="tx-hud-spinner-wrap">
+              <span className="tx-hud-spinner" aria-hidden="true" />
+              <span className="tx-hud-spinner-inner" aria-hidden="true" />
+            </div>
+            <div className="tx-hud-content">
+              <div className="tx-hud-title-row">
+                <span className="tx-hud-title">{getCheckoutBusyLabel(busyKey).title}</span>
+                <span className="tx-hud-badge">IN-FLIGHT</span>
+              </div>
+              <div className="tx-hud-subtitle">{getCheckoutBusyLabel(busyKey).desc}</div>
+            </div>
+            <div className="tx-hud-bar" aria-hidden="true">
+              <div className="tx-hud-bar-inner" />
+            </div>
+          </div>
+        </aside>
+      )}
+
       {/* Non-blocking Toast Notifications */}
       {toasts.length > 0 && (
         <div className="toast-stack" role="status" aria-live="polite">
-          {toasts.map((t) => (
-            <div
-              key={t.id}
-              className={`toast-item ${
-                t.kind === "error" ? "toast-item-error" : "toast-item-success"
-              }`}
-            >
+          {toasts.map((t) => {
+            const isSuccess = t.kind === "success";
+            return (
               <div
-                style={{
-                  display: "flex",
-                  gap: "0.6rem",
-                  alignItems: "flex-start",
-                  flex: 1,
-                  minWidth: 0,
-                }}
+                key={t.id}
+                className={`toast-item ${
+                  isSuccess ? "toast-item-success" : "toast-item-error"
+                }`}
               >
-                <span
-                  className="status-pill-dot"
-                  style={{
-                    marginTop: "0.38rem",
-                    color:
-                      t.kind === "error" ? "var(--status-failed-fg)" : "var(--status-settled-fg)",
-                  }}
+                <div
+                  className={`toast-icon-badge ${
+                    isSuccess ? "toast-icon-badge-success" : "toast-icon-badge-error"
+                  }`}
                   aria-hidden="true"
-                />
-                <div style={{ minWidth: 0, flex: 1 }}>
+                >
+                  {isSuccess ? (
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                  )}
+                </div>
+
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div>
+                    <span
+                      className={`toast-status-chip ${
+                        isSuccess ? "toast-status-chip-success" : "toast-status-chip-error"
+                      }`}
+                    >
+                      {isSuccess ? "Success" : "Failed"}
+                    </span>
+                  </div>
                   <div
                     style={{
                       fontSize: "0.82rem",
                       fontWeight: 600,
                       color: "var(--text-primary)",
+                      marginBottom: "0.15rem",
                     }}
                   >
                     {t.title}
@@ -2874,10 +2993,10 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                     <div
                       className="mono-data tabular-nums"
                       style={{
-                        fontSize: "0.72rem",
-                        color: "var(--text-muted)",
+                        fontSize: "0.74rem",
+                        color: "var(--text-secondary)",
                         marginTop: "0.2rem",
-                        lineHeight: 1.35,
+                        lineHeight: 1.4,
                         wordBreak: "break-word",
                       }}
                     >
@@ -2885,21 +3004,25 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                     </div>
                   )}
                 </div>
+
+                <button
+                  type="button"
+                  onClick={() => dismissToast(t.id)}
+                  aria-label="Dismiss notification"
+                  className="btn-quiet"
+                  style={{
+                    padding: "0.25rem",
+                    borderRadius: "4px",
+                    flexShrink: 0,
+                    opacity: 0.7,
+                    cursor: "pointer",
+                  }}
+                >
+                  <X className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => dismissToast(t.id)}
-                aria-label="Dismiss notification"
-                className="btn-quiet"
-                style={{
-                  padding: "0.15rem",
-                  flexShrink: 0,
-                }}
-              >
-                <X className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-              </button>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

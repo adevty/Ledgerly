@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  AlertCircle,
   ArrowLeft,
   ArrowLeftRight,
   ArrowUpRight,
@@ -42,9 +43,45 @@ function NavIcon({
   return <FileCheck2 className="app-nav-icon" aria-hidden="true" />;
 }
 
+function getPendingActionLabel(key: string | null): { title: string; desc: string } {
+  switch (key) {
+    case "create_invoice":
+    case "create_payment":
+      return {
+        title: "Creating Invoice & Committing Hash",
+        desc: "Broadcasting payment request to NEAR testnet escrow...",
+      };
+    case "sweep_payout":
+      return {
+        title: "Sweeping Merchant Payout",
+        desc: "Calling escrow contract sweep & transferring funds...",
+      };
+    case "remit_payout":
+      return {
+        title: "Initiating Global Remittance",
+        desc: "Screening sanctions, quoting FX & funding payout...",
+      };
+    case "refund_payment":
+      return {
+        title: "Executing Escrow Refund",
+        desc: "Processing fail-safe exit & returning funds to buyer...",
+      };
+    case "seed_demo":
+      return {
+        title: "Seeding Ledgerly Demo State",
+        desc: "Generating transactions, escrow contracts & commitments...",
+      };
+    default:
+      return {
+        title: "Broadcasting to NEAR Testnet",
+        desc: "Processing cryptographic transaction & settling on-chain...",
+      };
+  }
+}
+
 function DashboardShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { state, busy, toasts, dismissToast } = useLedgerlyDashboard();
+  const { state, busy, pendingKey, toasts, dismissToast } = useLedgerlyDashboard();
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [copiedAccount, setCopiedAccount] = useState(false);
 
@@ -452,6 +489,33 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
         </main>
       </div>
 
+      {/* Floating In-Flight Transaction / Action Processing HUD */}
+      {busy && (
+        <aside
+          className="tx-processing-hud"
+          role="status"
+          aria-live="assertive"
+          aria-label="Transaction in progress"
+        >
+          <div className="tx-hud-card">
+            <div className="tx-hud-spinner-wrap">
+              <span className="tx-hud-spinner" aria-hidden="true" />
+              <span className="tx-hud-spinner-inner" aria-hidden="true" />
+            </div>
+            <div className="tx-hud-content">
+              <div className="tx-hud-title-row">
+                <span className="tx-hud-title">{getPendingActionLabel(pendingKey).title}</span>
+                <span className="tx-hud-badge">PROCESSING</span>
+              </div>
+              <div className="tx-hud-subtitle">{getPendingActionLabel(pendingKey).desc}</div>
+            </div>
+            <div className="tx-hud-bar" aria-hidden="true">
+              <div className="tx-hud-bar-inner" />
+            </div>
+          </div>
+        </aside>
+      )}
+
       {/* Non-Blocking Auto-Dismissing Toast Stack */}
       {toasts.length > 0 && (
         <div className="toast-stack" role="status" aria-live="polite">
@@ -462,35 +526,48 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
                 key={toast.id}
                 className={`toast-item ${isSuccess ? "toast-item-success" : "toast-item-error"}`}
               >
-                <div style={{ display: "flex", alignItems: "flex-start", gap: "0.6rem" }}>
-                  <span
-                    className="status-pill-dot"
-                    style={{
-                      marginTop: "0.38rem",
-                      color: isSuccess ? "var(--status-settled-fg)" : "var(--status-failed-fg)",
-                    }}
-                    aria-hidden="true"
-                  />
+                <div
+                  className={`toast-icon-badge ${
+                    isSuccess ? "toast-icon-badge-success" : "toast-icon-badge-error"
+                  }`}
+                  aria-hidden="true"
+                >
+                  {isSuccess ? (
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                  )}
+                </div>
+
+                <div style={{ flex: 1, minWidth: 0 }}>
                   <div>
-                    <div
-                      style={{
-                        fontSize: "0.82rem",
-                        fontWeight: 600,
-                        color: isSuccess ? "var(--text-primary)" : "var(--status-failed-fg)",
-                        marginBottom: "0.12rem",
-                      }}
+                    <span
+                      className={`toast-status-chip ${
+                        isSuccess ? "toast-status-chip-success" : "toast-status-chip-error"
+                      }`}
                     >
-                      {toast.title}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: "0.79rem",
-                        color: "var(--text-secondary)",
-                        lineHeight: 1.45,
-                      }}
-                    >
-                      {toast.message}
-                    </div>
+                      {isSuccess ? "Success" : "Failed"}
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      fontSize: "0.82rem",
+                      fontWeight: 600,
+                      color: "var(--text-primary)",
+                      marginBottom: "0.15rem",
+                    }}
+                  >
+                    {toast.title}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: "0.78rem",
+                      color: "var(--text-secondary)",
+                      lineHeight: 1.45,
+                      wordBreak: "break-word",
+                    }}
+                  >
+                    {toast.message}
                   </div>
                 </div>
 
@@ -500,8 +577,11 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
                   aria-label="Dismiss notification"
                   className="btn-quiet"
                   style={{
-                    padding: "0.2rem",
+                    padding: "0.25rem",
+                    borderRadius: "4px",
                     flexShrink: 0,
+                    opacity: 0.7,
+                    cursor: "pointer",
                   }}
                 >
                   <X className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
