@@ -240,8 +240,17 @@ export default function AuditorVerificationPage() {
               );
             }}
           >
-            <Download className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-            <span>Export Reconciliation CSV ({state?.ledger.entriesCount ?? 0} legs)</span>
+            {pendingKey === "export_csv" ? (
+              <>
+                <span className="btn-spinner" aria-hidden="true" />
+                <span>Exporting…</span>
+              </>
+            ) : (
+              <>
+                <Download className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                <span>Export Reconciliation CSV ({state?.ledger.entriesCount ?? 0} legs)</span>
+              </>
+            )}
           </button>
         </div>
       </div>
@@ -353,7 +362,7 @@ export default function AuditorVerificationPage() {
             <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
               <button
                 type="button"
-                className="btn-secondary whitespace-nowrap"
+                className="btn-secondary whitespace-nowrap inline-flex items-center gap-1.5"
                 disabled={busy}
                 onClick={() =>
                   void runAction(
@@ -364,7 +373,14 @@ export default function AuditorVerificationPage() {
                 }
                 style={{ fontSize: "0.74rem", padding: "0.22rem 0.55rem", height: "auto" }}
               >
-                Anchor Root
+                {pendingKey === "anchor_root" ? (
+                  <>
+                    <span className="btn-spinner" aria-hidden="true" />
+                    <span>Anchoring…</span>
+                  </>
+                ) : (
+                  <span>Anchor Root</span>
+                )}
               </button>
               <a
                 href={`${explorerUrl}/address/${escrowContractId}`}

@@ -47,24 +47,51 @@ function getPendingActionLabel(key: string | null): { title: string; desc: strin
   switch (key) {
     case "create_invoice":
     case "create_payment":
+    case "create_checkout":
       return {
         title: "Creating Invoice & Committing Hash",
         desc: "Broadcasting payment request to NEAR testnet escrow...",
+      };
+    case "send_remittance":
+    case "remit_payout":
+      return {
+        title: "Initiating Cross-Border Remittance",
+        desc: "Screening sanctions, quoting FX & funding payout on NEAR...",
       };
     case "sweep_payout":
       return {
         title: "Sweeping Merchant Payout",
         desc: "Calling escrow contract sweep & transferring funds...",
       };
-    case "remit_payout":
-      return {
-        title: "Initiating Global Remittance",
-        desc: "Screening sanctions, quoting FX & funding payout...",
-      };
     case "refund_payment":
       return {
         title: "Executing Escrow Refund",
         desc: "Processing fail-safe exit & returning funds to buyer...",
+      };
+    case "rotate_view_key":
+      return {
+        title: "Rotating Scoped View Key",
+        desc: "Generating new X25519 keypair and updating auditor grant...",
+      };
+    case "auto_reconcile":
+      return {
+        title: "Reconciling Ledger Discrepancies",
+        desc: "Executing on-chain settlement releases and balancing escrows...",
+      };
+    case "anchor_root":
+      return {
+        title: "Anchoring Audit Root on NEAR",
+        desc: "Committing cryptographic SHA-256 hash-chain root to smart contract...",
+      };
+    case "export_csv":
+      return {
+        title: "Exporting Reconciliation CSV",
+        desc: "Compiling balanced double-entry ledger records...",
+      };
+    case "retry_settlements":
+      return {
+        title: "Retrying Failed Settlements",
+        desc: "Triggering SettlementWorker payout retry loop...",
       };
     case "seed_demo":
       return {
@@ -72,6 +99,12 @@ function getPendingActionLabel(key: string | null): { title: string; desc: strin
         desc: "Generating transactions, escrow contracts & commitments...",
       };
     default:
+      if (key?.startsWith("pay_")) {
+        return {
+          title: "Processing Escrow Payment",
+          desc: "Calling ft_transfer_call with payment payload to escrow contract...",
+        };
+      }
       return {
         title: "Broadcasting to NEAR Testnet",
         desc: "Processing cryptographic transaction & settling on-chain...",

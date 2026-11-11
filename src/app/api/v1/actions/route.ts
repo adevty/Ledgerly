@@ -41,7 +41,6 @@ function checkIpRateLimit(ip: string): boolean {
 
 const SIMULATION_ACTIONS = new Set([
   "SIMULATE_BUYER_DEPOSIT",
-  "FAUCET_USDC",
   "AUTO_RECONCILE_DISCREPANCIES",
   "MANUAL_RECONCILE",
   "RETRY_FAILED_SETTLEMENTS",
@@ -193,8 +192,8 @@ export async function POST(request: Request) {
     });
   }
 
-  if (action === "FAUCET_USDC") {
-    const rawAccount = String(body.accountId ?? "").trim().toLowerCase();
+  if (action === "FAUCET_USDC" || action === "FAUCET") {
+    const rawAccount = String(body.accountId ?? body.account ?? "").trim().toLowerCase();
     const isNamedTestnet = /^[a-z0-9._-]+\.testnet$/.test(rawAccount);
     const isImplicitTestnet = /^[0-9a-f]{64}$/.test(rawAccount);
 
