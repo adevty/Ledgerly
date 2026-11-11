@@ -119,8 +119,11 @@ async function createSeededRuntime(): Promise<LedgerlyRuntime> {
     "escrow.ledgerly.testnet") as AccountId;
   const usdcContractId = (process.env.NEAR_USDC_CONTRACT_ID ??
     "usdc.fakes.testnet") as AccountId;
-  const operatorAccountId = process.env.NEAR_OPERATOR_ACCOUNT_ID as AccountId | undefined;
-  const operatorPrivateKey = process.env.NEAR_OPERATOR_PRIVATE_KEY;
+  const operatorAccountId = (
+    process.env.NEAR_OPERATOR_ACCOUNT_ID?.trim().replace(/^["']|["']$/g, "") || undefined
+  ) as AccountId | undefined;
+  const operatorPrivateKey =
+    process.env.NEAR_OPERATOR_PRIVATE_KEY?.trim().replace(/^["']|["']$/g, "") || undefined;
   const explorerBaseUrl =
     process.env.NEAR_EXPLORER_BASE_URL ?? "https://testnet.nearblocks.io";
 
@@ -128,23 +131,16 @@ async function createSeededRuntime(): Promise<LedgerlyRuntime> {
     process.env.LEDGERLY_NETWORK_MODE === "sandbox" ||
     process.env.LEDGERLY_FORCE_SANDBOX === "true" ||
     process.env.LOCAL_SANDBOX_SIMULATION === "true";
-  const explicitlyTestnet =
-    process.env.LEDGERLY_NETWORK_MODE === "testnet" ||
-    process.env.LEDGERLY_NETWORK_MODE === "NEAR_TESTNET_RPC";
-  const isHosted = Boolean(
-    process.env.FLY_APP_NAME ||
-      process.env.RAILWAY_ENVIRONMENT ||
-      process.env.VERCEL ||
-      process.env.NODE_ENV === "production",
-  );
 
-  // In hosted mode, default mode is strictly SANDBOX.
-  // NEAR testnet mode on a public host only runs when explicitly configured
-  // with LEDGERLY_NETWORK_MODE=testnet AND operator credentials held as host secrets.
+  // When operator credentials are provided and sandbox is not explicitly forced,
+  // connect to live NEAR testnet RPC.
   const useLiveNearRpc =
     !forceSandbox &&
-    Boolean(operatorAccountId && operatorPrivateKey) &&
-    (!isHosted || explicitlyTestnet);
+    Boolean(
+      operatorAccountId &&
+      operatorPrivateKey &&
+      operatorPrivateKey.startsWith("ed25519:"),
+    );
 
   const networkMode: "NEAR_TESTNET_RPC" | "LOCAL_SANDBOX_SIMULATION" = useLiveNearRpc
     ? "NEAR_TESTNET_RPC"
