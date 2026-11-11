@@ -7,7 +7,9 @@ import {
   ArrowLeft,
   ArrowLeftRight,
   ArrowUpRight,
+  Check,
   CheckCircle2,
+  Copy,
   CreditCard,
   FileCheck2,
   LayoutGrid,
@@ -44,6 +46,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { state, busy, toasts, dismissToast } = useLedgerlyDashboard();
   const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [copiedAccount, setCopiedAccount] = useState(false);
 
   useEffect(() => {
     if (document.documentElement.getAttribute("data-theme") === "light") {
@@ -121,16 +124,6 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
     return pathname === href || pathname.startsWith(`${href}/`);
   };
 
-  const currentSectionLabel = pathname.startsWith("/app/merchant")
-    ? "Merchant Checkout"
-    : pathname.startsWith("/app/remittance")
-      ? "Global Remittances"
-      : pathname.startsWith("/app/auditor")
-        ? "Auditor Access"
-        : pathname.startsWith("/checkout")
-          ? "Buyer Checkout"
-          : "Overview";
-
   const orgInitials = state?.organization.name
     ? state.organization.name
         .split(" ")
@@ -174,18 +167,6 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
               <LedgerlyBrandMark />
               <span>Ledgerly</span>
             </Link>
-            <span style={{ color: "var(--border-default)" }} aria-hidden="true">
-              /
-            </span>
-            <span
-              style={{
-                color: "var(--text-secondary)",
-                fontSize: "0.86rem",
-                fontWeight: 600,
-              }}
-            >
-              {currentSectionLabel}
-            </span>
             <StatusBadge
               status={state?.network?.mode === "NEAR_TESTNET_RPC" ? "ACTIVE" : "OVERPAID"}
               label={
@@ -219,38 +200,77 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
 
             {state ? (
               <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (state?.organization.nearAccount && typeof navigator !== "undefined" && navigator.clipboard) {
+                    void navigator.clipboard.writeText(state.organization.nearAccount);
+                    setCopiedAccount(true);
+                    setTimeout(() => setCopiedAccount(false), 1600);
+                  }
+                }}
+                className="group cursor-pointer select-none transition-all duration-200"
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
                   gap: "0.6rem",
-                  padding: "0.3rem 0.65rem 0.3rem 0.38rem",
+                  padding: "0.28rem 0.62rem 0.28rem 0.35rem",
                   borderRadius: 10,
                   background: "var(--surface-1)",
                   border: "1px solid var(--border-default)",
                 }}
+                title={`Click to copy NEAR testnet account: ${state.organization.nearAccount}`}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    if (state?.organization.nearAccount && typeof navigator !== "undefined" && navigator.clipboard) {
+                      void navigator.clipboard.writeText(state.organization.nearAccount);
+                      setCopiedAccount(true);
+                      setTimeout(() => setCopiedAccount(false), 1600);
+                    }
+                  }
+                }}
               >
-                <span
-                  aria-hidden="true"
-                  style={{
-                    width: 26,
-                    height: 26,
-                    borderRadius: 6,
-                    background: "var(--surface-3)",
-                    color: "var(--text-primary)",
-                    fontSize: "0.68rem",
-                    fontWeight: 700,
-                    fontFamily: "var(--font-mono)",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  {orgInitials}
-                </span>
+                <div style={{ position: "relative", width: 26, height: 26, flexShrink: 0 }}>
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      width: 26,
+                      height: 26,
+                      borderRadius: 7,
+                      background:
+                        "linear-gradient(135deg, rgba(16, 185, 129, 0.18), rgba(6, 182, 212, 0.12))",
+                      border: "1px solid rgba(16, 185, 129, 0.35)",
+                      color: "var(--status-settled-fg)",
+                      fontSize: "0.68rem",
+                      fontWeight: 700,
+                      fontFamily: "var(--font-mono)",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    {orgInitials}
+                  </span>
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      position: "absolute",
+                      bottom: -1,
+                      right: -1,
+                      width: 7,
+                      height: 7,
+                      borderRadius: "50%",
+                      backgroundColor: "#10b981",
+                      border: "1.5px solid var(--surface-1)",
+                    }}
+                  />
+                </div>
                 <div style={{ textAlign: "left" }}>
                   <div
                     style={{
-                      fontSize: "0.79rem",
+                      fontSize: "0.78rem",
                       fontWeight: 600,
                       color: "var(--text-primary)",
                       lineHeight: 1.2,
@@ -259,14 +279,22 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
                     {state.organization.name}
                   </div>
                   <div
-                    className="tabular-nums"
+                    className="tabular-nums inline-flex items-center gap-1"
                     style={{
                       fontFamily: "var(--font-mono)",
-                      fontSize: "0.68rem",
-                      color: "var(--text-muted)",
+                      fontSize: "0.66rem",
+                      color: copiedAccount ? "var(--status-settled-fg)" : "var(--text-muted)",
+                      transition: "color 150ms ease",
                     }}
                   >
-                    {state.organization.nearAccount}
+                    <span style={{ maxWidth: 165, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {copiedAccount ? "Copied to clipboard!" : state.organization.nearAccount}
+                    </span>
+                    {copiedAccount ? (
+                      <Check className="w-2.5 h-2.5 shrink-0" aria-hidden="true" />
+                    ) : (
+                      <Copy className="w-2.5 h-2.5 shrink-0 opacity-50 group-hover:opacity-100 transition-opacity" aria-hidden="true" />
+                    )}
                   </div>
                 </div>
               </div>

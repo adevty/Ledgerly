@@ -8,6 +8,7 @@ import {
   AlertCircle,
   ArrowRight,
   ArrowUpRight,
+  BookOpen,
   Check,
   CheckCircle2,
   Clock,
@@ -308,6 +309,12 @@ export default function LandingPage() {
             >
               NEAR Testnet
             </a>
+            <Link
+              href="/docs"
+              className="lp-nav-link"
+            >
+              Docs
+            </Link>
           </nav>
 
           {/* Header Action Controls */}
@@ -419,6 +426,22 @@ export default function LandingPage() {
                     </div>
                   </div>
                 </a>
+
+                <Link
+                  href="/docs"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="lp-mobile-nav-item"
+                >
+                  <div className="lp-mobile-nav-icon">
+                    <BookOpen className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="lp-mobile-nav-label">Protocol Docs</div>
+                    <div className="lp-mobile-nav-desc">
+                      Architecture, smart contract specs &amp; developer API
+                    </div>
+                  </div>
+                </Link>
               </div>
 
               {/* Mobile Actions */}
@@ -470,7 +493,7 @@ export default function LandingPage() {
                   style={{ color: "var(--status-settled-fg)" }}
                   aria-hidden="true"
                 />
-                <span>Live on NEAR Testnet · NEP-141 USDC &amp; 1Click Intents</span>
+                <span>Live on NEAR Testnet · USDC Escrow &amp; 1Click Intents</span>
               </div>
 
               <h1 className="lp-hero-title">
@@ -478,8 +501,7 @@ export default function LandingPage() {
               </h1>
 
               <p className="lp-hero-lead">
-                A privacy-first financial infrastructure that enables businesses to execute stablecoin payments,
-                manage escrow, and maintain verifiable financial records without exposing sensitive business data on public blockchains.
+                Execute stablecoin payments, smart escrow, and verifiable audit ledgers — without exposing sensitive commercial data onchain.
               </p>
 
               <div className="lp-cta-row">
@@ -500,13 +522,25 @@ export default function LandingPage() {
                 <span style={{ fontSize: "0.78rem", fontWeight: 500, color: "var(--text-muted)" }}>
                   Settle in USDC directly or pay across chains
                 </span>
-                <div className="lp-rails-chips">
-                  {SUPPORTED_RAILS.map((rail) => (
-                    <span key={rail.label} className="lp-rail-chip">
-                      <CryptoTokenIcon symbol={rail.symbol} chain={rail.chain} size={16} />
-                      <span>{rail.label}</span>
-                    </span>
-                  ))}
+                <div className="lp-rails-marquee-container" aria-label="Supported Settlement Chains">
+                  <div className="lp-rails-marquee-track">
+                    <div className="lp-rails-marquee-group">
+                      {SUPPORTED_RAILS.map((rail) => (
+                        <span key={rail.label} className="lp-rail-chip">
+                          <CryptoTokenIcon symbol={rail.symbol} chain={rail.chain} size={16} />
+                          <span>{rail.label}</span>
+                        </span>
+                      ))}
+                    </div>
+                    <div className="lp-rails-marquee-group" aria-hidden="true">
+                      {SUPPORTED_RAILS.map((rail) => (
+                        <span key={`${rail.label}-duplicate`} className="lp-rail-chip">
+                          <CryptoTokenIcon symbol={rail.symbol} chain={rail.chain} size={16} />
+                          <span>{rail.label}</span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1160,6 +1194,9 @@ export default function LandingPage() {
             </Link>
             <Link href="/checkout" className="lp-nav-link">
               Checkout
+            </Link>
+            <Link href="/docs" className="lp-nav-link">
+              Docs
             </Link>
             <a
               href="https://github.com/adevty/Ledgerly"

@@ -122,7 +122,7 @@ export function PayloadPreviewCard({ payload, kind }: PayloadPreviewCardProps) {
       <div className="payload-preview-card">
         <div className="payload-preview-top">
           <div className="inline-flex items-center gap-1.5 min-w-0">
-            <span className="payload-preview-title tabular-nums">{orderRef}</span>
+            <span className="payload-preview-title tabular-nums truncate">{orderRef}</span>
             <span className="payload-country-badge">Invoice</span>
           </div>
 
@@ -134,7 +134,7 @@ export function PayloadPreviewCard({ payload, kind }: PayloadPreviewCardProps) {
         <div className="payload-preview-bottom">
           <div className="inline-flex items-center gap-1.5 min-w-0 flex-wrap">
             {email && (
-              <span className="payload-account-pill" title={email}>
+              <span className="payload-account-pill truncate" title={email}>
                 {email}
               </span>
             )}

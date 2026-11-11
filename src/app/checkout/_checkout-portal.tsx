@@ -4,7 +4,6 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   AlertCircle,
-  ArrowLeft,
   ArrowUpRight,
   Check,
   CheckCircle2,
@@ -12,6 +11,7 @@ import {
   Code2,
   Copy,
   ReceiptText,
+  Search,
   Wallet,
   X,
   Zap,
@@ -23,7 +23,6 @@ import {
   connectMeteorWallet,
   consumeNearWalletCallbackUrl,
   disconnectNearWallet,
-  isMeteorExtensionDetected,
   loadNearWalletSession,
   signFtDepositWithMeteor,
   type NearWalletSession,
@@ -97,7 +96,6 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
   const [selectedId, setSelectedId] = useState<string>(initialRequestId ?? "");
   const [network, setNetwork] = useState<NetworkInfo | null>(null);
   const [wallet, setWallet] = useState<NearWalletSession | null>(null);
-  const [meteorDetected, setMeteorDetected] = useState(false);
   const [meteorNetwork, setMeteorNetwork] = useState<"testnet" | "mainnet">("testnet");
   const [customBuyerAccount, setCustomBuyerAccount] = useState("");
   const [customPayAmount, setCustomPayAmount] = useState("");
@@ -121,7 +119,10 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
   const [oneClickLoading, setOneClickLoading] = useState(false);
   const [oneClickError, setOneClickError] = useState<string | null>(null);
   const [liveDisclaimerConfirmed, setLiveDisclaimerConfirmed] = useState(false);
-  const [invoiceFilter, setInvoiceFilter] = useState<"ALL" | "OPEN" | "SETTLED">("ALL");
+  const [isInvoiceMenuOpen, setIsInvoiceMenuOpen] = useState(false);
+  const [invoiceSearch, setInvoiceSearch] = useState("");
+  const [invoiceMenuFilter, setInvoiceMenuFilter] = useState<"ALL" | "OPEN" | "SETTLED">("ALL");
+  const invoiceMenuRef = useRef<HTMLDivElement>(null);
   const initializedInvoiceIdRef = useRef<string>("");
   const quoteAbortRef = useRef<AbortController | null>(null);
   const quoteSeqRef = useRef(0);
@@ -268,10 +269,6 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
 
   useEffect(() => {
     void loadState();
-    setMeteorDetected(isMeteorExtensionDetected());
-    const timer = setTimeout(() => {
-      setMeteorDetected(isMeteorExtensionDetected());
-    }, 350);
 
     const existing = loadNearWalletSession();
     const callback = consumeNearWalletCallbackUrl();
@@ -287,8 +284,26 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
       const firstTx = callback.transactionHashes[0]!;
       void verifyExternalTxHash(firstTx, activeSession?.accountId);
     }
-    return () => clearTimeout(timer);
   }, [loadState, verifyExternalTxHash]);
+
+  // Click outside to close custom invoice dropdown menu
+  useEffect(() => {
+    if (!isInvoiceMenuOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (invoiceMenuRef.current && !invoiceMenuRef.current.contains(e.target as Node)) {
+        setIsInvoiceMenuOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsInvoiceMenuOpen(false);
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isInvoiceMenuOpen]);
 
   const item = requests.find((r) => r.id === selectedId) ?? requests[0] ?? null;
   const itemId = item?.id ?? "";
@@ -538,11 +553,6 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
     }
   };
 
-  const handleSwitchMeteorNetwork = async (targetNet: "testnet" | "mainnet") => {
-    setMeteorNetwork(targetNet);
-    await handleConnectMeteor(targetNet);
-  };
-
   const handleConnectMyNearWallet = () => {
     if (typeof window === "undefined") return;
     const contractId = network?.escrowContractId ?? "ledgerly-escrow-9e70f9ea.testnet";
@@ -740,17 +750,413 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap" }}>
+          {/* Topbar Custom Invoice Selector Menu */}
+          {requests.length > 0 && (() => {
+            const openInvoices = requests.filter(
+              (r) => r.status === "OPEN" || r.status === "PARTIALLY_PAID",
+            );
+            const settledInvoices = requests.filter((r) => r.status === "SETTLED");
+            const isOpen = item?.status === "OPEN" || item?.status === "PARTIALLY_PAID";
+
+            const filteredList = requests.filter((r) => {
+              if (invoiceMenuFilter === "OPEN" && r.status !== "OPEN" && r.status !== "PARTIALLY_PAID") return false;
+              if (invoiceMenuFilter === "SETTLED" && r.status !== "SETTLED") return false;
+              if (invoiceSearch.trim()) {
+                const q = invoiceSearch.toLowerCase().trim();
+                return (
+                  r.id.toLowerCase().includes(q) ||
+                  r.amountDecimal.includes(q) ||
+                  r.status.toLowerCase().includes(q)
+                );
+              }
+              return true;
+            });
+
+            return (
+              <div
+                ref={invoiceMenuRef}
+                style={{
+                  position: "relative",
+                  display: "inline-flex",
+                  alignItems: "center",
+                }}
+              >
+                {/* Trigger Pill Button */}
+                <button
+                  type="button"
+                  onClick={() => setIsInvoiceMenuOpen((v) => !v)}
+                  className="group transition-all duration-150 hover:border-emerald-500/40"
+                  aria-expanded={isInvoiceMenuOpen}
+                  aria-haspopup="listbox"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "0.45rem",
+                    padding: "0.38rem 0.65rem 0.38rem 0.65rem",
+                    borderRadius: 8,
+                    background: "var(--surface-1)",
+                    border: isInvoiceMenuOpen
+                      ? "1px solid var(--accent-primary)"
+                      : "1px solid var(--border-default)",
+                    fontSize: "0.78rem",
+                    color: "var(--text-primary)",
+                    cursor: "pointer",
+                    outline: "none",
+                  }}
+                  title="Click to view & switch invoices"
+                >
+                  <ReceiptText className="w-3.5 h-3.5 text-zinc-400 shrink-0" aria-hidden="true" />
+                  <span
+                    className={`status-pill-dot ${isOpen ? "status-pill-dot-pulse" : ""}`}
+                    style={{
+                      backgroundColor: isOpen
+                        ? "var(--status-pending-fg)"
+                        : "var(--status-settled-fg)",
+                      width: 6,
+                      height: 6,
+                    }}
+                    aria-hidden="true"
+                  />
+                  <span className="mono-data tabular-nums" style={{ fontWeight: 600 }}>
+                    {item ? item.id : "Select Invoice"}
+                  </span>
+                  {item && (
+                    <>
+                      <span style={{ color: "var(--text-muted)", opacity: 0.6 }}>·</span>
+                      <span className="tabular-nums" style={{ fontWeight: 600 }}>
+                        {Number(item.amountDecimal).toLocaleString("en-US", { maximumFractionDigits: 0 })} USDC
+                      </span>
+                      <span
+                        style={{
+                          fontSize: "0.64rem",
+                          fontWeight: 700,
+                          padding: "0.08rem 0.35rem",
+                          borderRadius: 4,
+                          background: isOpen ? "var(--status-pending-bg)" : "var(--status-settled-bg)",
+                          color: isOpen ? "var(--status-pending-fg)" : "var(--status-settled-fg)",
+                          border: `1px solid ${isOpen ? "var(--status-pending-border)" : "var(--status-settled-border)"}`,
+                        }}
+                      >
+                        {item.status}
+                      </span>
+                    </>
+                  )}
+                  <ChevronDown
+                    className={`w-3.5 h-3.5 text-zinc-400 transition-transform duration-200 ${
+                      isInvoiceMenuOpen ? "rotate-180" : ""
+                    }`}
+                    aria-hidden="true"
+                  />
+                </button>
+
+                {/* Bespoke Custom Popover Menu */}
+                {isInvoiceMenuOpen && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "calc(100% + 8px)",
+                      right: 0,
+                      width: 350,
+                      maxWidth: "calc(100vw - 2rem)",
+                      borderRadius: 12,
+                      background: "var(--surface-1)",
+                      border: "1px solid var(--border-default)",
+                      boxShadow: "0 20px 48px -6px rgba(0, 0, 0, 0.45), 0 8px 18px rgba(0, 0, 0, 0.25)",
+                      backdropFilter: "blur(20px)",
+                      WebkitBackdropFilter: "blur(20px)",
+                      zIndex: 100,
+                      overflow: "hidden",
+                      display: "flex",
+                      flexDirection: "column",
+                    }}
+                  >
+                    {/* Header: Search + Filter Tabs */}
+                    <div
+                      style={{
+                        padding: "0.75rem 0.85rem 0.55rem",
+                        borderBottom: "1px solid var(--border-subtle)",
+                        background: "var(--surface-2)",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "0.45rem",
+                          padding: "0.35rem 0.6rem",
+                          borderRadius: 6,
+                          background: "var(--surface-1)",
+                          border: "1px solid var(--border-subtle)",
+                          marginBottom: "0.5rem",
+                        }}
+                      >
+                        <Search className="w-3.5 h-3.5 text-zinc-400 shrink-0" aria-hidden="true" />
+                        <input
+                          type="text"
+                          value={invoiceSearch}
+                          onChange={(e) => setInvoiceSearch(e.target.value)}
+                          placeholder="Search invoice ID or amount…"
+                          style={{
+                            width: "100%",
+                            background: "transparent",
+                            border: "none",
+                            outline: "none",
+                            fontSize: "0.76rem",
+                            color: "var(--text-primary)",
+                          }}
+                          autoFocus
+                        />
+                        {invoiceSearch && (
+                          <button
+                            type="button"
+                            onClick={() => setInvoiceSearch("")}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              cursor: "pointer",
+                              padding: 0,
+                              color: "var(--text-muted)",
+                            }}
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+
+                      <div style={{ display: "flex", gap: "0.35rem" }}>
+                        {(
+                          [
+                            { id: "ALL", label: `All (${requests.length})` },
+                            { id: "OPEN", label: `Open (${openInvoices.length})` },
+                            { id: "SETTLED", label: `Settled (${settledInvoices.length})` },
+                          ] as const
+                        ).map((tab) => (
+                          <button
+                            key={tab.id}
+                            type="button"
+                            onClick={() => setInvoiceMenuFilter(tab.id)}
+                            style={{
+                              fontSize: "0.69rem",
+                              fontWeight: 600,
+                              padding: "0.18rem 0.48rem",
+                              borderRadius: 5,
+                              border: "1px solid",
+                              borderColor:
+                                invoiceMenuFilter === tab.id
+                                  ? "var(--accent-primary)"
+                                  : "var(--border-subtle)",
+                              background:
+                                invoiceMenuFilter === tab.id
+                                  ? "var(--accent-subtle)"
+                                  : "transparent",
+                              color:
+                                invoiceMenuFilter === tab.id
+                                  ? "var(--text-primary)"
+                                  : "var(--text-muted)",
+                              cursor: "pointer",
+                              transition: "all 120ms ease",
+                            }}
+                          >
+                            {tab.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Scrollable Items */}
+                    <div
+                      style={{
+                        maxHeight: 280,
+                        overflowY: "auto",
+                        padding: "0.4rem",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "0.25rem",
+                      }}
+                    >
+                      {filteredList.length === 0 ? (
+                        <div
+                          style={{
+                            padding: "1.5rem",
+                            textAlign: "center",
+                            fontSize: "0.76rem",
+                            color: "var(--text-muted)",
+                          }}
+                        >
+                          No matching invoices
+                        </div>
+                      ) : (
+                        filteredList.map((r) => {
+                          const isSelected = item?.id === r.id;
+                          const isItemOpen =
+                            r.status === "OPEN" || r.status === "PARTIALLY_PAID";
+                          return (
+                            <button
+                              key={r.id}
+                              type="button"
+                              onClick={() => {
+                                handleSelectInvoice(r);
+                                setIsInvoiceMenuOpen(false);
+                              }}
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                gap: "0.6rem",
+                                padding: "0.5rem 0.65rem",
+                                borderRadius: 7,
+                                border: isSelected
+                                  ? "1px solid var(--accent-primary)"
+                                  : "1px solid transparent",
+                                background: isSelected
+                                  ? "var(--accent-subtle)"
+                                  : "transparent",
+                                textAlign: "left",
+                                cursor: "pointer",
+                                transition: "all 120ms ease",
+                                width: "100%",
+                              }}
+                              className="hover:bg-white/5"
+                            >
+                              <div
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "0.55rem",
+                                  minWidth: 0,
+                                }}
+                              >
+                                <span
+                                  className={`status-pill-dot ${
+                                    isItemOpen ? "status-pill-dot-pulse" : ""
+                                  }`}
+                                  style={{
+                                    backgroundColor: isItemOpen
+                                      ? "var(--status-pending-fg)"
+                                      : "var(--status-settled-fg)",
+                                    width: 6,
+                                    height: 6,
+                                    flexShrink: 0,
+                                  }}
+                                  aria-hidden="true"
+                                />
+                                <div style={{ minWidth: 0 }}>
+                                  <div
+                                    className="mono-data tabular-nums font-semibold"
+                                    style={{
+                                      fontSize: "0.78rem",
+                                      color: isSelected
+                                        ? "var(--text-primary)"
+                                        : "var(--text-secondary)",
+                                    }}
+                                  >
+                                    {r.id}
+                                  </div>
+                                  <div
+                                    className="tabular-nums"
+                                    style={{
+                                      fontSize: "0.66rem",
+                                      color: "var(--text-muted)",
+                                      marginTop: "0.08rem",
+                                    }}
+                                  >
+                                    {new Date(r.createdAtIso).toLocaleString("en-US", {
+                                      month: "short",
+                                      day: "numeric",
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    })}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div
+                                style={{
+                                  textAlign: "right",
+                                  flexShrink: 0,
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "0.5rem",
+                                }}
+                              >
+                                <div>
+                                  <div
+                                    className="tabular-nums font-semibold"
+                                    style={{
+                                      fontSize: "0.78rem",
+                                      color: "var(--text-primary)",
+                                    }}
+                                  >
+                                    {Number(r.amountDecimal).toLocaleString("en-US", {
+                                      minimumFractionDigits: 2,
+                                      maximumFractionDigits: 2,
+                                    })}{" "}
+                                    USDC
+                                  </div>
+                                  <span
+                                    style={{
+                                      fontSize: "0.62rem",
+                                      fontWeight: 700,
+                                      padding: "0.06rem 0.32rem",
+                                      borderRadius: 4,
+                                      background: isItemOpen
+                                        ? "var(--status-pending-bg)"
+                                        : "var(--status-settled-bg)",
+                                      color: isItemOpen
+                                        ? "var(--status-pending-fg)"
+                                        : "var(--status-settled-fg)",
+                                      border: `1px solid ${
+                                        isItemOpen
+                                          ? "var(--status-pending-border)"
+                                          : "var(--status-settled-border)"
+                                      }`,
+                                      display: "inline-block",
+                                      marginTop: "0.1rem",
+                                    }}
+                                  >
+                                    {r.status}
+                                  </span>
+                                </div>
+                                {isSelected && (
+                                  <Check
+                                    className="w-3.5 h-3.5 text-emerald-400 shrink-0"
+                                    aria-hidden="true"
+                                  />
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
           {wallet ? (
-            <span
-              className="status-pill status-pill-emerald"
-              title={`Connected NEAR Account: ${wallet.accountId} (${wallet.provider})`}
-              style={{ cursor: "default" }}
-            >
-              <span className="status-pill-dot" aria-hidden="true" />
-              <span className="mono-data tabular-nums" style={{ fontWeight: 500 }}>
-                {wallet.accountId}
+            <div style={{ display: "inline-flex", alignItems: "center", gap: "0.45rem" }}>
+              <span
+                className="status-pill status-pill-emerald"
+                title={`Connected NEAR Account: ${wallet.accountId} (${wallet.provider})`}
+                style={{ cursor: "default" }}
+              >
+                <span className="status-pill-dot" aria-hidden="true" />
+                <span className="mono-data tabular-nums" style={{ fontWeight: 500 }}>
+                  {wallet.accountId}
+                </span>
               </span>
-            </span>
+              <button
+                type="button"
+                className="btn-quiet"
+                style={{ padding: "0.3rem 0.55rem", fontSize: "0.74rem", color: "var(--text-muted)" }}
+                onClick={handleDisconnectWallet}
+                title="Disconnect wallet"
+              >
+                Disconnect
+              </button>
+            </div>
           ) : (
             <button
               type="button"
@@ -763,15 +1169,6 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
               <span>{busyKey === "connect_meteor" ? "Connecting…" : "Connect Wallet"}</span>
             </button>
           )}
-
-          <Link
-            href="/app/merchant"
-            className="btn-quiet inline-flex items-center gap-1.5 whitespace-nowrap"
-            style={{ padding: "0.42rem 0.75rem", fontSize: "0.79rem", textDecoration: "none" }}
-          >
-            <ArrowLeft className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-            <span>Merchant Console</span>
-          </Link>
         </div>
       </div>
 
@@ -784,331 +1181,6 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
           gap: "1.25rem",
         }}
       >
-        {/* Modern Fintech Invoice Switcher Bar */}
-        {requests.length > 0 && (() => {
-          const openInvoices = requests.filter(
-            (r) => r.status === "OPEN" || r.status === "PARTIALLY_PAID",
-          );
-          const settledInvoices = requests.filter((r) => r.status === "SETTLED");
-          const filteredRequests =
-            invoiceFilter === "OPEN"
-              ? openInvoices
-              : invoiceFilter === "SETTLED"
-                ? settledInvoices
-                : requests;
-
-          return (
-            <section
-              aria-label="Invoice Selection"
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "0.75rem",
-                padding: "0.85rem 1.1rem",
-                borderRadius: "var(--primitive-radius-lg)",
-                backgroundColor: "var(--surface-card)",
-                border: "1px solid var(--border-subtle)",
-                boxShadow: "0 1px 3px rgba(0, 0, 0, 0.05)",
-              }}
-            >
-              {/* Controls Header Row */}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: "0.75rem",
-                  flexWrap: "wrap",
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.45rem" }}>
-                    <span
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        width: 24,
-                        height: 24,
-                        borderRadius: "var(--primitive-radius-xs)",
-                        backgroundColor: "var(--surface-canvas)",
-                        color: "var(--text-secondary)",
-                        border: "1px solid var(--border-subtle)",
-                      }}
-                    >
-                      <ReceiptText className="w-3.5 h-3.5" aria-hidden="true" />
-                    </span>
-                    <span
-                      className="mono-label"
-                      style={{
-                        fontSize: "0.72rem",
-                        fontWeight: 650,
-                        letterSpacing: "0.06em",
-                        textTransform: "uppercase",
-                        color: "var(--text-secondary)",
-                      }}
-                    >
-                      Invoice Selector
-                    </span>
-                  </div>
-
-                  {/* Filter Pills */}
-                  <div
-                    className="filter-pill-group"
-                    role="tablist"
-                    aria-label="Filter Invoices"
-                    style={{ marginLeft: "0.2rem" }}
-                  >
-                    <button
-                      type="button"
-                      role="tab"
-                      aria-selected={invoiceFilter === "ALL"}
-                      onClick={() => setInvoiceFilter("ALL")}
-                      className={`filter-pill tabular-nums ${
-                        invoiceFilter === "ALL" ? "filter-pill-active" : ""
-                      }`}
-                      style={{ fontSize: "0.72rem", padding: "0.22rem 0.55rem" }}
-                    >
-                      All ({requests.length})
-                    </button>
-                    <button
-                      type="button"
-                      role="tab"
-                      aria-selected={invoiceFilter === "OPEN"}
-                      onClick={() => setInvoiceFilter("OPEN")}
-                      className={`filter-pill tabular-nums ${
-                        invoiceFilter === "OPEN" ? "filter-pill-active" : ""
-                      }`}
-                      style={{
-                        fontSize: "0.72rem",
-                        padding: "0.22rem 0.55rem",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "0.3rem",
-                      }}
-                    >
-                      {openInvoices.length > 0 && (
-                        <span
-                          className="status-pill-dot status-pill-dot-pulse"
-                          style={{
-                            backgroundColor: "var(--status-pending-fg)",
-                            width: 5,
-                            height: 5,
-                          }}
-                        />
-                      )}
-                      Open ({openInvoices.length})
-                    </button>
-                    <button
-                      type="button"
-                      role="tab"
-                      aria-selected={invoiceFilter === "SETTLED"}
-                      onClick={() => setInvoiceFilter("SETTLED")}
-                      className={`filter-pill tabular-nums ${
-                        invoiceFilter === "SETTLED" ? "filter-pill-active" : ""
-                      }`}
-                      style={{ fontSize: "0.72rem", padding: "0.22rem 0.55rem" }}
-                    >
-                      Settled ({settledInvoices.length})
-                    </button>
-                  </div>
-                </div>
-
-                {/* Right Controls: Quick Switch to Open + Dropdown Selector */}
-                <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap" }}>
-                  {item?.status === "SETTLED" && openInvoices.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => handleSelectInvoice(openInvoices[0]!)}
-                      className="btn-secondary tabular-nums inline-flex items-center gap-1.5"
-                      style={{
-                        padding: "0.3rem 0.65rem",
-                        fontSize: "0.72rem",
-                        color: "var(--status-pending-fg)",
-                        borderColor: "var(--status-pending-border)",
-                        backgroundColor: "var(--status-pending-bg)",
-                        fontWeight: 600,
-                      }}
-                    >
-                      <span
-                        className="status-pill-dot status-pill-dot-pulse"
-                        style={{
-                          backgroundColor: "var(--status-pending-fg)",
-                          width: 5,
-                          height: 5,
-                        }}
-                      />
-                      <span>Switch to Open ({openInvoices[0]!.id})</span>
-                    </button>
-                  )}
-
-                  {/* Native Dropdown Selector */}
-                  <div style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
-                    <select
-                      value={item?.id ?? ""}
-                      onChange={(e) => {
-                        const found = requests.find((r) => r.id === e.target.value);
-                        if (found) handleSelectInvoice(found);
-                      }}
-                      aria-label="Select invoice from dropdown"
-                      className="tabular-nums"
-                      style={{
-                        appearance: "none",
-                        WebkitAppearance: "none",
-                        padding: "0.32rem 1.85rem 0.32rem 0.7rem",
-                        fontSize: "0.75rem",
-                        fontFamily: "var(--font-family-mono)",
-                        borderRadius: "var(--primitive-radius-sm)",
-                        border: "1px solid var(--border-subtle)",
-                        backgroundColor: "var(--surface-canvas)",
-                        color: "var(--text-primary)",
-                        cursor: "pointer",
-                        outline: "none",
-                        maxWidth: "260px",
-                      }}
-                    >
-                      {openInvoices.length > 0 && (
-                        <optgroup label="Needs Action (Open)">
-                          {openInvoices.map((r) => (
-                            <option key={r.id} value={r.id}>
-                              🟡 {r.id} · {Number(r.amountDecimal).toFixed(0)} USDC ({r.status})
-                            </option>
-                          ))}
-                        </optgroup>
-                      )}
-                      <optgroup label="Settled Invoices">
-                        {settledInvoices.map((r) => (
-                          <option key={r.id} value={r.id}>
-                            🟢 {r.id} · {Number(r.amountDecimal).toFixed(0)} USDC ({r.status})
-                          </option>
-                        ))}
-                      </optgroup>
-                    </select>
-                    <ChevronDown
-                      className="w-3.5 h-3.5 pointer-events-none"
-                      style={{
-                        position: "absolute",
-                        right: "0.55rem",
-                        color: "var(--text-tertiary)",
-                      }}
-                      aria-hidden="true"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Horizontal Chip Carousel */}
-              <div
-                className="overflow-x-auto"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.5rem",
-                  padding: "0.15rem 0.1rem 0.35rem",
-                  maxWidth: "100%",
-                  scrollbarWidth: "thin",
-                }}
-                role="tablist"
-                aria-label="Select Invoice Tab"
-              >
-                {filteredRequests.map((r) => {
-                  const active = item?.id === r.id;
-                  const isOpen = r.status === "OPEN" || r.status === "PARTIALLY_PAID";
-                  return (
-                    <button
-                      key={r.id}
-                      type="button"
-                      role="tab"
-                      aria-selected={active}
-                      onClick={() => handleSelectInvoice(r)}
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "0.45rem",
-                        padding: "0.4rem 0.75rem",
-                        borderRadius: "var(--primitive-radius-sm)",
-                        border: active
-                          ? "1px solid var(--accent-primary)"
-                          : "1px solid var(--border-subtle)",
-                        backgroundColor: active
-                          ? "var(--accent-subtle)"
-                          : "var(--surface-canvas)",
-                        color: active ? "var(--text-primary)" : "var(--text-secondary)",
-                        cursor: "pointer",
-                        fontSize: "0.76rem",
-                        whiteSpace: "nowrap",
-                        transition: "all 0.15s ease",
-                        boxShadow: active ? "0 0 0 1px var(--accent-primary)" : "none",
-                        flexShrink: 0,
-                      }}
-                      className="tabular-nums"
-                    >
-                      {/* Status Dot */}
-                      <span
-                        className={`status-pill-dot ${isOpen ? "status-pill-dot-pulse" : ""}`}
-                        style={{
-                          backgroundColor: isOpen
-                            ? "var(--status-pending-fg)"
-                            : "var(--status-settled-fg)",
-                          width: 6,
-                          height: 6,
-                        }}
-                        aria-hidden="true"
-                      />
-
-                      {/* ID */}
-                      <span
-                        style={{
-                          fontFamily: "var(--font-family-mono)",
-                          fontWeight: active ? 650 : 500,
-                          color: active ? "var(--text-primary)" : "var(--text-secondary)",
-                        }}
-                      >
-                        {r.id}
-                      </span>
-
-                      <span style={{ color: "var(--border-strong)", opacity: 0.6 }}>·</span>
-
-                      {/* Amount */}
-                      <span
-                        style={{
-                          fontWeight: 700,
-                          color: active ? "var(--text-primary)" : "var(--text-secondary)",
-                        }}
-                      >
-                        {Number(r.amountDecimal).toFixed(0)} USDC
-                      </span>
-
-                      {/* Status Badge */}
-                      <span
-                        style={{
-                          fontSize: "0.64rem",
-                          fontWeight: 700,
-                          letterSpacing: "0.03em",
-                          padding: "0.1rem 0.38rem",
-                          borderRadius: "var(--primitive-radius-xs)",
-                          backgroundColor: isOpen
-                            ? "var(--status-pending-bg)"
-                            : "var(--status-settled-bg)",
-                          color: isOpen
-                            ? "var(--status-pending-fg)"
-                            : "var(--status-settled-fg)",
-                          border: `1px solid ${
-                            isOpen
-                              ? "var(--status-pending-border)"
-                              : "var(--status-settled-border)"
-                          }`,
-                        }}
-                      >
-                        {r.status}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </section>
-          );
-        })()}
         {/* Title & Subtitle Row */}
         <div
           style={{
@@ -2153,169 +2225,23 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
               </div>
             ) : (
               <>
-                {/* Step 01: Wallet Provider */}
+                {/* Step 01: Payer Account & Signer */}
                 <div className="form-section" style={{ paddingTop: 0 }}>
                   <div className="form-section-header">
                     <span className="form-section-title">
                       <span className="form-section-step">01</span>
-                      <span>NEAR Wallet Connection</span>
+                      <span>Buyer Account &amp; Signer</span>
                     </span>
-                    <span
-                      className={
-                        meteorDetected
-                          ? "status-pill status-pill-emerald"
-                          : "status-pill status-pill-blue"
-                      }
-                    >
-                      <span className="status-pill-dot" aria-hidden="true" />
-                      {meteorDetected ? "Meteor Extension Detected" : "Meteor Web Popup Ready"}
-                    </span>
+                    {wallet && (
+                      <span className="status-pill status-pill-emerald">
+                        <span className="status-pill-dot" aria-hidden="true" />
+                        <span>Connected: {wallet.accountId}</span>
+                      </span>
+                    )}
                   </div>
 
-                  {/* Primary Provider: Meteor Wallet */}
-                  <div
-                    style={{
-                      padding: "0.95rem 1rem",
-                      borderRadius: 10,
-                      border:
-                        wallet?.provider === "METEOR_WALLET"
-                          ? "1px solid var(--status-settled-border)"
-                          : "1px solid var(--border-default)",
-                      background:
-                        wallet?.provider === "METEOR_WALLET"
-                          ? "var(--status-settled-bg)"
-                          : "var(--surface-2)",
-                      marginBottom: "0.75rem",
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        gap: "0.75rem",
-                        flexWrap: "wrap",
-                      }}
-                    >
-                      <div>
-                        <div
-                          style={{
-                            fontSize: "0.88rem",
-                            fontWeight: 600,
-                            color: "var(--text-primary)",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "0.45rem",
-                            flexWrap: "wrap",
-                          }}
-                        >
-                          <CryptoTokenIcon symbol="NEAR" size={18} />
-                          <span>Meteor Wallet</span>
-                          {wallet?.provider === "METEOR_WALLET" && (
-                            <span
-                              className="status-pill status-pill-emerald"
-                              style={{ fontSize: "0.68rem", padding: "0.15rem 0.5rem" }}
-                            >
-                              <span className="status-pill-dot" aria-hidden="true" />
-                              Connected: <span className="mono-data">{wallet.accountId}</span>
-                            </span>
-                          )}
-                        </div>
-                        <div className="field-hint" style={{ marginTop: "0.18rem" }}>
-                          Connect via injected <code>window.meteorCom</code> bridge or Meteor Web
-                          Wallet popup.
-                        </div>
-                      </div>
-
-                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                        <div className="filter-pill-group" aria-label="Meteor Network">
-                          <button
-                            type="button"
-                            onClick={() => void handleSwitchMeteorNetwork("testnet")}
-                            disabled={busyKey === "connect_meteor"}
-                            className={`filter-pill ${
-                              meteorNetwork === "testnet" ? "filter-pill-active" : ""
-                            }`}
-                            title="Switch to NEAR Testnet in Meteor Wallet"
-                          >
-                            {busyKey === "connect_meteor" && meteorNetwork === "testnet" ? (
-                              <>
-                                <span
-                                  className="btn-spinner"
-                                  aria-hidden="true"
-                                  style={{ width: 10, height: 10 }}
-                                />
-                                <span>Switching…</span>
-                              </>
-                            ) : (
-                              "Testnet"
-                            )}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void handleSwitchMeteorNetwork("mainnet")}
-                            disabled={busyKey === "connect_meteor"}
-                            className={`filter-pill ${
-                              meteorNetwork === "mainnet" ? "filter-pill-active" : ""
-                            }`}
-                            title="Switch to NEAR Mainnet in Meteor Wallet"
-                          >
-                            {busyKey === "connect_meteor" && meteorNetwork === "mainnet" ? (
-                              <>
-                                <span
-                                  className="btn-spinner"
-                                  aria-hidden="true"
-                                  style={{ width: 10, height: 10 }}
-                                />
-                                <span>Switching…</span>
-                              </>
-                            ) : (
-                              "Mainnet"
-                            )}
-                          </button>
-                        </div>
-
-                        {wallet?.provider === "METEOR_WALLET" ? (
-                          <button
-                            type="button"
-                            className="btn-secondary"
-                            style={{
-                              padding: "0.48rem 0.95rem",
-                              fontSize: "0.8rem",
-                              color: "var(--status-failed-fg)",
-                              borderColor: "var(--status-failed-border)",
-                              background: "var(--status-failed-bg)",
-                              fontWeight: 500,
-                            }}
-                            disabled={Boolean(busyKey)}
-                            onClick={handleDisconnectWallet}
-                          >
-                            Disconnect
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            className="btn-primary"
-                            style={{ padding: "0.48rem 0.95rem", fontSize: "0.8rem" }}
-                            disabled={Boolean(busyKey)}
-                            onClick={() => void handleConnectMeteor()}
-                          >
-                            {busyKey === "connect_meteor" ? (
-                              <>
-                                <span className="btn-spinner" aria-hidden="true" />
-                                <span>Connecting…</span>
-                              </>
-                            ) : (
-                              <span>Connect Meteor</span>
-                            )}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Alternative Providers: MyNearWallet + Embedded Ed25519 Testnet Signer */}
-                  <div className="form-grid-2" style={{ gap: "0.75rem", alignItems: "flex-start" }}>
+                  {/* Account Input + Alternative Providers */}
+                  <div className="form-grid-2" style={{ gap: "1rem", alignItems: "flex-start" }}>
                     <div className="field-group">
                       <label className="field-label" htmlFor="buyer-near-account">
                         <span>Buyer NEAR Account (.testnet)</span>
@@ -2327,6 +2253,11 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                         onChange={(e) => setCustomBuyerAccount(e.target.value)}
                         placeholder="e.g. yourname.testnet"
                       />
+                      <span className="field-hint" style={{ marginTop: "0.35rem", display: "block", fontSize: "0.72rem" }}>
+                        {wallet?.accountId
+                          ? `Using active signer: ${wallet.accountId}`
+                          : "Specify your testnet account or choose an instant signer below."}
+                      </span>
                     </div>
 
                     <div className="field-group">
@@ -2360,12 +2291,13 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                         )}
                       </div>
 
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.45rem" }}>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "0.45rem" }}>
                         <button
                           type="button"
-                          className="btn-secondary inline-flex items-center justify-center gap-1 whitespace-nowrap"
+                          className="btn-secondary inline-flex items-center justify-center gap-1.5"
                           style={{
-                            padding: "0.52rem 0.7rem",
+                            width: "100%",
+                            padding: "0.52rem 0.75rem",
                             fontSize: "0.78rem",
                             borderColor:
                               wallet?.provider === "EMBEDDED_TESTNET_SIGNER"
@@ -2387,7 +2319,7 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                                 aria-hidden="true"
                               />
                               <span style={{ color: "var(--status-settled-fg)", fontWeight: 650 }}>
-                                Relayer Active
+                                1-Click Relayer Active (Gasless)
                               </span>
                             </>
                           ) : (
@@ -2397,8 +2329,8 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
 
                         <button
                           type="button"
-                          className="btn-secondary inline-flex items-center justify-center gap-1 whitespace-nowrap"
-                          style={{ padding: "0.52rem 0.7rem", fontSize: "0.78rem" }}
+                          className="btn-secondary inline-flex items-center justify-center gap-1.5"
+                          style={{ width: "100%", padding: "0.52rem 0.75rem", fontSize: "0.78rem" }}
                           disabled={Boolean(busyKey)}
                           onClick={handleConnectMyNearWallet}
                         >

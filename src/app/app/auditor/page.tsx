@@ -781,15 +781,15 @@ export default function AuditorVerificationPage() {
             }
           />
         ) : (
-          <div className="ledger-table-wrap overflow-x-auto">
-            <table className="ledger-table">
+          <div className="ledger-table-wrap overflow-x-auto auditor-table-wrap">
+            <table className="ledger-table auditor-table">
               <thead>
                 <tr>
-                  <th>Kind</th>
-                  <th>Record ID &amp; Timestamp</th>
-                  <th>Decrypted Off-Chain Record</th>
-                  <th>Escrow &amp; Commitment</th>
-                  <th className="col-num">Verification</th>
+                  <th style={{ width: "9%", minWidth: 70 }}>Kind</th>
+                  <th style={{ width: "20%", minWidth: 140 }}>Record ID &amp; Timestamp</th>
+                  <th style={{ width: "42%", minWidth: 210 }}>Decrypted Off-Chain Record</th>
+                  <th style={{ width: "16%", minWidth: 130 }}>Escrow &amp; Commitment</th>
+                  <th className="col-num" style={{ width: "13%", minWidth: 110 }}>Verification</th>
                 </tr>
               </thead>
               <tbody>
@@ -816,13 +816,17 @@ export default function AuditorVerificationPage() {
                       </span>
                     </td>
                     <td>
-                      <span className="mono-data tabular-nums" style={{ fontWeight: 600 }}>
+                      <span
+                        className="mono-data tabular-nums truncate"
+                        style={{ fontWeight: 600, fontSize: "0.75rem", display: "inline-block", maxWidth: 145 }}
+                        title={rec.recordId}
+                      >
                         {rec.recordId}
                       </span>
                       <div
                         className="tabular-nums"
                         style={{
-                          fontSize: "0.72rem",
+                          fontSize: "0.7rem",
                           color: "var(--text-muted)",
                           marginTop: "0.15rem",
                         }}
@@ -835,7 +839,7 @@ export default function AuditorVerificationPage() {
                         })}
                       </div>
                     </td>
-                    <td style={{ minWidth: 230, maxWidth: 380 }}>
+                    <td className="auditor-payload-col">
                       <PayloadPreviewCard payload={rec.decryptedPayload} kind={rec.kind} />
                     </td>
                     <td>
@@ -843,7 +847,7 @@ export default function AuditorVerificationPage() {
                         style={{
                           display: "flex",
                           flexDirection: "column",
-                          gap: "0.3rem",
+                          gap: "0.25rem",
                           alignItems: "flex-start",
                         }}
                       >
@@ -861,7 +865,7 @@ export default function AuditorVerificationPage() {
                         />
                       </div>
                     </td>
-                    <td className="col-num">
+                    <td className="col-num" style={{ whiteSpace: "nowrap" }}>
                       {(() => {
                         const recStatus = getRecordStatus(rec);
                         if (recStatus === "verified") {
