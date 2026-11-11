@@ -410,20 +410,26 @@ export function assertNodeSqliteSupport(): void {
  */
 export function openLedgerlySqliteDb(dbPath?: string): DatabaseSync {
   assertNodeSqliteSupport();
-  const target =
+  let target =
     dbPath ??
     process.env.LEDGERLY_DB_PATH ??
     process.env.LEDGERLY_SQLITE_PATH ??
     resolve(process.cwd(), ".data/ledgerly.sqlite");
 
   if (target !== ":memory:") {
-    const dir = dirname(target);
+    let dir = dirname(target);
     try {
       mkdirSync(dir, { recursive: true });
     } catch (err) {
-      throw new Error(
-        `Failed to create database directory '${dir}': ${err instanceof Error ? err.message : String(err)}`,
-      );
+      if (!dbPath && process.env.LEDGERLY_DB_PATH) {
+        target = resolve(process.cwd(), ".data/ledgerly.sqlite");
+        dir = dirname(target);
+        mkdirSync(dir, { recursive: true });
+      } else {
+        throw new Error(
+          `Failed to create database directory '${dir}': ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
     }
 
     try {
@@ -433,7 +439,13 @@ export function openLedgerlySqliteDb(dbPath?: string): DatabaseSync {
         accessSync(/*turbopackIgnore: true*/ dir, constants.R_OK | constants.W_OK);
       }
     } catch {
-      throw new Error(`Database path '${target}' is read-only or not writable.`);
+      if (!dbPath && process.env.LEDGERLY_DB_PATH) {
+        target = resolve(process.cwd(), ".data/ledgerly.sqlite");
+        dir = dirname(target);
+        mkdirSync(dir, { recursive: true });
+      } else {
+        throw new Error(`Database path '${target}' is read-only or not writable.`);
+      }
     }
   }
 

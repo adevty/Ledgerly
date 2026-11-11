@@ -1,5 +1,5 @@
 FROM node:24-alpine AS base
-RUN apk add --no-cache libc6-compat
+RUN apk add --no-cache libc6-compat su-exec
 WORKDIR /app
 
 # 1. Dependencies Stage
@@ -42,8 +42,9 @@ COPY --chown=nextjs:nodejs --from=builder /app/public ./public
 COPY --chown=nextjs:nodejs --from=builder /app/scripts ./scripts
 COPY --chown=nextjs:nodejs --from=builder /app/src ./src
 
-USER nextjs
+RUN chmod +x /app/scripts/docker-entrypoint.sh
 
 EXPOSE 3000
 
+ENTRYPOINT ["/app/scripts/docker-entrypoint.sh"]
 CMD ["npm", "start"]
