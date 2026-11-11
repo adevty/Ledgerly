@@ -7,4 +7,10 @@ backups
 *.db
 .env
 .env.*
-!contracts/**/target
+.git
+.agents
+.cursor
+.claude
+out
+contracts/**/target
+contracts/target

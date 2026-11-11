@@ -24,6 +24,7 @@ FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+RUN mkdir -p public
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 RUN npm run build
@@ -46,16 +47,13 @@ RUN addgroup --system --gid 1001 nodejs && \
 RUN mkdir -p /data && chown -R nextjs:nodejs /data
 VOLUME ["/data"]
 
-# Copy application assets and production build
-COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/scripts ./scripts
-COPY --from=builder /app/src ./src
-
-# Set ownership
-RUN chown -R nextjs:nodejs /app
+# Copy application assets and production build with non-root ownership
+COPY --chown=nextjs:nodejs --from=builder /app/package.json ./package.json
+COPY --chown=nextjs:nodejs --from=builder /app/node_modules ./node_modules
+COPY --chown=nextjs:nodejs --from=builder /app/.next ./.next
+COPY --chown=nextjs:nodejs --from=builder /app/public ./public
+COPY --chown=nextjs:nodejs --from=builder /app/scripts ./scripts
+COPY --chown=nextjs:nodejs --from=builder /app/src ./src
 
 USER nextjs
 
