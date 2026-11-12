@@ -50,8 +50,8 @@ function CodeSnippet({ code, language = "bash", title }: CodeSnippetProps) {
     <div className="docs-code-card">
       <div className="docs-code-header">
         <div className="docs-code-title">
-          <Terminal className="w-3.5 h-3.5" aria-hidden="true" />
-          <span>{title || language}</span>
+          <Terminal className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+          <span className="docs-code-title-text">{title || language}</span>
         </div>
         <button
           type="button"
@@ -61,12 +61,12 @@ function CodeSnippet({ code, language = "bash", title }: CodeSnippetProps) {
         >
           {copied ? (
             <>
-              <Check className="w-3.5 h-3.5 text-emerald-400" aria-hidden="true" />
+              <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" aria-hidden="true" />
               <span>Copied</span>
             </>
           ) : (
             <>
-              <Copy className="w-3.5 h-3.5" aria-hidden="true" />
+              <Copy className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
               <span>Copy</span>
             </>
           )}
@@ -102,12 +102,12 @@ export default function DocsPage() {
   }, []);
 
   const navSections = [
-    { id: "overview", label: "1. Overview & Vision" },
-    { id: "privacy", label: "2. Privacy & Encryption" },
-    { id: "escrow", label: "3. Smart Escrow on NEAR" },
-    { id: "api", label: "4. Developer API" },
-    { id: "accounting", label: "5. Verifiable Accounting" },
-    { id: "threat-model", label: "6. Threat Model & Security" },
+    { id: "overview", label: "1. Overview & Vision", shortLabel: "1. Overview" },
+    { id: "privacy", label: "2. Privacy & Encryption", shortLabel: "2. Privacy" },
+    { id: "escrow", label: "3. Smart Escrow on NEAR", shortLabel: "3. Escrow" },
+    { id: "api", label: "4. Developer API", shortLabel: "4. REST API" },
+    { id: "accounting", label: "5. Verifiable Accounting", shortLabel: "5. Accounting" },
+    { id: "threat-model", label: "6. Threat Model & Security", shortLabel: "6. Security" },
   ];
 
   return (
@@ -191,7 +191,8 @@ export default function DocsPage() {
                   onClick={() => setActiveSection(sec.id)}
                   className={`docs-nav-link ${activeSection === sec.id ? "docs-nav-link-active" : ""}`}
                 >
-                  {sec.label}
+                  <span className="docs-nav-label-desktop">{sec.label}</span>
+                  <span className="docs-nav-label-mobile">{sec.shortLabel}</span>
                 </a>
               ))}
             </nav>
@@ -211,7 +212,7 @@ export default function DocsPage() {
 
               <div className="docs-callout">
                 <ShieldCheck className="w-5 h-5 text-[var(--status-settled-fg)] shrink-0" aria-hidden="true" />
-                <div>
+                <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ fontWeight: 600, fontSize: "0.9rem" }}>The Double-Sided Privacy Dilemma</div>
                   <div style={{ fontSize: "0.84rem", color: "var(--text-secondary)", marginTop: "0.2rem" }}>
                     Public blockchains broadcast customer names, supplier terms, and cashflows to competitors.
@@ -297,7 +298,7 @@ const commitment = crypto.createHash("sha256")
 
               <div className="docs-contracts-table">
                 <div className="docs-contract-row">
-                  <div>
+                  <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{ fontWeight: 600, fontSize: "0.88rem" }}>Escrow Contract</div>
                     <div style={{ fontSize: "0.78rem", color: "var(--text-secondary)" }}>
                       Holds deposits, automates overpayment splits, and executes timeout refunds
@@ -310,7 +311,7 @@ const commitment = crypto.createHash("sha256")
                 </div>
 
                 <div className="docs-contract-row">
-                  <div>
+                  <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{ fontWeight: 600, fontSize: "0.88rem" }}>NEP-141 USDC Token</div>
                     <div style={{ fontSize: "0.78rem", color: "var(--text-secondary)" }}>
                       6-decimal compliant testnet fungible token with ft_transfer_call support
@@ -323,7 +324,7 @@ const commitment = crypto.createHash("sha256")
                 </div>
 
                 <div className="docs-contract-row">
-                  <div>
+                  <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{ fontWeight: 600, fontSize: "0.88rem" }}>Backend Operator Key</div>
                     <div style={{ fontSize: "0.78rem", color: "var(--text-secondary)" }}>
                       Automated settlement relayer and gas sponsor for seamless checkout
@@ -363,33 +364,21 @@ const commitment = crypto.createHash("sha256")
               </p>
 
               {/* Live Production API Environment Banner */}
-              <div
-                style={{
-                  padding: "1.15rem 1.25rem",
-                  borderRadius: "var(--panel-radius)",
-                  backgroundColor: "var(--surface-2)",
-                  border: "1px solid var(--border-default)",
-                  marginBottom: "2rem",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "0.85rem",
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.55rem" }}>
+              <div className="docs-api-banner">
+                <div className="docs-api-banner-header">
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.55rem", minWidth: 0, flexWrap: "wrap" }}>
                     <span className="status-pill status-pill-emerald">
                       <span className="status-pill-dot" aria-hidden="true" />
                       <span>Live Production API</span>
                     </span>
                     <span style={{ fontSize: "0.78rem", color: "var(--text-muted)" }}>Railway Hosted · NEAR Testnet Connected</span>
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+                  <div className="docs-api-banner-actions">
                     <a
                       href="https://tryledgerly.up.railway.app/api/health"
                       target="_blank"
                       rel="noreferrer"
                       className="lp-rail-chip"
-                      style={{ fontSize: "0.74rem", textDecoration: "none" }}
                     >
                       <span>GET /api/health</span>
                       <ArrowUpRight className="w-3 h-3 text-[var(--accent-primary)]" aria-hidden="true" />
@@ -399,7 +388,6 @@ const commitment = crypto.createHash("sha256")
                       target="_blank"
                       rel="noreferrer"
                       className="lp-rail-chip"
-                      style={{ fontSize: "0.74rem", textDecoration: "none" }}
                     >
                       <span>GET /api/v1/state</span>
                       <ArrowUpRight className="w-3 h-3 text-[var(--accent-primary)]" aria-hidden="true" />
@@ -407,30 +395,16 @@ const commitment = crypto.createHash("sha256")
                   </div>
                 </div>
 
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.6rem",
-                    padding: "0.65rem 0.95rem",
-                    borderRadius: "var(--primitive-radius-xs)",
-                    backgroundColor: "var(--surface-1)",
-                    border: "1px solid var(--border-subtle)",
-                    fontFamily: "var(--font-family-mono)",
-                    fontSize: "0.82rem",
-                    color: "var(--text-primary)",
-                    wordBreak: "break-all",
-                  }}
-                >
-                  <span style={{ color: "var(--text-muted)", fontSize: "0.74rem", userSelect: "none", textTransform: "uppercase", letterSpacing: "0.05em" }}>BASE URL:</span>
+                <div className="docs-api-url-bar">
+                  <span className="docs-api-url-label">BASE URL:</span>
                   <a
                     href="https://tryledgerly.up.railway.app/"
                     target="_blank"
                     rel="noreferrer"
-                    style={{ color: "var(--accent-primary)", textDecoration: "none", fontWeight: 650, display: "inline-flex", alignItems: "center", gap: "0.3rem" }}
+                    className="docs-api-url-link"
                   >
                     <span>https://tryledgerly.up.railway.app</span>
-                    <ArrowUpRight className="w-3.5 h-3.5" aria-hidden="true" />
+                    <ArrowUpRight className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                   </a>
                 </div>
               </div>

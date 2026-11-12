@@ -3915,7 +3915,76 @@ button:focus-visible {
   flex-wrap: wrap;
 }
 
-@media (max-width: 860px) {
+/* Base desktop styles for documentation components */
+.docs-nav-label-desktop {
+  display: inline;
+}
+
+.docs-nav-label-mobile {
+  display: none;
+}
+
+.docs-code-title-text {
+  display: inline;
+}
+
+.docs-api-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem;
+  padding: 0.85rem 1.15rem;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(0, 236, 151, 0.08) 0%, rgba(59, 130, 246, 0.05) 100%);
+  border: 1px solid rgba(0, 236, 151, 0.35);
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.docs-api-banner-header {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.docs-api-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.docs-api-url-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: 6px;
+  background-color: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  min-width: 0;
+}
+
+.docs-api-url-label {
+  font-size: 0.68rem;
+  font-family: var(--font-mono);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+
+.docs-api-url-link {
+  font-size: 0.78rem;
+  font-family: var(--font-mono);
+  color: var(--accent-primary);
+  text-decoration: none;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+@media (min-width: 768px) and (max-width: 860px) {
   .docs-shell {
     grid-template-columns: 1fr;
     gap: 1.25rem;
@@ -3993,50 +4062,347 @@ button:focus-visible {
   }
 }
 
-@media (max-width: 640px) {
+/* ----------------------------------------------------------------------------
+   MOBILE DOCUMENTATION RESPONSIVE SYSTEM (<= 767px)
+   Strictly scoped to mobile; desktop (> 767px) remains completely unaffected.
+   ---------------------------------------------------------------------------- */
+@media (max-width: 767px) {
+  .docs-nav-label-desktop {
+    display: none !important;
+  }
+
+  .docs-nav-label-mobile {
+    display: inline !important;
+  }
+
   .docs-container {
+    width: 100% !important;
+    max-width: 100% !important;
     padding: 0.85rem 0.85rem 3.5rem !important;
+    box-sizing: border-box !important;
+  }
+
+  .docs-shell {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    gap: 0.85rem !important;
+    box-sizing: border-box !important;
   }
 
   .docs-sidebar {
-    margin: 0 -0.85rem 0.85rem;
-    border-radius: 0;
-    border-left: none;
-    border-right: none;
-    padding: 0.45rem 0.85rem;
+    position: sticky !important;
+    top: 3.35rem !important;
+    z-index: 40 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    background-color: rgba(10, 10, 11, 0.95) !important;
+    backdrop-filter: blur(16px) !important;
+    -webkit-backdrop-filter: blur(16px) !important;
+    border: 1px solid var(--border-subtle) !important;
+    border-radius: 12px !important;
+    padding: 0.45rem 0.55rem !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25) !important;
+    overflow-x: auto !important;
+    scrollbar-width: none !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  [data-theme="light"] .docs-sidebar {
+    background-color: rgba(240, 242, 245, 0.96) !important;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08) !important;
+  }
+
+  .docs-sidebar::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  .docs-sidebar-header {
+    display: none !important;
+  }
+
+  .docs-nav-list {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    gap: 0.35rem !important;
+    width: max-content !important;
+    padding: 2px 0 !important;
+    margin: 0 !important;
+    list-style: none !important;
+  }
+
+  .docs-nav-link {
+    display: inline-flex !important;
+    align-items: center !important;
+    padding: 0.32rem 0.65rem !important;
+    font-size: 0.74rem !important;
+    font-weight: 500 !important;
+    border-radius: 9999px !important;
+    white-space: nowrap !important;
+    background-color: var(--surface-2) !important;
+    border: 1px solid var(--border-subtle) !important;
+    color: var(--text-secondary) !important;
+    flex-shrink: 0 !important;
+    transition: all 140ms ease !important;
+  }
+
+  .docs-nav-link-active {
+    background-color: var(--surface-3) !important;
+    border-color: var(--accent-primary) !important;
+    color: var(--text-primary) !important;
+    font-weight: 600 !important;
+    border-left: 1px solid var(--accent-primary) !important;
+  }
+
+  .docs-content {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 1.5rem !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
   }
 
   .docs-section {
-    padding: 1.25rem 0.95rem !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    padding: 1.15rem 0.95rem !important;
     border-radius: 12px !important;
+    border: 1px solid var(--border-subtle) !important;
+    background-color: var(--surface-1) !important;
+  }
+
+  .docs-section-header {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.35rem !important;
+    margin-bottom: 0.85rem !important;
+  }
+
+  .docs-section-title {
+    font-size: 1.05rem !important;
+    line-height: 1.3 !important;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+  }
+
+  .docs-badge {
+    font-size: 0.64rem !important;
+    padding: 0.18rem 0.45rem !important;
+    align-self: flex-start !important;
   }
 
   .docs-title {
-    font-size: 1.3rem !important;
-    line-height: 1.22 !important;
+    font-size: 1.35rem !important;
+    line-height: 1.25 !important;
+    word-break: break-word !important;
   }
 
   .docs-lead {
-    font-size: 0.86rem !important;
+    font-size: 0.88rem !important;
     line-height: 1.5 !important;
     margin-bottom: 1.15rem !important;
+    word-break: break-word !important;
   }
 
+  .docs-card-body,
+  .docs-card-title,
+  .docs-section p,
+  .docs-section li,
   .docs-callout {
-    padding: 0.85rem 0.85rem !important;
-    gap: 0.65rem !important;
+    overflow-wrap: break-word !important;
+    word-wrap: break-word !important;
+  }
+
+  .docs-section code,
+  .docs-card code {
+    word-break: break-all !important;
+    overflow-wrap: anywhere !important;
+  }
+
+  .docs-grid-2 {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0.85rem !important;
+    width: 100% !important;
+  }
+
+  .docs-card {
+    min-width: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    padding: 0.95rem 0.85rem !important;
+    border-radius: 10px !important;
+  }
+
+  .docs-api-banner {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.75rem !important;
+    padding: 0.85rem !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .docs-api-banner-header {
+    flex-wrap: wrap !important;
+    gap: 0.45rem !important;
+  }
+
+  .docs-api-banner-actions {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.5rem !important;
+    width: 100% !important;
+  }
+
+  .docs-api-url-bar {
+    width: 100% !important;
+    box-sizing: border-box !important;
+    overflow-x: auto !important;
+    justify-content: flex-start !important;
+  }
+
+  .docs-api-url-link {
+    font-size: 0.74rem !important;
+    word-break: break-all !important;
+    white-space: normal !important;
+  }
+
+  .docs-code-card {
+    min-width: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    border-radius: 10px !important;
+    margin: 0.85rem 0 !important;
+  }
+
+  .docs-code-header {
+    padding: 0.45rem 0.75rem !important;
+    gap: 0.5rem !important;
+    min-width: 0 !important;
+  }
+
+  .docs-code-title {
+    min-width: 0 !important;
+    flex: 1 !important;
+    overflow: hidden !important;
+  }
+
+  .docs-code-title-text {
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    display: block !important;
   }
 
   .docs-code-body {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
     padding: 0.75rem 0.85rem !important;
     font-size: 0.72rem !important;
     line-height: 1.48 !important;
   }
 
+  .docs-callout {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    padding: 0.85rem !important;
+    gap: 0.55rem !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
   .docs-contract-row {
     flex-direction: column !important;
     align-items: flex-start !important;
-    gap: 0.65rem !important;
     padding: 0.85rem !important;
+    gap: 0.65rem !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+}
+
+/* Specific optimization for 440px and below (iPhone 16 Pro Max, large modern phones) */
+@media (max-width: 440px) {
+  .docs-container {
+    padding: 0.75rem 0.65rem 3.5rem !important;
+  }
+
+  .docs-section {
+    padding: 1rem 0.75rem !important;
+  }
+
+  .docs-card {
+    padding: 0.85rem 0.75rem !important;
+  }
+}
+
+/* Specific optimization for 375px and below (iPhone SE, compact phones) */
+@media (max-width: 375px) {
+  .docs-container {
+    padding: 0.65rem 0.5rem 3.5rem !important;
+  }
+
+  .docs-section {
+    padding: 0.9rem 0.65rem !important;
+    border-radius: 10px !important;
+  }
+
+  .docs-title {
+    font-size: 1.2rem !important;
+  }
+
+  .docs-lead {
+    font-size: 0.82rem !important;
+  }
+
+  .docs-nav-link {
+    padding: 0.28rem 0.55rem !important;
+    font-size: 0.7rem !important;
+  }
+}
+
+/* Specific optimization for 320px (ultra-compact mobile screens) */
+@media (max-width: 320px) {
+  .docs-container {
+    padding: 0.5rem 0.35rem 3rem !important;
+  }
+
+  .docs-section {
+    padding: 0.75rem 0.5rem !important;
+    border-radius: 8px !important;
+  }
+
+  .docs-card {
+    padding: 0.75rem 0.5rem !important;
+  }
+
+  .docs-code-body {
+    padding: 0.65rem 0.5rem !important;
+    font-size: 0.68rem !important;
+  }
+
+  .docs-title {
+    font-size: 1.1rem !important;
+  }
+
+  .docs-nav-link {
+    padding: 0.25rem 0.45rem !important;
+    font-size: 0.68rem !important;
   }
 }
