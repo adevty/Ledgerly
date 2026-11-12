@@ -208,31 +208,11 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
 
       {/* Solid Top Sticky Header */}
       <header className="app-topbar sticky top-0 z-50">
-        <div
-          style={{
-            maxWidth: 1360,
-            margin: "0 auto",
-            padding: "0.82rem 1.75rem",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: "1rem",
-            flexWrap: "wrap",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "0.7rem", flexWrap: "wrap" }}>
+        <div className="app-topbar-inner">
+          <div className="app-topbar-left">
             <Link
               href="/"
-              style={{
-                fontWeight: 700,
-                fontSize: "1.02rem",
-                letterSpacing: "-0.025em",
-                color: "var(--text-primary)",
-                textDecoration: "none",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "0.5rem",
-              }}
+              className="app-brand-link"
             >
               <LedgerlyBrandMark />
               <span>Ledgerly</span>
@@ -241,19 +221,21 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
               status={state?.network?.mode === "NEAR_TESTNET_RPC" ? "ACTIVE" : "OVERPAID"}
               label={
                 state?.network?.mode === "NEAR_TESTNET_RPC"
-                  ? "NEAR TESTNET (live RPC)"
-                  : "SANDBOX (simulated chain)"
+                  ? "NEAR TESTNET"
+                  : "SANDBOX"
               }
             />
             {state?.network?.escrowContractId && (
-              <HashBadge
-                value={state.network.escrowContractId}
-                href={`${state.network.explorerBaseUrl}/address/${state.network.escrowContractId}`}
-              />
+              <span className="hide-on-mobile">
+                <HashBadge
+                  value={state.network.escrowContractId}
+                  href={`${state.network.explorerBaseUrl}/address/${state.network.escrowContractId}`}
+                />
+              </span>
             )}
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "0.65rem", flexWrap: "wrap" }}>
+          <div className="app-topbar-right">
             <button
               type="button"
               onClick={toggleTheme}
@@ -278,16 +260,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
                     setTimeout(() => setCopiedAccount(false), 1600);
                   }
                 }}
-                className="group cursor-pointer select-none transition-all duration-200"
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "0.6rem",
-                  padding: "0.28rem 0.62rem 0.28rem 0.35rem",
-                  borderRadius: 10,
-                  background: "var(--surface-1)",
-                  border: "1px solid var(--border-default)",
-                }}
+                className="group cursor-pointer select-none transition-all duration-200 org-profile-pill"
                 title={`Click to copy NEAR testnet account: ${state.organization.nearAccount}`}
                 role="button"
                 tabIndex={0}
@@ -338,14 +311,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
                   />
                 </div>
                 <div style={{ textAlign: "left" }}>
-                  <div
-                    style={{
-                      fontSize: "0.78rem",
-                      fontWeight: 600,
-                      color: "var(--text-primary)",
-                      lineHeight: 1.2,
-                    }}
-                  >
+                  <div className="org-profile-name">
                     {state.organization.name}
                   </div>
                   <div
@@ -357,8 +323,8 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
                       transition: "color 150ms ease",
                     }}
                   >
-                    <span style={{ maxWidth: 165, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {copiedAccount ? "Copied to clipboard!" : state.organization.nearAccount}
+                    <span className="org-profile-account">
+                      {copiedAccount ? "Copied!" : state.organization.nearAccount}
                     </span>
                     {copiedAccount ? (
                       <Check className="w-2.5 h-2.5 shrink-0" aria-hidden="true" />
@@ -378,10 +344,10 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
             <Link
               href="/"
               className="btn-secondary inline-flex items-center gap-1.5 whitespace-nowrap"
-              style={{ padding: "0.46rem 0.85rem", fontSize: "0.79rem" }}
+              style={{ padding: "0.42rem 0.75rem", fontSize: "0.78rem" }}
             >
               <ArrowLeft className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-              <span>Landing</span>
+              <span className="hide-on-mobile-inline">Landing</span>
             </Link>
           </div>
         </div>
@@ -390,6 +356,29 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
           <div className={`header-rail-line ${busy ? "header-rail-line-busy" : ""}`} />
         </div>
       </header>
+
+      {/* Mobile Sticky Horizontal Pill Navigation Bar (Visible only <= 860px) */}
+      <nav className="app-mobile-nav" aria-label="Mobile Navigation">
+        <div className="app-mobile-nav-inner">
+          {[...operationsNav, ...complianceNav].map((item) => {
+            const active = isActive(item.href, item.exact);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`app-mobile-nav-pill ${active ? "app-mobile-nav-pill-active" : ""}`}
+                aria-current={active ? "page" : undefined}
+              >
+                <NavIcon kind={item.icon} />
+                <span>{item.label}</span>
+                {item.badge !== null && (
+                  <span className="app-mobile-nav-badge">{item.badge}</span>
+                )}
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
 
       {/* Main 2-Column Dashboard Shell */}
       <div className="app-shell">

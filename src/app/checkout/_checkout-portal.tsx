@@ -872,6 +872,7 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
                         {Number(item.amountDecimal).toLocaleString("en-US", { maximumFractionDigits: 0 })} USDC
                       </span>
                       <span
+                        className="hide-on-mobile-inline"
                         style={{
                           fontSize: "0.64rem",
                           fontWeight: 700,
