@@ -1287,9 +1287,6 @@ export default function LandingPage() {
             <span style={{ fontSize: "0.9rem", fontWeight: 600, color: "var(--text-primary)" }}>
               Ledgerly
             </span>
-            <span style={{ fontSize: "0.82rem", color: "var(--text-muted)" }}>
-              · Private Financial Infrastructure for Onchain Businesses on NEAR
-            </span>
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: "1.25rem", flexWrap: "wrap" }}>
