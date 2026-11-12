@@ -7,8 +7,13 @@
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D22.13.0-green.svg)](https://nodejs.org/)
 [![NEAR Testnet](https://img.shields.io/badge/NEAR-Testnet%20Verified-00EC97.svg?logo=near&logoColor=black)](https://testnet.nearblocks.io/address/ledgerly-escrow-9e70f9ea.testnet)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Hosted Demo](https://img.shields.io/badge/Hosted%20Demo-tryledgerly.up.railway.app-orange.svg)](https://tryledgerly.up.railway.app/)
 
 ---
+
+<p align="center">
+  <img src="./docs/assets/01-landing-hero.png" alt="Ledgerly Platform Overview" width="100%" />
+</p>
 
 ### Core Proposition
 - **Private financial records**: Customer contacts, pricing terms, and line items stay encrypted off-chain via AES-256-GCM + X25519; zero raw commercial metadata leaks to public block explorers.
@@ -32,6 +37,21 @@ Ledgerly provides private financial infrastructure with verifiable onchain trust
 - **Authorized Auditor Access**: When financial audits or tax reviews occur, merchants can issue a scoped auditor key. The auditor can view decrypted invoice records and confirm that their hashes match the records on NEAR, without exposing customer data to the public.
 - **Verifiable Financial Records**: Every transaction automatically generates balanced double-entry accounting entries (`total debits == total credits`) ready for CSV export into standard financial software like QuickBooks or Xero.
 - **Cross-Chain Payment Infrastructure**: Fetches real-time exchange rates from the NEAR Intents (1Click API) across chains (Solana, Base, Ethereum, Arbitrum, Bitcoin), with simulated fulfillment on NEAR Testnet so you can test end-to-end without spending real mainnet assets.
+
+### Application Interfaces & Workflows
+
+| Merchant Workspace (`/app/merchant`) | Buyer Checkout Portal (`/checkout`) |
+|:---:|:---:|
+| <img src="./docs/assets/02-merchant-workspace.png" alt="Merchant Workspace — Invoice Generation & Tracking" width="100%" /> | <img src="./docs/assets/03-buyer-checkout.png" alt="Buyer Checkout Portal — Escrow Protection & Settlement" width="100%" /> |
+| *Merchant Workspace: Issues non-custodial invoices with off-chain encryption and tracks settlement.* | *Buyer Checkout: Displays invoice itemization with escrow protection and automated refund splits.* |
+
+#### Selective Disclosure Audit Verification
+
+<p align="center">
+  <img src="./docs/assets/04-auditor-console.png" alt="Auditor Selective Disclosure Console" width="100%" />
+</p>
+
+*Auditor Console (`/app/auditor`): Decrypts off-chain records using a scoped X25519 view key grant and verifies that the computed SHA-256 hash matches the on-chain commitment anchored on NEAR Testnet.*
 
 ---
 
@@ -177,6 +197,14 @@ In accordance with our honesty protocol, all features in the UI and documentatio
 * **Settlement Release (`release`)**: [`4PDxv1WbzU9XQ9LAMSKAJ4iVuha9SfymWvw1pRTWuhaa`](https://testnet.nearblocks.io/txns/4PDxv1WbzU9XQ9LAMSKAJ4iVuha9SfymWvw1pRTWuhaa)
 * **Audit Hash-Chain Anchoring (`anchor`)**: [`1VQz6TK4ksKVsS7uwucPg3B2y3bnFMDghAdfo1RZNWG`](https://testnet.nearblocks.io/txns/1VQz6TK4ksKVsS7uwucPg3B2y3bnFMDghAdfo1RZNWG)
 
+#### Cross-Border Remittance & Testnet Contract Verification
+
+<p align="center">
+  <img src="./docs/assets/05-remittance-explorer.png" alt="Cross-Border Remittance & Testnet Contract Verification" width="100%" />
+</p>
+
+*Cross-Border Remittance (`/app/remittance`): Converts settled USDC to fiat bank payouts (e.g. BCA Indonesia, PayID Australia, SEPA) with FATF Travel Rule payload support alongside verified smart contract calls on Nearblocks.*
+
 ---
 
 ## 6. Architecture & Security Model
@@ -238,7 +266,7 @@ Per our detailed [Threat Model](docs/THREAT_MODEL.md):
 Run the full automated test suites:
 
 ```bash
-# TypeScript Domain & Integration Test Suite (123 tests, 18 test files)
+# TypeScript Domain & Integration Test Suite (125 tests, 19 test files)
 npm test
 
 # Rust Smart Contract Test Suite (6 unit tests)
@@ -255,7 +283,8 @@ npm run build
 
 ## 8. Demo Links & Submission
 
-* **Hosted Web Application**: `TODO: [Paste hosted demo URL here]`
+* **Hosted Web Application**: [https://tryledgerly.up.railway.app](https://tryledgerly.up.railway.app)
+* **Live Health Endpoint**: [https://tryledgerly.up.railway.app/api/health](https://tryledgerly.up.railway.app/api/health)
 * **60–90 Second Video Walkthrough**: `TODO: [Paste YouTube / Loom link here]`
 * **X / Twitter Announcement Post**: `TODO: [Paste X post link here]`
 
