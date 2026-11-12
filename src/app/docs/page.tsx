@@ -116,25 +116,6 @@ export default function DocsPage() {
       <header className="lp-header">
         <div className="lp-header-inner">
           <div className="lp-brand-group">
-            <Link
-              href="/"
-              className="lp-btn-secondary"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "0.35rem",
-                padding: "0.32rem 0.65rem",
-                fontSize: "0.78rem",
-                fontWeight: 600,
-                color: "var(--text-secondary)",
-                textDecoration: "none",
-                borderRadius: 8,
-              }}
-              title="Back to Landing Page"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>Back</span>
-            </Link>
             <Link href="/" className="lp-brand" aria-label="Ledgerly Home">
               <LedgerlyBrandMark size={28} />
               <span>Ledgerly</span>
@@ -150,8 +131,9 @@ export default function DocsPage() {
           <div className="lp-header-actions">
             <Link
               href="/"
-              className="lp-btn-secondary lp-hide-mobile"
+              className="lp-btn-secondary"
               style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}
+              title="Back to Home"
             >
               <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
               <span>Home</span>
