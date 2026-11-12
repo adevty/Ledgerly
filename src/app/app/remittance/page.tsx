@@ -1449,7 +1449,7 @@ export default function RemittancePage() {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+              gridTemplateColumns: "repeat(auto-fit, minmax(min(240px, 100%), 1fr))",
               gap: "0.65rem 1.25rem",
               fontSize: "0.73rem",
               color: "var(--text-muted)",

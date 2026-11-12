@@ -2661,9 +2661,8 @@ export function CheckoutPortal({ initialRequestId }: { initialRequestId?: string
 
               {item ? (
                 <div
+                  className="checkout-meta-grid"
                   style={{
-                    display: "grid",
-                    gridTemplateColumns: "160px minmax(0, 1fr)",
                     fontSize: "0.82rem",
                   }}
                 >

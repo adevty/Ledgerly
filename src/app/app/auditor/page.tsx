@@ -261,7 +261,7 @@ export default function AuditorVerificationPage() {
       <div
         className="kpi-strip"
         style={{
-          gridTemplateColumns: "repeat(auto-fit, minmax(310px, 1fr))",
+          gridTemplateColumns: "repeat(auto-fit, minmax(min(280px, 100%), 1fr))",
           marginBottom: "1.4rem",
         }}
       >

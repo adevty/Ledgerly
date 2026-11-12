@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 
@@ -15,6 +15,16 @@ const jetbrainsMono = JetBrains_Mono({
   display: "swap",
   variable: "--next-font-mono",
 });
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  themeColor: [
+    { media: "(prefers-color-scheme: dark)", color: "#0A0A0B" },
+    { media: "(prefers-color-scheme: light)", color: "#F0F2F5" },
+  ],
+};
 
 export const metadata: Metadata = {
   title: "Ledgerly — Private Financial Infrastructure for Onchain Businesses",

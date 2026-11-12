@@ -484,7 +484,7 @@ export default function LandingPage() {
         {/* Hero Section */}
         <section ref={heroRef} className="lp-container">
           <div className="lp-hero">
-            <div data-aos="fade-up">
+            <div className="lp-hero-copy" data-aos="fade-up">
               <div
                 style={{
                   display: "inline-flex",
@@ -556,8 +556,8 @@ export default function LandingPage() {
               </div>
             </div>
 
-            {/* Layered 3D Dashboard Preview (or Static Mockup Fallback) */}
-            <div className="lp-hero-stage-card" data-aos="fade-left" data-aos-delay="100">
+            {/* Desktop 3D Dashboard Preview (Hidden on Mobile <= 767px) */}
+            <div className="lp-hero-stage-card lp-hero-stage-desktop" data-aos="fade-left" data-aos-delay="100">
               <div className="lp-hero-stage-topbar">
                 <div style={{ display: "flex", alignItems: "center", gap: "0.55rem", minWidth: 0, overflow: "hidden" }}>
                   <span className={`status-pill ${statusPillClass}`}>
@@ -581,7 +581,7 @@ export default function LandingPage() {
                     <span>Ledgerly Workspace</span>
                     <span className="lp-hero-topbar-amount" style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
                       <span style={{ color: "var(--text-muted)", fontSize: "0.75rem" }}>·</span>
-                      <span className="tabular-nums" style={{ color: "var(--status-settled-fg)", fontWeight: 600 }}>
+                      <span className="tabular-nums" style={{ color: "var(--status-settled-fg)", fontWeight: 650 }}>
                         {totalSettledUsdc} USDC
                       </span>
                     </span>
@@ -626,6 +626,99 @@ export default function LandingPage() {
                 ) : (
                   <LandingHeroDashboardMockup state={protocolState} />
                 )}
+              </div>
+            </div>
+
+            {/* Mobile-Native Live Preview Card (Visible ONLY on Mobile <= 767px) */}
+            <div className="lp-hero-stage-mobile" aria-label="Mobile Dashboard Preview">
+              <div className="lp-mobile-preview-card">
+                <div className="lp-mobile-preview-header">
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.45rem", minWidth: 0 }}>
+                    <span className={`status-pill ${statusPillClass}`}>
+                      <span className="status-pill-dot" aria-hidden="true" />
+                      <span>{statusLabel}</span>
+                    </span>
+                    <span style={{ fontSize: "0.82rem", fontWeight: 650, color: "var(--text-primary)", whiteSpace: "nowrap" }}>
+                      Ledgerly Workspace
+                    </span>
+                  </div>
+                  <a
+                    href={`${explorerBaseUrl}/address/${escrowContractId}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="lp-mobile-preview-contract"
+                    title={`View ${escrowContractId} on NEAR Explorer`}
+                  >
+                    <span>NEAR Testnet</span>
+                    <ArrowUpRight className="w-3 h-3" aria-hidden="true" />
+                  </a>
+                </div>
+
+                <div className="lp-mobile-preview-body">
+                  <div className="lp-mobile-preview-balance-group">
+                    <span className="mono-label" style={{ fontSize: "0.72rem" }}>
+                      Settled Balance (Reconciled)
+                    </span>
+                    <div className="lp-mobile-preview-amount tabular-nums">
+                      <span>{totalSettledUsdc}</span>
+                      <span style={{ fontSize: "0.88rem", fontWeight: 600, color: "var(--text-muted)" }}>USDC</span>
+                    </div>
+                    <div className="lp-mobile-preview-reconciled">
+                      <CheckCircle2 className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                      <span>Zero Variance · Balanced Double-Entry Books</span>
+                    </div>
+                  </div>
+
+                  <div className="lp-mobile-preview-grid">
+                    <div className="lp-mobile-preview-metric">
+                      <span className="mono-label">Active Escrow</span>
+                      <span className="mono-data tabular-nums" style={{ fontWeight: 650, color: "var(--text-primary)" }}>
+                        {protocolState?.paymentRequests?.length ?? 4} Invoices
+                      </span>
+                    </div>
+                    <div className="lp-mobile-preview-metric">
+                      <span className="mono-label">Discrepancy</span>
+                      <span className="mono-data tabular-nums" style={{ fontWeight: 650, color: "var(--status-settled-fg)" }}>
+                        0.00 USDC
+                      </span>
+                    </div>
+                    <div className="lp-mobile-preview-metric">
+                      <span className="mono-label">Audit Proof</span>
+                      <span className="mono-data" style={{ fontWeight: 650, color: "var(--text-primary)" }}>
+                        SHA-256 On-Chain
+                      </span>
+                    </div>
+                    <div className="lp-mobile-preview-metric">
+                      <span className="mono-label">Settlement</span>
+                      <span className="mono-data" style={{ fontWeight: 650, color: "var(--accent-primary)" }}>
+                        1Click Intents
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="lp-mobile-preview-tx-row">
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ fontSize: "0.76rem", fontWeight: 600, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: "0.35rem" }}>
+                        <span>INV-2026-8841</span>
+                        <span className="status-pill status-pill-emerald" style={{ fontSize: "0.62rem", padding: "0.06rem 0.35rem" }}>PAID</span>
+                      </div>
+                      <div className="mono-data tabular-nums" style={{ fontSize: "0.7rem", color: "var(--text-muted)", marginTop: "0.15rem" }}>
+                        Proof: {activeCommitmentHash ? `${activeCommitmentHash.slice(0, 8)}...${activeCommitmentHash.slice(-6)}` : "e738c4...ab47"}
+                      </div>
+                    </div>
+                    <span className="mono-data tabular-nums" style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--text-primary)", flexShrink: 0 }}>
+                      1,450.00 USDC
+                    </span>
+                  </div>
+
+                  <Link
+                    href="/app"
+                    className="lp-mobile-preview-cta"
+                  >
+                    <span>Launch Live Workspace</span>
+                    <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
+                  </Link>
+                </div>
               </div>
             </div>
           </div>
