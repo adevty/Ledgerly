@@ -3918,18 +3918,125 @@ button:focus-visible {
 @media (max-width: 860px) {
   .docs-shell {
     grid-template-columns: 1fr;
-    gap: 1.75rem;
+    gap: 1.25rem;
   }
 
   .docs-sidebar {
-    position: static;
+    position: sticky;
+    top: 3.35rem;
+    z-index: 40;
+    background-color: rgba(10, 10, 11, 0.92);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--primitive-radius-md);
+    padding: 0.5rem 0.65rem;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  [data-theme="light"] .docs-sidebar {
+    background-color: rgba(240, 242, 245, 0.94);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  }
+
+  .docs-sidebar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .docs-sidebar-header {
+    display: none !important;
+  }
+
+  .docs-nav-list {
+    flex-direction: row !important;
+    gap: 0.45rem !important;
+    width: max-content;
+    padding: 2px 0;
+  }
+
+  .docs-nav-link {
+    display: inline-flex !important;
+    align-items: center !important;
+    padding: 0.35rem 0.75rem !important;
+    font-size: 0.76rem !important;
+    font-weight: 500 !important;
+    border-radius: 9999px !important;
+    white-space: nowrap !important;
+    background-color: var(--surface-2) !important;
+    border: 1px solid var(--border-subtle) !important;
+    color: var(--text-secondary) !important;
+    transition: all 140ms ease;
+  }
+
+  .docs-nav-link-active {
+    background-color: var(--surface-3) !important;
+    border-color: var(--accent-primary) !important;
+    color: var(--text-primary) !important;
+    font-weight: 600 !important;
+    border-left: 1px solid var(--accent-primary) !important;
   }
 
   .docs-grid-2 {
     grid-template-columns: 1fr;
   }
 
+  .docs-content {
+    gap: 2rem !important;
+  }
+
   .docs-section {
-    padding: 1.75rem 1.35rem;
+    padding: 1.5rem 1.15rem !important;
+    border-radius: 14px !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .docs-container {
+    padding: 0.85rem 0.85rem 3.5rem !important;
+  }
+
+  .docs-sidebar {
+    margin: 0 -0.85rem 0.85rem;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    padding: 0.45rem 0.85rem;
+  }
+
+  .docs-section {
+    padding: 1.25rem 0.95rem !important;
+    border-radius: 12px !important;
+  }
+
+  .docs-title {
+    font-size: 1.3rem !important;
+    line-height: 1.22 !important;
+  }
+
+  .docs-lead {
+    font-size: 0.86rem !important;
+    line-height: 1.5 !important;
+    margin-bottom: 1.15rem !important;
+  }
+
+  .docs-callout {
+    padding: 0.85rem 0.85rem !important;
+    gap: 0.65rem !important;
+  }
+
+  .docs-code-body {
+    padding: 0.75rem 0.85rem !important;
+    font-size: 0.72rem !important;
+    line-height: 1.48 !important;
+  }
+
+  .docs-contract-row {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.65rem !important;
+    padding: 0.85rem !important;
   }
 }

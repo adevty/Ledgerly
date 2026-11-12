@@ -176,7 +176,7 @@ export default function DocsPage() {
         <div className="docs-shell">
           {/* Sticky Navigation Sidebar */}
           <aside className="docs-sidebar" aria-label="Documentation Navigation">
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1rem" }}>
+            <div className="docs-sidebar-header" style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1rem" }}>
               <BookOpen className="w-4 h-4 text-[var(--accent-primary)]" aria-hidden="true" />
               <span style={{ fontSize: "0.82rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
                 Docs Index
