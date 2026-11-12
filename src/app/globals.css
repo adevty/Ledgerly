@@ -3317,10 +3317,30 @@ button:focus-visible {
     gap: 1rem;
   }
 
+  .lp-hero-stage-card {
+    border-radius: 12px !important;
+  }
+
   .lp-hero-stage-topbar {
-    padding: 0.55rem 0.75rem !important;
+    padding: 0.45rem 0.65rem !important;
     flex-wrap: nowrap !important;
-    gap: 0.5rem !important;
+    gap: 0.35rem !important;
+    font-size: 0.72rem !important;
+  }
+
+  .lp-hero-stage-topbar .status-pill {
+    font-size: 0.62rem !important;
+    padding: 0.12rem 0.4rem !important;
+    gap: 0.25rem !important;
+  }
+
+  .lp-hero-stage-topbar .status-pill-dot {
+    width: 5px !important;
+    height: 5px !important;
+  }
+
+  .lp-hero-stage-topbar a[title="Open Ledgerly Workspace Overview"] {
+    font-size: 0.72rem !important;
   }
 
   .lp-hero-topbar-amount {
@@ -3333,17 +3353,26 @@ button:focus-visible {
 
   .lp-hero-contract-short {
     display: inline !important;
-    font-size: 0.7rem !important;
+    font-size: 0.62rem !important;
+  }
+
+  .lp-hero-contract-link {
+    font-size: 0.62rem !important;
   }
 
   .lp-hero-stage-viewport {
     min-height: auto !important;
-    aspect-ratio: 16 / 10 !important;
-    max-height: 230px !important;
+    aspect-ratio: 16 / 9 !important;
+    max-height: 180px !important;
   }
 
   .lp-mockup-wrapper {
-    padding: 0.35rem !important;
+    padding: 0.25rem !important;
+  }
+
+  .lp-hero-stage-footer {
+    padding: 0.45rem 0.65rem !important;
+    font-size: 0.68rem !important;
   }
 }
 
