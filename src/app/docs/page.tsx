@@ -116,6 +116,25 @@ export default function DocsPage() {
       <header className="lp-header">
         <div className="lp-header-inner">
           <div className="lp-brand-group">
+            <Link
+              href="/"
+              className="lp-btn-secondary"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.35rem",
+                padding: "0.32rem 0.65rem",
+                fontSize: "0.78rem",
+                fontWeight: 600,
+                color: "var(--text-secondary)",
+                textDecoration: "none",
+                borderRadius: 8,
+              }}
+              title="Back to Landing Page"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
+              <span>Back</span>
+            </Link>
             <Link href="/" className="lp-brand" aria-label="Ledgerly Home">
               <LedgerlyBrandMark size={28} />
               <span>Ledgerly</span>
@@ -129,6 +148,15 @@ export default function DocsPage() {
           </div>
 
           <div className="lp-header-actions">
+            <Link
+              href="/"
+              className="lp-btn-secondary lp-hide-mobile"
+              style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}
+            >
+              <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
+              <span>Home</span>
+            </Link>
+
             <button
               type="button"
               onClick={toggleTheme}
@@ -149,7 +177,7 @@ export default function DocsPage() {
               rel="noreferrer"
               className="lp-btn-secondary lp-hide-mobile"
             >
-              <span>GitHub Repo</span>
+              <span>GitHub</span>
               <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
             </a>
 
@@ -185,26 +213,6 @@ export default function DocsPage() {
                 </a>
               ))}
             </nav>
-
-            <div className="hairline-top" style={{ marginTop: "1.5rem", paddingTop: "1rem" }}>
-              <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "0.6rem" }}>
-                Quick Jump
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
-                <Link href="/" className="docs-nav-sublink">
-                  <ArrowLeft className="w-3 h-3" aria-hidden="true" />
-                  <span>Landing Page</span>
-                </Link>
-                <Link href="/checkout" className="docs-nav-sublink">
-                  <span>Buyer Checkout Portal</span>
-                  <ArrowUpRight className="w-3 h-3" aria-hidden="true" />
-                </Link>
-                <Link href="/app/auditor" className="docs-nav-sublink">
-                  <span>Auditor Verification</span>
-                  <ArrowUpRight className="w-3 h-3" aria-hidden="true" />
-                </Link>
-              </div>
-            </div>
           </aside>
 
           {/* Documentation Content Column */}
@@ -369,17 +377,99 @@ const commitment = crypto.createHash("sha256")
               <span className="lp-step-pill">4 · Integration</span>
               <h2 className="docs-title">Developer REST API (AD-10)</h2>
               <p className="docs-lead">
-                Integrate Ledgerly into your billing, ERP, or e-commerce workflow using idempotent JSON endpoints.
+                Integrate Ledgerly into your billing, ERP, or e-commerce workflow using idempotent JSON endpoints hosted on our live production environment.
               </p>
 
-              <div style={{ marginBottom: "1.75rem" }}>
-                <h3 style={{ fontSize: "0.95rem", fontWeight: 650, marginBottom: "0.4rem" }}>
-                  1. Create Non-Custodial Invoice
-                </h3>
+              {/* Live Production API Environment Banner */}
+              <div
+                style={{
+                  padding: "1.15rem 1.25rem",
+                  borderRadius: "var(--panel-radius)",
+                  backgroundColor: "var(--surface-2)",
+                  border: "1px solid var(--border-default)",
+                  marginBottom: "2rem",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "0.85rem",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.55rem" }}>
+                    <span className="status-pill status-pill-emerald">
+                      <span className="status-pill-dot" aria-hidden="true" />
+                      <span>Live Production API</span>
+                    </span>
+                    <span style={{ fontSize: "0.78rem", color: "var(--text-muted)" }}>Railway Hosted · NEAR Testnet Connected</span>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+                    <a
+                      href="https://tryledgerly.up.railway.app/api/health"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="lp-rail-chip"
+                      style={{ fontSize: "0.74rem", textDecoration: "none" }}
+                    >
+                      <span>GET /api/health</span>
+                      <ArrowUpRight className="w-3 h-3 text-[var(--accent-primary)]" aria-hidden="true" />
+                    </a>
+                    <a
+                      href="https://tryledgerly.up.railway.app/api/v1/state"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="lp-rail-chip"
+                      style={{ fontSize: "0.74rem", textDecoration: "none" }}
+                    >
+                      <span>GET /api/v1/state</span>
+                      <ArrowUpRight className="w-3 h-3 text-[var(--accent-primary)]" aria-hidden="true" />
+                    </a>
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.6rem",
+                    padding: "0.65rem 0.95rem",
+                    borderRadius: "var(--primitive-radius-xs)",
+                    backgroundColor: "var(--surface-1)",
+                    border: "1px solid var(--border-subtle)",
+                    fontFamily: "var(--font-family-mono)",
+                    fontSize: "0.82rem",
+                    color: "var(--text-primary)",
+                    wordBreak: "break-all",
+                  }}
+                >
+                  <span style={{ color: "var(--text-muted)", fontSize: "0.74rem", userSelect: "none", textTransform: "uppercase", letterSpacing: "0.05em" }}>BASE URL:</span>
+                  <a
+                    href="https://tryledgerly.up.railway.app/"
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ color: "var(--accent-primary)", textDecoration: "none", fontWeight: 650, display: "inline-flex", alignItems: "center", gap: "0.3rem" }}
+                  >
+                    <span>https://tryledgerly.up.railway.app</span>
+                    <ArrowUpRight className="w-3.5 h-3.5" aria-hidden="true" />
+                  </a>
+                </div>
+              </div>
+
+              {/* Endpoint 1: Create Invoice */}
+              <div style={{ marginBottom: "2rem" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.45rem" }}>
+                  <span className="status-pill" style={{ background: "rgba(59, 130, 246, 0.12)", color: "#60A5FA", border: "1px solid rgba(59, 130, 246, 0.28)", fontSize: "0.68rem", padding: "0.14rem 0.48rem" }}>
+                    POST
+                  </span>
+                  <h3 style={{ fontSize: "0.95rem", fontWeight: 650, margin: 0 }}>
+                    1. Create Non-Custodial Invoice (Payment Request)
+                  </h3>
+                </div>
+                <p style={{ fontSize: "0.82rem", color: "var(--text-secondary)", marginBottom: "0.65rem" }}>
+                  Issues an idempotent escrow payment request. Encrypts sensitive metadata off-chain and anchors the cryptographic commitment to NEAR testnet.
+                </p>
                 <CodeSnippet
-                  title="POST /api/v1/actions — CREATE_PAYMENT_REQUEST"
+                  title="cURL — Create Payment Request"
                   language="bash"
-                  code={`curl -X POST https://your-ledgerly-domain.com/api/v1/actions \\
+                  code={`curl -X POST https://tryledgerly.up.railway.app/api/v1/actions \\
   -H "Content-Type: application/json" \\
   -d '{
     "action": "CREATE_PAYMENT_REQUEST",
@@ -388,32 +478,127 @@ const commitment = crypto.createHash("sha256")
     "customerEmail": "billing@client.com"
   }'`}
                 />
+                <div style={{ marginTop: "0.65rem" }}>
+                  <CodeSnippet
+                    title="Response (200 OK)"
+                    language="json"
+                    code={`{
+  "ok": true,
+  "action": "CREATE_PAYMENT_REQUEST",
+  "result": {
+    "id": "pr_a1b2c3d4",
+    "orderRef": "INV-2026-088",
+    "amountDecimal": "250.00",
+    "currency": "USDC",
+    "status": "OPEN",
+    "escrowId": "e738c4ab...24ef",
+    "commitment": "8f4a13b6...99c2",
+    "checkoutUrl": "https://tryledgerly.up.railway.app/checkout/pr_a1b2c3d4"
+  }
+}`}
+                  />
+                </div>
               </div>
 
-              <div style={{ marginBottom: "1.75rem" }}>
-                <h3 style={{ fontSize: "0.95rem", fontWeight: 650, marginBottom: "0.4rem" }}>
-                  2. Fund USDC from Testnet Faucet
-                </h3>
+              {/* Endpoint 2: Query Live State */}
+              <div style={{ marginBottom: "2rem" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.45rem" }}>
+                  <span className="status-pill" style={{ background: "rgba(52, 211, 153, 0.12)", color: "#34D399", border: "1px solid rgba(52, 211, 153, 0.28)", fontSize: "0.68rem", padding: "0.14rem 0.48rem" }}>
+                    GET
+                  </span>
+                  <h3 style={{ fontSize: "0.95rem", fontWeight: 650, margin: 0 }}>
+                    2. Query Live Protocol State
+                  </h3>
+                </div>
+                <p style={{ fontSize: "0.82rem", color: "var(--text-secondary)", marginBottom: "0.65rem" }}>
+                  Fetches active escrow invoices, cross-border remittances, settled totals, verified accounting entries, and network configuration.
+                </p>
                 <CodeSnippet
-                  title="POST /api/v1/actions — FAUCET_USDC"
+                  title="cURL — Query State"
                   language="bash"
-                  code={`curl -X POST https://your-ledgerly-domain.com/api/v1/actions \\
+                  code={`curl -X GET https://tryledgerly.up.railway.app/api/v1/state`}
+                />
+                <div style={{ marginTop: "0.65rem" }}>
+                  <CodeSnippet
+                    title="Response (200 OK)"
+                    language="json"
+                    code={`{
+  "ok": true,
+  "state": {
+    "network": "testnet",
+    "escrowContractId": "ledgerly-escrow-9e70f9ea.testnet",
+    "usdcContractId": "ledgerly-usdc-a627a4c0.testnet",
+    "totalSettledUsdc": "11,110.00",
+    "varianceInvariant": "0.00",
+    "paymentRequestsCount": 4,
+    "remittancesCount": 3
+  }
+}`}
+                  />
+                </div>
+              </div>
+
+              {/* Endpoint 3: System Health */}
+              <div style={{ marginBottom: "2rem" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.45rem" }}>
+                  <span className="status-pill" style={{ background: "rgba(52, 211, 153, 0.12)", color: "#34D399", border: "1px solid rgba(52, 211, 153, 0.28)", fontSize: "0.68rem", padding: "0.14rem 0.48rem" }}>
+                    GET
+                  </span>
+                  <h3 style={{ fontSize: "0.95rem", fontWeight: 650, margin: 0 }}>
+                    3. System Health &amp; Worker Heartbeats
+                  </h3>
+                </div>
+                <p style={{ fontSize: "0.82rem", color: "var(--text-secondary)", marginBottom: "0.65rem" }}>
+                  Validates persistent SQLite storage, live NEAR RPC endpoint availability, and background reconciliation worker health.
+                </p>
+                <CodeSnippet
+                  title="cURL — Health Check"
+                  language="bash"
+                  code={`curl -X GET https://tryledgerly.up.railway.app/api/health`}
+                />
+                <div style={{ marginTop: "0.65rem" }}>
+                  <CodeSnippet
+                    title="Response (200 OK)"
+                    language="json"
+                    code={`{
+  "status": "ok",
+  "runtimeMode": "NEAR_TESTNET_RPC",
+  "db": "ok",
+  "rpc": "reachable",
+  "workers": {
+    "running": true,
+    "heartbeatAgesMs": {
+      "indexer": 1240,
+      "reconciliation": 1238
+    }
+  }
+}`}
+                  />
+                </div>
+              </div>
+
+              {/* Endpoint 4: Testnet Faucet */}
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.45rem" }}>
+                  <span className="status-pill" style={{ background: "rgba(59, 130, 246, 0.12)", color: "#60A5FA", border: "1px solid rgba(59, 130, 246, 0.28)", fontSize: "0.68rem", padding: "0.14rem 0.48rem" }}>
+                    POST
+                  </span>
+                  <h3 style={{ fontSize: "0.95rem", fontWeight: 650, margin: 0 }}>
+                    4. Fund USDC from Testnet Faucet
+                  </h3>
+                </div>
+                <p style={{ fontSize: "0.82rem", color: "var(--text-secondary)", marginBottom: "0.65rem" }}>
+                  Mints 500.00 NEP-141 Testnet USDC directly to any target testnet account for end-to-end integration testing.
+                </p>
+                <CodeSnippet
+                  title="cURL — Faucet Testnet USDC"
+                  language="bash"
+                  code={`curl -X POST https://tryledgerly.up.railway.app/api/v1/actions \\
   -H "Content-Type: application/json" \\
   -d '{
     "action": "FAUCET_USDC",
-    "accountId": "buyer.testnet"
+    "accountId": "your-account.testnet"
   }'`}
-                />
-              </div>
-
-              <div>
-                <h3 style={{ fontSize: "0.95rem", fontWeight: 650, marginBottom: "0.4rem" }}>
-                  3. Query Live Protocol State
-                </h3>
-                <CodeSnippet
-                  title="GET /api/v1/state"
-                  language="bash"
-                  code={`curl -X GET https://your-ledgerly-domain.com/api/v1/state`}
                 />
               </div>
             </section>
