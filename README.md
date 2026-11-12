@@ -285,8 +285,8 @@ npm run build
 
 * **Hosted Web Application**: [https://tryledgerly.up.railway.app](https://tryledgerly.up.railway.app)
 * **Live Health Endpoint**: [https://tryledgerly.up.railway.app/api/health](https://tryledgerly.up.railway.app/api/health)
-* **60–90 Second Video Walkthrough**: `TODO: [Paste YouTube / Loom link here]`
-* **X / Twitter Announcement Post**: `TODO: [Paste X post link here]`
+* **Video Walkthrough (4:25 min)**: [https://x.com/i/status/2120881900764164109](https://x.com/i/status/2120881900764164109)
+* **X / Twitter Announcement Post**: [https://x.com/i/status/2120881900764164109](https://x.com/i/status/2120881900764164109)
 
 ---
 
