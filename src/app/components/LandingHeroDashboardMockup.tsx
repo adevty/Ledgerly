@@ -87,6 +87,7 @@ export function LandingHeroDashboardMockup({ state }: LandingHeroDashboardMockup
   const row3 = parsedRows[2] ?? defaultRow3;
   return (
     <div
+      className="lp-mockup-wrapper"
       style={{
         width: "100%",
         height: "100%",

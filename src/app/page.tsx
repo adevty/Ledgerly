@@ -257,7 +257,18 @@ export default function LandingPage() {
     }
   }, [activeCommitmentHash]);
 
-  const show3DStage = webglReady === true && !prefersReducedMotion;
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const updateSize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    updateSize();
+    window.addEventListener("resize", updateSize);
+    return () => window.removeEventListener("resize", updateSize);
+  }, []);
+
+  const show3DStage = webglReady === true && !prefersReducedMotion && !isMobile;
 
   return (
     <div
@@ -548,7 +559,7 @@ export default function LandingPage() {
             {/* Layered 3D Dashboard Preview (or Static Mockup Fallback) */}
             <div className="lp-hero-stage-card" data-aos="fade-left" data-aos-delay="100">
               <div className="lp-hero-stage-topbar">
-                <div style={{ display: "flex", alignItems: "center", gap: "0.55rem" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.55rem", minWidth: 0, overflow: "hidden" }}>
                   <span className={`status-pill ${statusPillClass}`}>
                     <span className="status-pill-dot" aria-hidden="true" />
                     <span>{statusLabel}</span>
@@ -563,13 +574,16 @@ export default function LandingPage() {
                       alignItems: "center",
                       gap: "0.35rem",
                       textDecoration: "none",
+                      whiteSpace: "nowrap",
                     }}
                     title="Open Ledgerly Workspace Overview"
                   >
                     <span>Ledgerly Workspace</span>
-                    <span style={{ color: "var(--text-muted)", fontSize: "0.75rem" }}>·</span>
-                    <span className="tabular-nums" style={{ color: "var(--status-settled-fg)", fontWeight: 600 }}>
-                      {totalSettledUsdc} USDC
+                    <span className="lp-hero-topbar-amount" style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
+                      <span style={{ color: "var(--text-muted)", fontSize: "0.75rem" }}>·</span>
+                      <span className="tabular-nums" style={{ color: "var(--status-settled-fg)", fontWeight: 600 }}>
+                        {totalSettledUsdc} USDC
+                      </span>
                     </span>
                   </Link>
                 </div>
@@ -578,19 +592,25 @@ export default function LandingPage() {
                   href={`${explorerBaseUrl}/address/${escrowContractId}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="tabular-nums"
+                  className="tabular-nums lp-hero-contract-link"
                   style={{
                     fontFamily: "var(--font-family-mono)",
-                    fontSize: "0.75rem",
+                    fontSize: "0.74rem",
                     color: "var(--text-muted)",
                     display: "inline-flex",
                     alignItems: "center",
                     gap: "0.25rem",
                     textDecoration: "none",
+                    flexShrink: 0,
                   }}
                   title="View Escrow Contract on Nearblocks"
                 >
-                  <span>{escrowContractId}</span>
+                  <span className="lp-hero-contract-full">{escrowContractId}</span>
+                  <span className="lp-hero-contract-short">
+                    {escrowContractId.length > 18
+                      ? `${escrowContractId.slice(0, 8)}...${escrowContractId.slice(-7)}`
+                      : escrowContractId}
+                  </span>
                   <ArrowUpRight className="w-3 h-3 shrink-0" aria-hidden="true" />
                 </a>
               </div>

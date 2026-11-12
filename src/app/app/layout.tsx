@@ -217,14 +217,22 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
               <LedgerlyBrandMark />
               <span>Ledgerly</span>
             </Link>
-            <StatusBadge
-              status={state?.network?.mode === "NEAR_TESTNET_RPC" ? "ACTIVE" : "OVERPAID"}
-              label={
-                state?.network?.mode === "NEAR_TESTNET_RPC"
-                  ? "NEAR TESTNET"
-                  : "SANDBOX"
-              }
-            />
+            <span className="hide-on-mobile">
+              <StatusBadge
+                status={state?.network?.mode === "NEAR_TESTNET_RPC" ? "ACTIVE" : "OVERPAID"}
+                label={
+                  state?.network?.mode === "NEAR_TESTNET_RPC"
+                    ? "NEAR TESTNET"
+                    : "SANDBOX"
+                }
+              />
+            </span>
+            <span className="show-on-mobile-inline">
+              <StatusBadge
+                status={state?.network?.mode === "NEAR_TESTNET_RPC" ? "ACTIVE" : "OVERPAID"}
+                label={state?.network?.mode === "NEAR_TESTNET_RPC" ? "TESTNET" : "SANDBOX"}
+              />
+            </span>
             {state?.network?.escrowContractId && (
               <span className="hide-on-mobile">
                 <HashBadge
@@ -236,6 +244,15 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="app-topbar-right">
+            <Link
+              href="/"
+              className="lp-theme-toggle show-on-mobile-inline"
+              aria-label="Back to Landing Page"
+              title="Back to Landing Page"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 text-zinc-400" aria-hidden="true" />
+            </Link>
+
             <button
               type="button"
               onClick={toggleTheme}
@@ -310,7 +327,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
                     }}
                   />
                 </div>
-                <div style={{ textAlign: "left" }}>
+                <div className="org-profile-meta hide-on-mobile" style={{ textAlign: "left" }}>
                   <div className="org-profile-name">
                     {state.organization.name}
                   </div>
@@ -343,11 +360,11 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
 
             <Link
               href="/"
-              className="btn-secondary inline-flex items-center gap-1.5 whitespace-nowrap"
+              className="btn-secondary inline-flex items-center gap-1.5 whitespace-nowrap hide-on-mobile"
               style={{ padding: "0.42rem 0.75rem", fontSize: "0.78rem" }}
             >
               <ArrowLeft className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-              <span className="hide-on-mobile-inline">Landing</span>
+              <span>Landing</span>
             </Link>
           </div>
         </div>
